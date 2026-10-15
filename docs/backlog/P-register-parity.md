@@ -106,7 +106,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-05 · A sound when a room's time is up
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** the board alerts, the desktop app's alarm
 - **Spec:** [Devices, printing, offline](../spec/09-devices-printing-offline.md)
@@ -114,8 +114,15 @@ Definition of done: see CLAUDE.md.
   - The bar computer (desktop app and the staff app in a browser) plays a sound once when a room reaches Wrap up and again when its time passes, with the room's name on screen until someone taps it.
   - Setting **Sound when a room's time is up** (on by default) and its volume in Admin → Hours & prices or Devices; the guest is never sounded at.
 - **Acceptance:**
-  - [ ] One sound per room per step, not repeated on reload; a tap silences it.
-  - [ ] The setting off plays nothing; EN and ES; tests.
+  - [x] One sound per room per step, not repeated on reload; a tap silences it.
+  - [x] The setting off plays nothing; EN and ES; tests.
+- **Notes:**
+  - The steps are the tile's colors from `GET /board`: amber (`tone: "amber"`, the `alerts.roomEndingMin` warning, which is Wrap up when someone is next) is "Wrap up", red (Staying or Needed now) is "its time is up". A room already red when first seen sounds once, not for both steps. One sound plays for however many rooms reach a step on the same read.
+  - `apps/staff/src/room-sound.tsx` (`RoomSoundLoop`, mounted beside `ChimeLoop`) runs on a paired bar or front-desk computer in the desktop app **and** in a browser, signed in or locked, reading the board as the device every 15 seconds (`shared_device` was already allowed). What it played and what waits for a tap are kept in `localStorage` (`west4.roomSound`) per session id and step, so a reload neither replays nor loses the names; a closed-out session is forgotten. The names sit in a strip above the screen, in the page's flow: a floating box first tried covered Take cash in the front-desk e2e, so it never floats over a button. A tap on a room's name clears it and stops the sound. Room tablets, phones that aren't paired screens, and the guest web never run it.
+  - Settings: `alerts.roomSound` (absent reads as on, `roomSoundOn`) and `alerts.roomSoundVolume` (0 to 100, absent reads as 50, `roomSoundVolume`), both optional so saved venues need no migration. The board carries them as `room_sound: { on, volume }`. Off: nothing plays or shows, and the steps reached meanwhile count as heard, so switching it back on plays no backlog.
+  - Where the setting lives: Admin → **Alerts & rules**, beside "Warn this many minutes before a room's booked end", because the `alerts` key already holds the minute the tile turns amber (the ticket offered Hours & prices or Devices; neither holds that minute). A switch, a volume slider and **Play it**.
+  - Cautious defaults: on, at volume 50 (no venue fact; the owner sets it). A browser may hold the sound until someone has touched the page since it loaded (autoplay rules); the names still show. The desktop app plays it as it plays the order chime (Web Audio, no window throttling); no change to `apps/desktop`.
+  - Tests: `room-sound.test.ts` (steps, reload, tap, new session, off), `settings.test.ts` (schema and defaults), `board.int.test.ts` (`room_sound` follows the saved setting), `e2e/room-sound.staff.spec.ts` (a paired bar computer at 10:41 PM: one sound for Rooms 3, 7 and 10, a tap clears, a reload plays nothing, off shows nothing). Spec 09 and spec 03 updated; manual-test 19.9 walks it.
 
 ### P-06 · Change a tip after paying
 

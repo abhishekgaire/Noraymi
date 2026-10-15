@@ -1276,6 +1276,16 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "alertsRules.roomEnding": "Avisar estos minutos antes del final reservado",
   "alertsRules.roomEnding.hint":
     "La sala se pone ámbar, y salen los textos para terminar, este tiempo antes del final.",
+  // Sonido cuando se acaba el tiempo de una sala (P-05).
+  "alertsRules.sound": "Sonido cuando se acaba el tiempo de una sala",
+  "alertsRules.sound.hint":
+    "La computadora del bar lo toca una vez cuando la sala se pone ámbar y otra cuando se pone roja, y muestra el nombre de la sala hasta que alguien lo toque. Los clientes nunca lo oyen.",
+  "alertsRules.volume": "Volumen",
+  "alertsRules.volume.test": "Probar",
+  "roomSound.title": "Tiempo de sala",
+  "roomSound.wrapUp": "{room} · Terminando",
+  "roomSound.past": "{room} · se acabó su tiempo",
+  "roomSound.tap": "toca para quitar",
   "signIn.submitPin": "Iniciar sesión",
   // Admin → Menu (M3-04).
   "admin.section.menu": "Menú",

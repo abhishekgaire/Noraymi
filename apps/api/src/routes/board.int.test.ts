@@ -51,6 +51,7 @@ const read = async () =>
     rooms: Tile[];
     counts: { in_use: number; open: number; cleaning: number; out_of_service: number };
     headcount: { inside: number };
+    room_sound: { on: boolean; volume: number };
   }>();
 
 /** The board's English words, as the staff app renders them. */
@@ -159,6 +160,30 @@ describe("the Tonight board at 10:41 PM", () => {
       null,
     ]);
     expect(b.headcount.inside).toBe(93);
+  });
+
+  it("carries the venue's Sound when a room's time is up: on at 50 until Admin → Alerts & rules changes it (P-05)", async () => {
+    expect((await read()).room_sound).toEqual({ on: true, volume: 50 });
+    // A new version of `alerts` as Admin → Alerts & rules saves it (the schema is checked in the
+    // settings unit tests; this test database has no rule pack to save through the route).
+    const raw = new pg.Client({ connectionString: db.url });
+    await raw.connect();
+    const save = (patch: object) =>
+      raw.query(
+        `insert into venue_settings (venue_id, key, version, value, starts_on)
+         select venue_id, key, version + 1, value - 'roomSound' - 'roomSoundVolume' || $2::jsonb, starts_on
+           from venue_settings where venue_id = $1 and key = 'alerts'
+          order by version desc limit 1`,
+        [venueId, JSON.stringify(patch)],
+      );
+    try {
+      await save({ roomSound: false, roomSoundVolume: 80 });
+      expect((await read()).room_sound).toEqual({ on: false, volume: 80 });
+      await save({});
+      expect((await read()).room_sound).toEqual({ on: true, volume: 50 });
+    } finally {
+      await raw.end();
+    }
   });
 
   it("one minute later every running clock and total moves by one minute's billing", async () => {

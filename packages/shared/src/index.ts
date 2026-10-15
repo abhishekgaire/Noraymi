@@ -59,6 +59,8 @@ export {
   walkInTakes,
   walkInTakesOf,
   tabCardRequired,
+  roomSoundOn,
+  roomSoundVolume,
 } from "./settings.js";
 export type {
   ApprovalMode,

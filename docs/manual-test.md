@@ -1254,7 +1254,13 @@ See section 16.
 +1 212 255 0011. All 14 texts. The **Erase a guest** panel is here: **Erase** → "Erase {name}'s details for good?" → **Erase for good** → "Erased. Saved cards and texts are removed in the next few minutes." A guest with a future booking gets a warning; a singer who still owes money is refused.
 
 ### 19.9 Alerts & rules
-A 15-minute room-ending warning turns tiles amber. There's no alarm toggle.
+A 15-minute room-ending warning turns tiles amber. There's no "ring the bar until accepted" toggle.
+
+**Sound when a room's time is up (P-05).** On by default, with a volume slider (50) and Play it, which plays the sound here.
+1. On the bar computer (the desktop app, or the staff app in a browser on a paired bar computer; touch the page once in a browser so it may play sound), wait up to 15 seconds after loading: one sound, and a strip at the top of the screen lists Room 3 · Wrap up, Room 7 · its time is up and Room 10 · its time is up.
+2. Tap Room 3's line: it clears. Reload the page: no sound, and Room 7 and Room 10 are still listed until tapped.
+3. Advance the clock until Room 3 runs past its end: one sound, "Room 3 · its time is up".
+4. Switch the sound off and save: the strip goes and nothing plays as other rooms turn amber or red. Switch it back on before going on.
 
 ### 19.10 Safety
 - Occupancy limit: empty, "Limit not set". Never invent one; don't save a made-up number unless you clear it afterwards.
