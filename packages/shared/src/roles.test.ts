@@ -3,11 +3,14 @@ import { catalogs } from "./i18n/index.js";
 import {
   actions,
   defaultPermissions,
+  isGrantableAdminSection,
   permissionFor,
   roles,
+  settingsKeySections,
   type Action,
   type Role,
 } from "./roles.js";
+import { pinAgainActions, pinAgainSchema, settingsDefaults } from "./settings.js";
 
 // The spec's table (Tenancy and access · Roles), as ✓ per role. "✓ when covering the bar" counts as ✓ here; Admin can switch it off.
 const table: Record<Action, Role[]> = {
@@ -87,5 +90,26 @@ describe("the default permission table", () => {
       expect(catalogs.en[`permission.${a}` as keyof typeof catalogs.en], a).toBeTruthy();
       expect(catalogs.es[`permission.${a}` as keyof typeof catalogs.es], a).toBeTruthy();
     }
+  });
+});
+
+describe("P-10 · Can also open and Ask for the PIN again", () => {
+  it("never grants Payments, Team or Console, and maps each section's settings keys to it", () => {
+    for (const s of ["payments", "team", "console"]) expect(isGrantableAdminSection(s)).toBe(false);
+    expect(settingsKeySections["prices"]).toBe("hours");
+    expect(settingsKeySections["drawer"]).toBe("cashDrawers");
+    // Keys that hold limits or owner choices open with no grant.
+    for (const k of ["pos", "pay", "approvals", "pinAgain", "contacts", "tabs"])
+      expect(settingsKeySections[k]).toBeUndefined();
+    for (const s of Object.values(settingsKeySections))
+      expect(isGrantableAdminSection(s)).toBe(true);
+  });
+
+  it("asks for the PIN again on no-sale alone by default, and takes each action once", () => {
+    expect(settingsDefaults.pinAgain).toEqual({ actions: ["no_sale"] });
+    expect(pinAgainSchema.safeParse({ actions: [...pinAgainActions] }).success).toBe(true);
+    expect(pinAgainSchema.safeParse({ actions: ["void", "void"] }).success).toBe(false);
+    expect(pinAgainSchema.safeParse({ actions: ["admin"] }).success).toBe(false);
+    expect(pinAgainSchema.safeParse({ actions: [] }).success).toBe(true);
   });
 });

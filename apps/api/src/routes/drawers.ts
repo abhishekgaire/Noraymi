@@ -10,6 +10,7 @@ import {
   drawerSessionsOfDate,
   emitEvent,
   insertApproval,
+  latestSetting,
   openDrawerSession,
   pendingDrawerHandover,
   readSetting,
@@ -23,7 +24,7 @@ import {
   type Sweep,
 } from "@west4/db";
 import { businessDate, checkCount, drawerTotals } from "@west4/rules";
-import { Temporal, type CashSettings } from "@west4/shared";
+import { PIN_AGAIN_DEFAULTS, Temporal, type CashSettings } from "@west4/shared";
 import { type Clock } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
@@ -370,6 +371,10 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
               drawerTotals(s.opening_cents, await drawerSessionMoves(c, venueId, s.id)),
             );
         const people = (await approvalPeople(c, venueId)).filter((x) => x.role !== "staff");
+        // A no-sale asks for the PIN again only while the venue ticks it (P-10; on by default).
+        const noSalePin = (
+          (await latestSetting(c, venueId, "pinAgain"))?.value ?? PIN_AGAIN_DEFAULTS
+        ).actions.includes("no_sale");
         // Night's drawer log (M7-06): every move but sales, so the panel stays blind.
         const log = await drawerLogOfDate(c, venueId, date);
         // The drawer this screen is paired to, and the caller's staff bank, for Drop and the move buttons.
@@ -398,6 +403,8 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
             user_id: p.kind === "user" ? p.userId : null,
             // A PIN or badge session gives the PIN again to count (spec 02 · Badges).
             pin_again: p.kind === "user" && (p.session === "pin" || p.session === "badge"),
+            no_sale_pin:
+              noSalePin && p.kind === "user" && (p.session === "pin" || p.session === "badge"),
             bank_cents: bank?.rows[0]?.cash_cents ?? 0,
             role: role ?? null,
           },

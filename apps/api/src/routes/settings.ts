@@ -17,11 +17,13 @@ import { queueGooglePush } from "../google/profile.js";
 import {
   isSettingsKey,
   settingsDefaults,
+  settingsKeySections,
   settingsSchemas,
   stateOf,
   t,
   Temporal,
   type Clock,
+  type GrantableAdminSection,
 } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
@@ -41,17 +43,45 @@ export function settingsRoutes(
   app: FastifyInstance,
   options: { clock: Clock; stripe?: () => StripeClient },
 ): void {
-  const staff = route({ principals: ["owner_manager"], module: "core", action: "admin.access" });
+  /**
+   * Can also open (P-10): the sections a request's keys belong to, from the key in the path or the
+   * keys sent; a key no grantable section saves can't be opened by a grant.
+   */
+  const keySections = (request: FastifyRequest): GrantableAdminSection[] | null => {
+    const key = (request.params as { key?: string }).key;
+    const keys =
+      key !== undefined
+        ? [key]
+        : Object.keys((request.body as { values?: object } | null)?.values ?? {});
+    const sections = keys.map((k) =>
+      Object.prototype.hasOwnProperty.call(settingsKeySections, k)
+        ? settingsKeySections[k]
+        : undefined,
+    );
+    return sections.length > 0 && sections.every((s) => s !== undefined)
+      ? (sections as GrantableAdminSection[])
+      : null;
+  };
+  const staff = route({
+    principals: ["owner_manager"],
+    module: "core",
+    action: "admin.access",
+    section: keySections,
+  });
   const admin = route({
     principals: ["owner_manager"],
     module: "core",
     action: "admin.access",
     idempotency: "optional",
+    section: keySections,
   });
 
-  /** `contacts` (D115) and `approvals` (D124) are the owner's alone: saved by an owner only. */
+  /**
+   * `contacts` (D115), `approvals` (D124) and `pinAgain` (P-10) are the owner's alone: saved by an
+   * owner only.
+   */
   const ownerOnlyKey = (request: FastifyRequest, key: string, reading = false) => {
-    if (key !== "contacts" && (key !== "approvals" || reading)) return;
+    if (key !== "contacts" && ((key !== "approvals" && key !== "pinAgain") || reading)) return;
     const p = request.principal;
     const here =
       p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
@@ -60,7 +90,9 @@ export function settingsRoutes(
         "forbidden",
         key === "contacts"
           ? "the venue's contacts are the owner's alone"
-          : "how approvals are decided is the owner's choice",
+          : key === "pinAgain"
+            ? "which actions ask for the PIN again is the owner's choice"
+            : "how approvals are decided is the owner's choice",
       );
   };
 

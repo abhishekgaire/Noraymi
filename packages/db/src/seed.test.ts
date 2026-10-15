@@ -44,7 +44,9 @@ describe("settings mapping", () => {
   ) as Record<string, Record<string, unknown>>;
 
   it("every key passes spec 03's schema", () => {
-    expect(Object.keys(parsed)).toHaveLength(21);
+    expect(Object.keys(parsed)).toHaveLength(22);
+    // Ask for the PIN again (P-10): unsaved in the seed, so no-sale alone, as before.
+    expect(parsed["pinAgain"]).toEqual({ actions: ["no_sale"] });
     // The venue's own contacts (D115): empty, never guessed.
     expect(parsed["contacts"]).toEqual({
       bookingEmails: [],

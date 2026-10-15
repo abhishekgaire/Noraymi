@@ -1,4 +1,9 @@
-import type { Action, MessageKey, ModuleId } from "@west4/shared";
+import {
+  isGrantableAdminSection,
+  type Action,
+  type MessageKey,
+  type ModuleId,
+} from "@west4/shared";
 
 /**
  * The AdminDesk sections (M1-31; screens.md · AdminDesk; milestones.md ·
@@ -237,13 +242,20 @@ export function visibleSections(
     allowedModules?: readonly ModuleId[];
     /** The person's role; without it, owner-only sections are listed only when `admin.team` is allowed (an owner). */
     role?: string;
+    /** Can also open (P-10): the sections the owner gave this person on top of their role. */
+    granted?: readonly string[];
   } = {},
   sections: readonly AdminSection[] = adminSections,
 ): AdminSection[] {
+  const granted = (s: AdminSection) =>
+    s.action === "admin.access" &&
+    !s.ownerOnly &&
+    isGrantableAdminSection(s.id) &&
+    (options.granted ?? []).includes(s.id);
   return sections.filter(
     (s) =>
       (s.shipped || options.includeUnshipped === true) &&
-      permissions.includes(s.action) &&
+      (permissions.includes(s.action) || granted(s)) &&
       (!s.ownerOnly ||
         (options.role !== undefined
           ? options.role === "owner"

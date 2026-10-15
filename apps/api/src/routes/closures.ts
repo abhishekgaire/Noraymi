@@ -53,6 +53,7 @@ export function closuresRoutes(app: FastifyInstance, options: { clock: Clock }):
     module: "core",
     action: "admin.access",
     idempotency: "optional",
+    section: "hours",
   });
 
   const venueOf = (request: FastifyRequest) =>

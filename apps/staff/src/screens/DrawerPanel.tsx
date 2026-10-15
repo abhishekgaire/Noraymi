@@ -75,6 +75,8 @@ interface Drawers {
   readonly me: {
     readonly user_id: string | null;
     readonly pin_again: boolean;
+    /** A no-sale asks for the PIN again only while the venue ticks it (P-10). */
+    readonly no_sale_pin?: boolean;
     readonly bank_cents: number;
     readonly role: string | null;
   };
@@ -403,7 +405,10 @@ function MoveForm({
       : kind === "no_sale"
         ? reason.trim() !== ""
         : cents !== null && cents > 0 && paidTo !== "";
-  const pinAsked = data.me.pin_again && kind !== "paid_out";
+  const pinAsked =
+    kind === "no_sale"
+      ? (data.me.no_sale_pin ?? data.me.pin_again)
+      : data.me.pin_again && kind !== "paid_out";
   const submit = async () => {
     if (!ready) return;
     setBusy(true);

@@ -5,6 +5,7 @@ import { useEvents } from "../../events.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { TextingSwitches } from "./TextingSwitches.js";
+import { PinAgainChoices } from "./PinAgainChoices.js";
 
 /**
  * Admin → Features → Choices (F-03; D124; spec 03 · Choices): the settings an owner picks beside the
@@ -131,6 +132,9 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
                 ))}
             {!isOwner && <p className="small muted">{t("approvals.mode.ownerOnly")}</p>}
           </fieldset>
+        </li>
+        <li className="module" aria-label={t("pinAgain.choices")}>
+          <PinAgainChoices venueId={venueId} isOwner={isOwner} />
         </li>
       </ul>
     </section>

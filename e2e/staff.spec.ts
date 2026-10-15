@@ -11233,3 +11233,167 @@ test("P-09 · staff actions: per person, each opening its rows with who approved
     await db.end();
   }
 });
+
+/**
+ * P-10 · Ask for the PIN again (Admin → Features → Choices): Abhishek, the owner, ticks Discount;
+ * at the bar Maya, signed in with her PIN, discounts Room 9 and is asked for her own PIN again. A
+ * wrong one says so; hers puts the discount on. Andy, a manager, reads the list but can't change it.
+ */
+test("P-10 · Ask for the PIN again: Abhishek ticks Discount, and Maya types her PIN again to give one", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    await page.goto("/admin/features");
+    const choices = page.getByRole("group", { name: "Ask for the PIN again for" });
+    await expect(choices.getByRole("checkbox", { name: "No sale" })).toBeChecked();
+    await expect(choices.getByRole("checkbox", { name: "Discount" })).not.toBeChecked();
+    await choices.getByRole("checkbox", { name: "Discount" }).check();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query<{ value: { actions: string[] } }>(
+              `select s.value from venue_settings s join venues v on v.id = s.venue_id
+              where v.slug = 'west4karaoke' and s.key = 'pinAgain' order by s.version desc limit 1`,
+            )
+          ).rows[0]?.value.actions,
+      )
+      .toEqual(["no_sale", "discount"]);
+    const box = await choices
+      .getByRole("checkbox", { name: "Discount" })
+      .locator("..")
+      .boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+
+    // At the bar, Maya's PIN session: Discount the check asks for her PIN again.
+    const bar = await browser.newContext({ baseURL: STAFF });
+    const maya = await bar.newPage();
+    await maya.setViewportSize({ width: 1280, height: 800 });
+    await maya.goto("/sign-in");
+    await maya.getByRole("button", { name: "Pair this screen" }).click();
+    await maya
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await maya.getByRole("button", { name: "Pair", exact: true }).click();
+    await maya.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(maya, "4071");
+    await expect(maya.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await maya.goto(`/room/${room9}`);
+    const discount = maya.getByRole("region", { name: "Discount", exact: true });
+    await discount.getByRole("button", { name: "Discount the check" }).click();
+    await discount.getByRole("radio", { name: "Amount" }).check();
+    await discount.getByLabel("Amount off, $").fill("5.00");
+    await discount.getByRole("button", { name: "Regular guest" }).click();
+    await discount.getByRole("button", { name: "Give discount" }).click();
+    const ask = maya.getByRole("dialog", { name: "Your PIN again" });
+    await expect(ask).toContainText("Discount asks for your PIN again.");
+    await ask.getByLabel("PIN").fill("0000");
+    await ask.getByRole("button", { name: "Continue" }).click();
+    await expect(maya.getByRole("dialog", { name: "Your PIN again" })).toContainText(
+      "That PIN isn't right. Try again.",
+    );
+    await maya.getByRole("dialog", { name: "Your PIN again" }).getByLabel("PIN").fill("4071");
+    await maya
+      .getByRole("dialog", { name: "Your PIN again" })
+      .getByRole("button", { name: "Continue" })
+      .click();
+    await expect(discount.getByRole("status")).toHaveText("Discount on · $5.00 off");
+    await discount.getByRole("button", { name: "Remove discount" }).click();
+    await expect(discount.getByRole("status")).toHaveText("Discount removed");
+    await bar.close();
+  } finally {
+    await db.query(
+      "delete from venue_settings where key = 'pinAgain' and version > 1 and venue_id = (select id from venues where slug = 'west4karaoke')",
+    );
+    await db.end();
+  }
+});
+
+/**
+ * P-10 · Can also open (Admin → Team): Abhishek gives Maya, a bartender, Admin → Menu. With a grant
+ * she signs in by email and her own passkey; her Admin lists Menu alone, and another section's
+ * settings are refused on the server.
+ */
+test("P-10 · Can also open: Abhishek gives Maya Menu, and her passkey opens Menu alone", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const MAYA = "maya@demo.west4.local";
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await db.query("update users set email = $1 where name = 'Maya S.'", [MAYA]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    await page.goto("/admin/team");
+    const row = page.getByRole("row", { name: /Maya S\./ });
+    await expect(row.getByText("Nothing more")).toBeVisible();
+    await row.getByText("Nothing more").click();
+    await expect(row.getByRole("checkbox", { name: "Team" })).toHaveCount(0);
+    await expect(row.getByRole("checkbox", { name: "Payments" })).toHaveCount(0);
+    await row.getByRole("checkbox", { name: "Menu" }).check();
+    await row.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(row.getByText("Menu", { exact: true }).first()).toBeVisible();
+    await expect
+      .poll(async () =>
+        (
+          await db.query<{ section: string }>(
+            `select g.section from admin_section_grants g join memberships m on m.id = g.membership_id
+               join users u on u.id = m.user_id where u.name = 'Maya S.' and g.revoked_at is null`,
+          )
+        ).rows.map((r) => r.section),
+      )
+      .toEqual(["menu"]);
+    // A manager's row has nothing to give: the role opens these already.
+    await expect(page.getByRole("row", { name: /Andy C\./ })).toContainText(
+      "Their role opens these",
+    );
+
+    // Maya, on her own browser, signs in with her email and a passkey; Admin lists Menu alone.
+    const own = await browser.newContext({ baseURL: STAFF });
+    const maya = await own.newPage();
+    await maya.setViewportSize({ width: 1280, height: 800 });
+    await maya.goto("/sign-in");
+    await enrolPasskey(maya, request, db, MAYA);
+    await maya.getByLabel("Email").fill(MAYA);
+    await maya.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(maya.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    await maya.goto("/admin");
+    await expect(maya).toHaveURL(/\/admin\/menu$/);
+    const sections = maya.getByRole("navigation", { name: "Sections" });
+    await expect(sections.getByRole("link")).toHaveCount(1);
+    await expect(sections.getByRole("link", { name: /^Menu/ })).toBeVisible();
+    // Hours & prices wasn't given: the server refuses its settings.
+    const refused = await maya.request.get(`/v1/venues/${await venueId(db)}/settings/hours`);
+    expect(refused.status()).toBe(403);
+    await own.close();
+  } finally {
+    await db.query(
+      "update admin_section_grants set revoked_at = now(), revoked_by = granted_by where revoked_at is null",
+    );
+    await db.query(
+      "delete from auth_credentials where user_id = (select id from users where name = 'Maya S.')",
+    );
+    await db.query("update users set email = null where name = 'Maya S.'");
+    await db.end();
+  }
+});

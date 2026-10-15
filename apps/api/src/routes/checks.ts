@@ -248,6 +248,7 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
           module: "core",
           action: "comps.reasonOnly",
           idempotency: "optional",
+          pinAgain: kind,
         }),
       },
       async (request, reply) => {
@@ -312,6 +313,7 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
         module: "check_discount",
         action: "comps.reasonOnly",
         idempotency: "optional",
+        pinAgain: "discount",
       }),
     },
     async (request, reply) => {

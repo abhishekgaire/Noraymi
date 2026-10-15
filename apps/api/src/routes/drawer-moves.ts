@@ -265,7 +265,8 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
 
   app.post<{ Params: { venueId: string; s: string }; Body: unknown }>(
     "/v1/venues/:venueId/drawer-sessions/:s/no-sale",
-    { config },
+    // The PIN again (body `pin`) is the venue's choice (P-10), on by default; checked with the route.
+    { config: route({ ...config.route, pinAgain: "no_sale" }) },
     async (request) => {
       const s = sessionId(request);
       const parsed = noSaleBody.safeParse(request.body);
@@ -276,7 +277,6 @@ export function drawerMoveRoutes(app: FastifyInstance, options: { clock: Clock }
       if (!session) throw new ApiError("not_found", "no such drawer session");
       if (!mayCount(actor.role, session.station))
         throw new ApiError("forbidden", "a no-sale is for the people who work this drawer");
-      await pinAgain(request, parsed.data.pin);
       const now = options.clock.now();
       return request.inVenue(async (c) => {
         const open = await atTheDrawer(c, venueId, s, actor.deviceId, actor.userId);

@@ -135,8 +135,18 @@ export function hiddenScreens(modules: ModuleStates): ReadonlySet<string> {
 export interface MenuContext {
   readonly modules: ModuleStates;
   readonly permissions: readonly Action[];
+  /** Can also open (P-10): Admin sections the owner gave this person; any of them shows Admin. */
+  readonly adminSections?: readonly string[];
   /** Tests look at entries whose screens haven't shipped yet. */
   readonly includeUnshipped?: boolean;
+}
+
+/** The person may do this action, or (for Admin) opens a section the owner gave them (P-10). */
+function mayOpen(context: MenuContext, action: Action): boolean {
+  return (
+    context.permissions.includes(action) ||
+    (action === "admin.access" && (context.adminSections ?? []).length > 0)
+  );
 }
 
 export function visibleMenu(
@@ -148,7 +158,7 @@ export function visibleMenu(
     (e) =>
       (e.shipped || context.includeUnshipped === true) &&
       !hidden.has(e.screen) &&
-      (e.action === undefined || context.permissions.includes(e.action)),
+      (e.action === undefined || mayOpen(context, e.action)),
   );
 }
 
@@ -216,6 +226,7 @@ export function phoneTabs(context: MenuContext & { role: Role }): PhoneTab[] {
   if (context.role === "owner" || context.role === "manager")
     tabs.push({ id: "offlineCodes", labelKey: "offlineCodes.title", path: "/offline-codes" });
   tabs.push({ id: "alerts", labelKey: "tabs.alerts", path: "/setup" });
-  if (can("admin.access")) tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
+  if (mayOpen(context, "admin.access"))
+    tabs.push({ id: "admin", labelKey: "menu.admin", path: "/admin" });
   return tabs;
 }

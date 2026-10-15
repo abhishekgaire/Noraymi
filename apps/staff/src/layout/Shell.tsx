@@ -71,7 +71,11 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   const [ownWho, setOwnWho] = useState(false);
   const topBar = useMemo(() => ({ node: slotNode, setOwnWho }), [slotNode]);
   const entries = visibleMenu(
-    { modules: membership.modules, permissions: membership.permissions },
+    {
+      modules: membership.modules,
+      permissions: membership.permissions,
+      adminSections: membership.admin_sections ?? [],
+    },
     menu,
   );
   const unread = useUnreadTexts(membership.venue_id, membership.permissions.includes("texts.send"));
@@ -91,6 +95,7 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   const tabs = phoneTabs({
     modules: membership.modules,
     permissions: membership.permissions,
+    adminSections: membership.admin_sections ?? [],
     role: membership.role,
   });
 

@@ -72,6 +72,7 @@ export function roomsRoutes(app: FastifyInstance, options: { clock: Clock }): vo
     module: "rooms",
     action: "admin.access",
     idempotency: "optional",
+    section: "rooms",
   });
   const bad = (issues: z.ZodIssue[]) =>
     new ApiError(

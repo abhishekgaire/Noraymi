@@ -94,3 +94,37 @@ export function permissionFor(
   if (override) return { allowed: override.allowed, needsApproval: override.needsApproval };
   return { allowed: defaultPermissions[action][role], needsApproval: false };
 }
+
+/**
+ * Can also open (P-10; spec 02 · Roles): the Admin sections the owner may give one person on top of
+ * their role, in Admin → Team. Never Payments, Team or Console (the ticket), and, as a cautious
+ * default, none whose page holds something more sensitive than its name says: Venue (the owner's
+ * contacts), Set up your venue, Features (modules and approvals), Bar POS (the reason-only limits),
+ * Texts (erasing a guest), Safety & ID records (the incident log), Devices (pairing), Card fee,
+ * Disputes, Deposits, Phone, Website, Connections, Spam protection and Kitchen. Admin still needs a
+ * passkey; the API opens a granted section's own routes only (each route names its section).
+ */
+export const grantableAdminSections = [
+  "menu",
+  "hours",
+  "rooms",
+  "cashDrawers",
+  "alerts",
+  "licenses",
+  "barMode",
+] as const;
+export type GrantableAdminSection = (typeof grantableAdminSections)[number];
+
+export function isGrantableAdminSection(s: string): s is GrantableAdminSection {
+  return (grantableAdminSections as readonly string[]).includes(s);
+}
+
+/** The settings keys each grantable section saves (its page and nothing else). */
+export const settingsKeySections: Readonly<Record<string, GrantableAdminSection>> = {
+  hours: "hours",
+  prices: "hours",
+  rooms: "rooms",
+  drawer: "cashDrawers",
+  alerts: "alerts",
+  barMode: "barMode",
+};

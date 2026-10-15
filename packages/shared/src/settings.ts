@@ -363,6 +363,32 @@ export type ApprovalMode = (typeof approvalModes)[number];
 export const approvalsSchema = z.object({ mode: z.enum(approvalModes) }).strict();
 export const APPROVALS_DEFAULTS: z.infer<typeof approvalsSchema> = { mode: "phone" };
 
+/**
+ * Ask for the PIN again (P-10; spec 02 · PINs): the actions on which staff in a PIN or badge session
+ * type their own PIN again before the action runs, checked on the server. The owner's choice, in
+ * Admin → Features → Choices. The default keeps what was there before: only no-sale asks.
+ */
+export const pinAgainActions = [
+  "no_sale",
+  "void",
+  "comp",
+  "discount",
+  "refund",
+  "reprint_receipt",
+  "open_tab",
+  "change_tip",
+] as const;
+export type PinAgainAction = (typeof pinAgainActions)[number];
+export const pinAgainSchema = z
+  .object({
+    actions: z
+      .array(z.enum(pinAgainActions))
+      .max(pinAgainActions.length)
+      .refine((a) => new Set(a).size === a.length, "each action once"),
+  })
+  .strict();
+export const PIN_AGAIN_DEFAULTS: z.infer<typeof pinAgainSchema> = { actions: ["no_sale"] };
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -481,6 +507,7 @@ export const settingsSchemas = {
   contacts: contactsSchema,
   texting: textingSchema,
   approvals: approvalsSchema,
+  pinAgain: pinAgainSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -546,6 +573,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   publicForms: PUBLIC_FORM_DEFAULTS,
   texting: TEXTING_DEFAULTS,
   approvals: APPROVALS_DEFAULTS,
+  pinAgain: PIN_AGAIN_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

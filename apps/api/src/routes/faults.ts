@@ -57,6 +57,7 @@ export function faultRoutes(app: FastifyInstance, options: { clock: Clock }): vo
     module: "rooms",
     action: "comps.reasonOnly",
     idempotency: "optional",
+    pinAgain: "comp",
   });
 
   app.get<{ Params: { venueId: string } }>(

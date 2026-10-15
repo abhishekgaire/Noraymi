@@ -1,4 +1,5 @@
-import type { FastifyInstance, RouteOptions } from "fastify";
+import type { FastifyInstance, FastifyRequest, RouteOptions } from "fastify";
+import type { GrantableAdminSection, PinAgainAction } from "@west4/shared";
 import type { PrincipalName } from "./principal.js";
 
 /**
@@ -35,6 +36,24 @@ export interface RouteSpec {
   readonly exemptWhenOff?: boolean;
   /** An Admin write that stays open while Admin is read-only over our unpaid plan (M8-15): paying it. */
   readonly openWhenReadOnly?: boolean;
+  /**
+   * The Admin section this route belongs to (P-10 · Can also open): a person the owner gave that
+   * section reaches it in a passkey session even when their role can't. "any" is a read every
+   * granted person's Admin needs; a function names the sections one request touches (all needed),
+   * or null when no grant can open it.
+   */
+  readonly section?:
+    | GrantableAdminSection
+    | "any"
+    | ((request: FastifyRequest) => readonly GrantableAdminSection[] | null);
+  /**
+   * An action the venue may ask the PIN again for (P-10; Admin → Features → Choices): in a PIN or
+   * badge session, a write carries the person's own PIN as X-PIN-Again when the venue ticked it.
+   * `when` narrows it to the requests that are that action (a reprint of a receipt, not a ticket).
+   */
+  readonly pinAgain?:
+    | PinAgainAction
+    | { action: PinAgainAction; when: (request: FastifyRequest) => Promise<boolean> };
 }
 
 export interface RegisteredRoute extends RouteSpec {

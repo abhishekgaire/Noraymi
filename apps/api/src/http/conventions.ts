@@ -84,6 +84,35 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
   (app.decorateRequest as (name: string, value: unknown) => void)("inVenue", null);
   (app.decorateRequest as (name: string, value: unknown) => void)("inReports", null);
 
+  /**
+   * Can also open (P-10; spec 02 · Roles): the route names an Admin section, the caller is in a
+   * passkey session at this venue, and the owner gave them that section (every section the request
+   * touches). Only owner-or-manager routes open this way; a PIN or badge session never does.
+   */
+  const grantOpens = async (
+    request: FastifyRequest,
+    spec: RouteSpec,
+    venueId: string | undefined,
+  ): Promise<boolean> => {
+    const p = request.principal;
+    if (
+      spec.section === undefined ||
+      venueId === undefined ||
+      !options.permissionGate ||
+      !spec.principals.includes("owner_manager") ||
+      p.kind !== "user" ||
+      p.session !== "passkey"
+    )
+      return false;
+    const membership = p.memberships.find((m) => m.venueId === venueId);
+    if (!membership) return false;
+    const have = await options.permissionGate.grantsFor(venueId, membership.membershipId);
+    if (have.length === 0) return false;
+    if (spec.section === "any") return true;
+    const need = typeof spec.section === "function" ? spec.section(request) : [spec.section];
+    return need !== null && need.length > 0 && need.every((s) => have.includes(s));
+  };
+
   // Staff routes get the per-venue rate limit unless the route turns it off.
   app.addHook("onRoute", (route) => {
     const spec = route.config?.route;
@@ -146,7 +175,12 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     if (!spec) return; // the 404 handler
     const params = request.params as { venueId?: string };
     const venueId = params.venueId;
-    if (!spec.principals.some((name) => principalIs(request.principal, name, venueId))) {
+    // Can also open (P-10): a person the owner gave this route's Admin section passes as its owner or manager would.
+    let granted = false;
+    if (
+      !spec.principals.some((name) => principalIs(request.principal, name, venueId)) &&
+      !(granted = await grantOpens(request, spec, venueId))
+    ) {
       if (spec.websocket) {
         request.forbidden = true; // the socket handler closes with 4403
       } else if (request.sessionProblem === "locked") {
@@ -212,9 +246,39 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
       const membership = request.principal.memberships.find((m) => m.venueId === venueId);
       if (
         !membership ||
-        !(await options.permissionGate.allows(venueId, membership.role, spec.action))
+        (!(await options.permissionGate.allows(venueId, membership.role, spec.action)) &&
+          !(
+            spec.action === "admin.access" &&
+            (granted || (await grantOpens(request, spec, venueId)))
+          ))
       ) {
         throw new ApiError("forbidden", "your role can't do this");
+      }
+    }
+
+    // Ask for the PIN again (P-10): in a PIN or badge session, an action the venue ticked carries the
+    // person's own PIN (X-PIN-Again, or `pin` in the body), checked here before any work or key.
+    if (
+      isWrite &&
+      venueId !== undefined &&
+      spec.pinAgain !== undefined &&
+      options.permissionGate &&
+      request.principal.kind === "user" &&
+      (request.principal.session === "pin" || request.principal.session === "badge")
+    ) {
+      const asked = typeof spec.pinAgain === "string" ? spec.pinAgain : spec.pinAgain.action;
+      if (
+        (await options.permissionGate.pinAgainFor(venueId)).includes(asked) &&
+        (typeof spec.pinAgain === "string" || (await spec.pinAgain.when(request)))
+      ) {
+        const pin = pinAgainOf(request);
+        if (pin === undefined)
+          throw new ApiError("pin_again_required", "type your PIN again for this", {
+            details: { action: asked },
+          });
+        const check = request.server.checkPinAgain;
+        if (!check) throw new Error("a pinAgain route needs the PIN routes");
+        await check(request, pin);
       }
     }
 
@@ -349,6 +413,17 @@ declare module "fastify" {
 
 function specOf(request: FastifyRequest): RouteSpec | undefined {
   return request.routeOptions.config?.route;
+}
+
+/** The PIN typed again (P-10): the X-PIN-Again header, or `pin` in the body (no-sale's own field). */
+function pinAgainOf(request: FastifyRequest): string | undefined {
+  const raw = request.headers["x-pin-again"];
+  const header = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof header === "string" && header !== "") return header;
+  const body = request.body as { pin?: unknown } | null | undefined;
+  return body && typeof body === "object" && typeof body.pin === "string" && body.pin !== ""
+    ? body.pin
+    : undefined;
 }
 
 function safeJson(text: string): unknown {

@@ -12,11 +12,12 @@ import {
 } from "./settings.js";
 
 describe("settings schemas", () => {
-  it("has the twenty-one keys spec 03 and spec 16 list", () => {
+  it("has the twenty-two keys spec 03 and spec 16 list", () => {
     expect([...settingsKeys].sort()).toEqual(
       [
         "alerts",
         "approvals",
+        "pinAgain",
         "barMode",
         "contacts",
         "deposit",

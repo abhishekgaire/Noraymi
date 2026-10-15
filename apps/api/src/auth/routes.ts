@@ -62,6 +62,7 @@ import { enqueueEmail } from "../jobs/send-email.js";
 import { SESSION_MAX_HOURS, setSessionCookie, type RequestSession } from "./session-auth.js";
 import { newTotpSecret, otpauthUrl, verifyTotp } from "./totp.js";
 import { Passkeys } from "./webauthn.js";
+import { liveGrants } from "../http/permission-gate.js";
 
 /**
  * Sign-in for owners and managers (M1-19; spec 02 · Who can call what, spec 08 ·
@@ -810,6 +811,8 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         { venueId: m.venueId, userId: p.userId, requestId: request.requestId },
         async (c) => ({
           overrides: await permissionOverrides(c, m.venueId),
+          // Can also open (P-10): the Admin sections the owner gave this person on top of their role.
+          grants: await liveGrants(c, m.venueId, m.membershipId),
           rows: await venueModules(c, m.venueId),
           // Training mode (M7-03): the person's, or the device this session runs on.
           // Set up your venue (O-02): pending on a venue made in the Console until Finish setup.
@@ -845,6 +848,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         // What the Console allows, on or not: Admin → Kitchen shows where Kitchen & food is allowed (K-01).
         modules_allowed: venue.rows.filter((r) => r.allowed).map((r) => r.module_id),
         permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
+        admin_sections: venue.grants,
         training: venue.training,
         setup: venue.setup,
       });

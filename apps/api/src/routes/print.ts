@@ -377,6 +377,21 @@ export function printRoutes(app: FastifyInstance, options: { pool: pg.Pool; cloc
         module: "core",
         action: "orders.accept",
         idempotency: "optional",
+        // Reprinting a receipt may ask for the PIN again (P-10); a ticket's or a report's never does.
+        pinAgain: {
+          action: "reprint_receipt",
+          when: async (request) => {
+            const jobId = (request.params as { jobId?: string }).jobId ?? "";
+            if (!z.string().uuid().safeParse(jobId).success) return false;
+            const r = await request.inVenue((c) =>
+              c.query(
+                "select 1 from print_jobs where venue_id = $1 and id = $2 and kind = 'receipt'",
+                [request.venueId!, jobId],
+              ),
+            );
+            return (r.rowCount ?? 0) > 0;
+          },
+        },
       }),
     },
     async (request, reply) => {

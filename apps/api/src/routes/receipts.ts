@@ -32,6 +32,22 @@ export function receiptRoutes(
         module: "core",
         action: "payments.take",
         idempotency: "optional",
+        // Printing a check's receipt again may ask for the PIN again (P-10); the first print never does.
+        pinAgain: {
+          action: "reprint_receipt",
+          when: async (request) => {
+            const checkId = (request.params as { checkId?: string }).checkId ?? "";
+            const channel = (request.body as { channel?: unknown } | null)?.channel;
+            if (channel !== "print" || !z.string().uuid().safeParse(checkId).success) return false;
+            const r = await request.inVenue((c) =>
+              c.query(
+                "select 1 from print_jobs where venue_id = $1 and check_id = $2 and kind = 'receipt' limit 1",
+                [request.venueId!, checkId],
+              ),
+            );
+            return (r.rowCount ?? 0) > 0;
+          },
+        },
       }),
     },
     async (request, reply) => {

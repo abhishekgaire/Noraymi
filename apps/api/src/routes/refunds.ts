@@ -37,6 +37,7 @@ export function refundRoutes(app: FastifyInstance, options: { clock: Clock }): v
     action: "refunds.request",
     idempotency: "optional",
     stepUp: true,
+    pinAgain: "refund",
   });
   // Where a refund posts: tonight, or the next open night once tonight has closed (M7-02).
   const night = async (request: FastifyRequest) =>

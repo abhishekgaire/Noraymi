@@ -1822,6 +1822,17 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 5. Sign in as Maya (a bartender): Reports isn't in her menu, and `GET /reports/staff-actions` answers 403.
 6. With Spanish chosen, the card reads **Acciones del personal**, "Desde", "Hasta", "Invitaciones" and "sin aprobación".
 
+### 30.10 Access person by person, and which actions ask for a PIN (P-10)
+
+1. Sign in as Abhishek (owner) and open **Admin → Features**. Under Choices, **Ask for the PIN again for** lists No sale, Void, Comp, Discount, Refund, Reprint a receipt, Open a tab and Change tip, with only **No sale** ticked. Each line is at least 44 px tall.
+2. Tick **Discount**. Sign in as Andy (manager) in another browser: he sees the list but can't tick anything ("Only the owner changes this").
+3. On the bar computer, sign in as Maya with her PIN (4071), open Room 9 and **Discount the check** $5.00 with a reason. A **Your PIN again** dialog says "Discount asks for your PIN again." Type 0000: "That PIN isn't right. Try again." Type 4071: the discount goes on. Cancel instead and nothing changes on the check.
+4. Back in Admin → Features, untick Discount: Maya's next discount goes on with no question. With **No sale** unticked, the drawer's No sale no longer shows the PIN field.
+5. As Abhishek, open **Admin → Team**. Maya's **Can also open** reads "Nothing more"; Andy's reads "Their role opens these". Open Maya's, tick **Menu** and **Save** (the passkey is asked again): it reads "Menu". Payments, Team and Console aren't offered.
+6. Give Maya an email in the database (`update users set email = 'maya@demo.west4.local' where name = 'Maya S.'`), then on another browser sign in with that email and enrol a passkey. Admin is in her menu and lists **Menu** alone; Hours & prices, Team and Reports are refused (`GET /settings/hours` answers 403). On the bar computer with her PIN, Admin still says it needs a passkey.
+7. As Abhishek, untick Menu and save: Maya's Admin is gone on her next load, and her Menu calls answer 403.
+8. With Spanish chosen, Features reads **Pedir el PIN otra vez para**, the dialog **Tu PIN otra vez**, and Team **También puede abrir** / "Nada más".
+
 ### 30.12 Today at a glance and who's on shift (P-12)
 
 1. Sign in as Andy (passkey) and open **Rooms**. Above the room counts: **Sales so far**, **Open checks** 13 (8 rooms in use plus 5 bar tabs), **Rooms in use** 8 and **On the clock** 3 (Maya, Andy, Diego).

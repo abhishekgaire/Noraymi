@@ -239,6 +239,7 @@ export function menuRoutes(
       module,
       action: "admin.access",
       idempotency: "optional",
+      section: "menu",
     });
 
   const venueOf = async (c: Queryable, venueId: string) => {
