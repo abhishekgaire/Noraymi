@@ -5,6 +5,7 @@ import { api, ApiCallError } from "../../api.js";
 import { roleKey, useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { ContactsFields, contactsProblem, useContacts } from "./Contacts.js";
+import { ModuleSwitch } from "./MoneyStep.js";
 import { InviteForm } from "./Team.js";
 
 /**
@@ -108,56 +109,60 @@ export function TeamStep({
     );
   const team = people.filter((p) => p.status !== "deactivated");
   return (
-    <div className="setup-card setup-form team-step">
-      <InviteForm
-        venueId={venueId}
-        onSent={async () => {
-          await loadTeam();
-          onSaved();
-        }}
-      />
-      <section className="setup-fieldset">
-        <h3>{t("onboarding.team.people")}</h3>
-        {team.length === 0 ? (
-          <p className="muted small">{t("onboarding.team.nobody")}</p>
-        ) : (
-          <ul className="team-step-list">
-            {team.map((p) => (
-              <li key={p.membership_id}>
-                <span>
-                  {p.name} · {t(roleKey[p.role])}
-                </span>
-                <span className={p.has_pin ? "ok small" : "muted small"}>
-                  {p.has_pin
-                    ? t("onboarding.team.pinSet")
-                    : p.status === "invited"
-                      ? t("onboarding.team.invited")
-                      : t("onboarding.team.noPin")}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link to="/admin/team" className="button secondary">
-          {t("onboarding.team.openTeam")}
-        </Link>
-      </section>
-      <section className="setup-fieldset">
-        <h3>{t("contacts.title")}</h3>
-        <ContactsFields
-          value={value}
-          leads={contacts.leads}
-          onChange={(next) => {
-            setDraft(next);
-            setFormError(null);
+    <>
+      {/* The bell in the top bar (P-11): on by default, the owner's switch as in Admin → Features. */}
+      <ModuleSwitch venueId={venueId} id="bell" />
+      <div className="setup-card setup-form team-step">
+        <InviteForm
+          venueId={venueId}
+          onSent={async () => {
+            await loadTeam();
+            onSaved();
           }}
         />
-      </section>
-      {formError && (
-        <p className="error" role="alert">
-          {formError}
-        </p>
-      )}
-    </div>
+        <section className="setup-fieldset">
+          <h3>{t("onboarding.team.people")}</h3>
+          {team.length === 0 ? (
+            <p className="muted small">{t("onboarding.team.nobody")}</p>
+          ) : (
+            <ul className="team-step-list">
+              {team.map((p) => (
+                <li key={p.membership_id}>
+                  <span>
+                    {p.name} · {t(roleKey[p.role])}
+                  </span>
+                  <span className={p.has_pin ? "ok small" : "muted small"}>
+                    {p.has_pin
+                      ? t("onboarding.team.pinSet")
+                      : p.status === "invited"
+                        ? t("onboarding.team.invited")
+                        : t("onboarding.team.noPin")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <Link to="/admin/team" className="button secondary">
+            {t("onboarding.team.openTeam")}
+          </Link>
+        </section>
+        <section className="setup-fieldset">
+          <h3>{t("contacts.title")}</h3>
+          <ContactsFields
+            value={value}
+            leads={contacts.leads}
+            onChange={(next) => {
+              setDraft(next);
+              setFormError(null);
+            }}
+          />
+        </section>
+        {formError && (
+          <p className="error" role="alert">
+            {formError}
+          </p>
+        )}
+      </div>
+    </>
   );
 }

@@ -29,6 +29,7 @@ export type ModuleId =
   | "cash_discount"
   | "outside_card"
   | "check_discount"
+  | "bell"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -333,6 +334,17 @@ export const modules: readonly ModuleDef[] = [
     inherits: "payments",
     allowedOff: true,
     hides: { staffApp: ["check.discount"], staffPhone: ["check.discount"], website: [], texts: [] },
+  },
+  // One bell for everything waiting (P-11): in the top bar, every plan, on until the owner turns it
+  // off (a venue with no row of its own reads as Admin, always on). The menu badges stay either way.
+  {
+    id: "bell",
+    core: false,
+    phase1: true,
+    needs: [],
+    inherits: "admin",
+    allowedOff: true,
+    hides: { staffApp: ["bell"], staffPhone: ["bell"], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

@@ -105,6 +105,7 @@ import { trialRoutes } from "./routes/trial.js";
 import { connectionRoutes } from "./routes/connection.js";
 import { routerRoutes } from "./routes/router.js";
 import { boardRoutes } from "./routes/board.js";
+import { bellRoutes } from "./routes/bell.js";
 import { approvalRoutes } from "./routes/approvals.js";
 import { menuRoutes } from "./routes/menu.js";
 import { orderRoutes } from "./routes/orders.js";
@@ -353,6 +354,8 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       trialRoutes(scope);
       connectionRoutes(scope, { clock });
       boardRoutes(scope, { clock });
+      // One bell for everything waiting (P-11): what each person marked read.
+      bellRoutes(scope, { clock });
       conversationRoutes(scope, { clock, texts: loadVenueTextSettings(config.env) });
       approvalRoutes(scope, {
         receipts: receiptDeps,

@@ -1072,6 +1072,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "prepaid_accounts",
       "tab_openings",
       "owner_alerts",
+      // What each person marked read on the bell (P-11): a fresh night rings again.
+      "bell_reads",
       "dispute_funds",
       "disputes",
       "tip_shares",

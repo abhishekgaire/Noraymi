@@ -201,13 +201,14 @@ Definition of done: see CLAUDE.md.
 
 ### P-11 · One bell for everything waiting
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** alerts, approvals, messages, bar orders
 - **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md)
 - **Build:** A bell in the top bar with a count, listing what's waiting for this person (approvals, room alerts, bar orders, guest texts, printer errors), each opening its screen; marking read is per person. The menu badges stay.
 - **Acceptance:**
-  - [ ] The count matches the list and clears on read; works offline from the cache; EN and ES; tests.
+  - [x] The count matches the list and clears on read; works offline from the cache; EN and ES; tests.
+- **Notes:** Module `bell` (every plan, on by default: `inherits: "admin"`, `allowedOff`; Admin → Features lists it, 18 on · 4 off at West 4, and Set up your venue's step 9 has its switch). The bell sits in the top bar (`apps/staff/src/layout/Bell.tsx`, the list in `layout/bell-items.ts`); it builds the list from the reads the screens already make, each only where the menu and badges show it (approvals routed to the person with `approvals.decide`; the board's alerts with Rooms on and `guests.checkin`; ringing and held orders where Bar orders shows; unread texts with Guest texts on and `texts.send`; failed tickets with `pos.use`), so each source keeps its own module and role checks on the server. What the API keeps is only which keys each person read: `bell_reads` (migration 0164; RLS forced, app_rw select and insert only), `GET` and `POST /v1/venues/{v}/bell/reads`, refused with `404 module_off` while the bell is off. The count is the list's unread lines; tapping a line reads it and opens its screen, **Mark all read** reads the rest. Refetches follow events, settled 1.5 s, and every 30 s. Cautious defaults: the bell is "Bell" / "Campana", not "Waiting for you" (that's the bar orders column, spec 10's one word, one meaning); the board's near-end, 21+ and clear-out lines are notices and stay off the bell, and its order and ticket lines come in as bar orders and printer errors instead; a new text in a thread already read counts again (the key carries the last inbound time); the offline copy is per venue and per person in the browser's storage and holds no guest's name or words (the lines say "A guest's text · 2 unread", "Room 9's order is ringing"), reads made offline are sent when the API answers; reads are kept insert-only (app_rw has no delete) and read back for 72 hours. Spec 10 rule 14, spec 03, 04 and 08, the glossary (Bell) and manual-test 30.11 updated. Tests: `apps/staff/src/layout/bell-items.test.ts` (order, paths, count and read, a new text rings again, EN and ES, the offline copy per person), `apps/api/src/routes/bell.int.test.ts` (per person, once per key, 72 hours, module off, app_rw behind the venue wall), the principal and wall suites, and the e2e "P-11 · one bell" at the end of `e2e/staff.spec.ts` (count = list, 44 px, opening a line, Mark all read, kept after a reload, offline from the cache in Spanish, off hides it).
 
 ### P-12 · Today at a glance, and who's on shift on the PIN screen
 
