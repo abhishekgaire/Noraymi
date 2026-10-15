@@ -102,8 +102,8 @@ describe("the M1 part of the demo seed", () => {
   it("turns on the seed's modules and refuses the phase 2 ones", async () => {
     const rows = await venueModules(owner, first.venueId);
     // 6 core (Bar tabs and Reports among them, D124), the seed's other 11, and D124's 5 new switches,
-    // which read as the modules they were split from, and the check discount (P-02), on by default.
-    expect(rows.filter((r) => r.state === "on").map((r) => r.module_id)).toHaveLength(23);
+    // which read as the modules they were split from, the check discount (P-02) and the bell (P-11), on by default.
+    expect(rows.filter((r) => r.state === "on").map((r) => r.module_id)).toHaveLength(24);
     expect(rows.find((r) => r.module_id === "kitchen")).toMatchObject({
       allowed: false,
       state: "off",

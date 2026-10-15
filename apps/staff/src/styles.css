@@ -217,11 +217,11 @@ form {
 }
 .topbar {
   display: grid;
-  grid-template-columns: 44px 1fr auto;
+  grid-template-columns: 44px 1fr auto auto;
   grid-template-areas:
-    "menu venue clock"
-    "menu who who"
-    "slot slot slot";
+    "menu venue clock bell"
+    "menu who who who"
+    "slot slot slot slot";
   column-gap: 12px;
   align-items: center;
   padding: 8px 16px;
@@ -525,8 +525,8 @@ form {
   }
   .topbar {
     grid-column: 1 / -1;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "venue slot who clock";
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+    grid-template-areas: "venue slot who bell clock";
     min-height: var(--topbar-h);
   }
   .menu-button {
@@ -3127,4 +3127,68 @@ a.song-count {
 }
 .room-sound-room.red {
   border-left-color: var(--w4-pink);
+}
+
+/* One bell for everything waiting (P-11): in the top bar, its list under it. */
+.bell {
+  grid-area: bell;
+  position: relative;
+}
+.bell-button {
+  position: relative;
+  min-height: 44px;
+}
+.bell-count {
+  position: absolute;
+  top: 2px;
+  right: -4px;
+}
+.bell-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 12px;
+  border: 1px solid var(--w4-line);
+  border-radius: var(--w4-radius, 12px);
+  background: var(--w4-bg);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+}
+.bell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.bell-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.bell-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.bell-item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid var(--w4-line);
+  border-radius: 8px;
+  color: inherit;
+  font-weight: 400;
+}
+.bell-item.unread {
+  border-color: var(--w4-pink);
+  font-weight: 600;
 }

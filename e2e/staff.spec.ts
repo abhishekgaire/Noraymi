@@ -775,7 +775,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 17 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -803,7 +803,7 @@ test("Admin → Features: 17 on and 4 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("17 on · 4 off")).toBeVisible();
+    await expect(page.getByText("18 on · 4 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -890,12 +890,12 @@ test("Admin → Features: 17 on and 4 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("15 on · 6 off")).toBeVisible();
+    await expect(page.getByText("16 on · 6 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("17 on · 4 off")).toBeVisible();
+    await expect(page.getByText("18 on · 4 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -11230,6 +11230,84 @@ test("P-09 · staff actions: per person, each opening its rows with who approved
     await expect(card.getByRole("alert")).toContainText("Pick a start on or before the end");
   } finally {
     if (moveId) await db.query("delete from drawer_moves where id = $1", [moveId]);
+    await db.end();
+  }
+});
+
+/**
+ * P-11 · One bell for everything waiting. Andy (a manager) at the seed's 10:41 PM: the bell's number
+ * is the list's new things; opening one goes to its screen and reads it, Mark all read clears the
+ * rest, and that's kept for him after a reload. With the API out of reach the kept list shows, in
+ * Spanish too; with the owner's switch off there's no bell.
+ */
+test("P-11 · one bell: the count matches the list, clears on read and stays read, offline from the cache, off hides it", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  const venue = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  try {
+    await db.query("delete from bell_reads where venue_id = $1", [venue]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const firstLoad = page.waitForResponse((r) => r.url().endsWith("/bell/reads") && r.ok());
+    await signInAndy(page, request, db);
+    await firstLoad;
+    const bell = page.getByTestId("bell");
+    await expect(bell).toHaveAccessibleName(/^Bell · [1-9]\d* new$/);
+    const n = Number(/(\d+) new/.exec((await bell.getAttribute("aria-label"))!)![1]);
+    expect((await bell.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await bell.click();
+    const panel = page.getByRole("region", { name: "Bell", exact: true });
+    const items = panel.getByRole("listitem");
+    await expect(items.filter({ hasText: "· New" })).toHaveCount(n);
+    const first = items.first().getByRole("button");
+    expect((await first.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await first.click();
+    await expect(page).toHaveURL(/\/(approvals|calls|tonight|bar-orders|messages|bar)$/);
+    await expect(bell).toHaveAccessibleName(`Bell · ${n - 1} new`);
+    await bell.click();
+    await panel.getByRole("button", { name: "Mark all read" }).click();
+    await expect(bell).toHaveAccessibleName("Bell · 0 new");
+    await expect(panel.getByRole("button", { name: "Mark all read" })).toBeDisabled();
+    await expect(items.filter({ hasText: "· New" })).toHaveCount(0);
+
+    // Kept for him: a reload reads it back from the API.
+    const reads = page.waitForResponse((r) => r.url().endsWith("/bell/reads") && r.ok());
+    await page.reload();
+    await reads;
+    await page.waitForTimeout(300);
+    await expect(bell).toHaveAccessibleName("Bell · 0 new");
+
+    // Out of reach: the kept list, as of its last answer, in Spanish.
+    await db.query("update memberships set locale = 'es'");
+    await page.route(
+      /\/v1\/venues\/[^/]+\/(bell\/reads|approvals|board|orders|conversations|print-jobs)(\?.*)?$/,
+      (route) => route.abort("internetdisconnected"),
+    );
+    await page.reload();
+    await bell.click();
+    const offline = page.getByRole("region", { name: "Campana", exact: true });
+    await expect(offline.getByRole("status")).toContainText("Sin conexión · a las");
+    await expect(offline.getByRole("listitem")).not.toHaveCount(0);
+    await expect(bell).toHaveAccessibleName("Campana · 0 nuevos");
+    await page.unrouteAll();
+
+    // The owner's switch off: no bell.
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'bell', true, 'off')
+       on conflict (venue_id, module_id) do update set state = 'off'`,
+      [venue],
+    );
+    await page.reload();
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByTestId("bell")).toHaveCount(0);
+  } finally {
+    await page.unrouteAll().catch(() => {});
+    await db.query("delete from venue_modules where venue_id = $1 and module_id = 'bell'", [venue]);
+    await db.query("delete from bell_reads where venue_id = $1", [venue]);
+    await db.query("update memberships set locale = 'en'");
     await db.end();
   }
 });

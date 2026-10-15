@@ -398,6 +398,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       "POST /v1/venues/:venueId/devices/offline-secret": { fingerprint: null },
       "POST /v1/venues/:venueId/offline-orders/:replayId/cash": { amount_cents: 100 },
       "PATCH /v1/venues/:venueId/modules/:id": { state: "off" },
+      "POST /v1/venues/:venueId/bell/reads": { keys: ["order:x"] },
       // Bar tabs & quick sale is always on (D124), so its routes reach their lookups here.
       "POST /v1/venues/:venueId/tabs/:t/pay": {
         method: "cash",

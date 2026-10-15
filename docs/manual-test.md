@@ -1215,7 +1215,7 @@ Real drawer kicks need the real drawer hardware.
 People, roles, invites, badges, languages, training mode. See 15.1.
 
 ### 19.2 Features
-"What's on, and what each module hides". 17 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
+"What's on, and what each module hides". 18 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
 - The new switches (D124) are on: Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share), Cash discount. Turning off Rooms & room clock lists them too.
 - **Choices** under the modules: "Print tickets for drinks rung at the bar" (off at West 4) and **Texting** (on). Both save at once.
 - Turn off **Guests pay their own share**: a guest's bill after Present no longer offers Pay my share; Admin → Payments shows "Pay my share … · Off". Turn it back on.
@@ -1821,6 +1821,16 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. Set From to 2026-09-01 and To to 2026-09-24: "No staff actions in these dates." Set From after To: "Pick a start on or before the end, 93 days at most."
 5. Sign in as Maya (a bartender): Reports isn't in her menu, and `GET /reports/staff-actions` answers 403.
 6. With Spanish chosen, the card reads **Acciones del personal**, "Desde", "Hasta", "Invitaciones" and "sin aprobación".
+
+### 30.11 One bell for everything waiting (P-11)
+
+1. Sign in as Andy on a desktop. The top bar has the bell, **Bell · N new**, with N on it in pink; it's at least 44 px tall.
+2. Tap it: **Bell** lists what's waiting for Andy, approvals first, then rooms (a room calling, past its end, needing a wipe), bar orders ringing or asked to wait, guest texts not read and tickets that didn't print. The lines marked **· New** are exactly N.
+3. Tap a line: it opens its screen (Approvals, Calls, Rooms, Bar orders, Messages or the bar POS) and the bell reads N − 1. Open the bell again and tap **Mark all read**: **Bell · 0 new**, and the button greys out. Reload: still 0.
+4. Sign in as Maya (a bartender) on another browser: her bell still counts the bar orders and tickets Andy read, since reading is per person; she has no approvals or guest texts in it unless her role sees them. Ring a room order from Room 9's phone: both bells count one more.
+5. Stop the API (or turn the laptop's Wi-Fi off) and reload the staff app: the bell shows its last list with "Offline · as of 10:41 PM"; marking a line read there is sent once the API answers.
+6. With Spanish chosen: **Campana · N nuevos**, "Marcar todo como leído", "Pedido del bar", "Mensaje de cliente".
+7. As the owner, Admin → Features → **Bell** off (or Set up your venue, step 9): the bell is gone for everyone, `GET /bell/reads` answers 404 `module_off`, and the Messages badge and "Bar orders · 2" stay in the menu. Turn it back on.
 
 ### 30.12 Today at a glance and who's on shift (P-12)
 

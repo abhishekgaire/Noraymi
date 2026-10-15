@@ -1,4 +1,4 @@
-import type { MessageKey } from "@west4/shared";
+import { stateOf, type MessageKey } from "@west4/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { Membership } from "../api.js";
@@ -17,6 +17,7 @@ import { OfflineSync, ReadOnlyWhileOffline } from "./ReadOnly.js";
 import { QueueProvider } from "../queue.js";
 import { OfflineCodesSync } from "../screens/OfflineCodes.js";
 import { useUnreadTexts, useWaitingOrders } from "./unread.js";
+import { Bell } from "./Bell.js";
 
 /**
  * The frame around every staff screen: the venue, the venue's time and
@@ -49,10 +50,20 @@ export function Shell() {
   if (state.status === "signedOut") {
     return <Navigate to="/sign-in" replace state={{ from: location.pathname }} />;
   }
-  return <Frame membership={state.membership} name={state.me.user.name} />;
+  return (
+    <Frame membership={state.membership} name={state.me.user.name} userId={state.me.user.id} />
+  );
 }
 
-function Frame({ membership, name }: { membership: Membership; name: string }) {
+function Frame({
+  membership,
+  name,
+  userId,
+}: {
+  membership: Membership;
+  name: string;
+  userId: string;
+}) {
   const { t, time, date } = useT();
   const { lock, refresh } = useSession();
   const { connected, subscribe } = useEvents();
@@ -78,6 +89,23 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
   const waiting = useWaitingOrders(
     membership.venue_id,
     membership.permissions.includes("orders.accept") && entries.some((e) => e.id === "barOrders"),
+  );
+  // One bell for everything waiting (P-11): each list only where the menu and its badges show it.
+  const bellOn = stateOf(membership.modules, "bell") !== "off";
+  const barOrdersShown = entries.some((e) => e.id === "barOrders");
+  const bellReach = useMemo(
+    () => ({
+      approvals: membership.permissions.includes("approvals.decide"),
+      rooms:
+        stateOf(membership.modules, "rooms") !== "off" &&
+        membership.permissions.includes("guests.checkin"),
+      orders: membership.permissions.includes("orders.accept") && barOrdersShown,
+      texts:
+        membership.permissions.includes("texts.send") &&
+        stateOf(membership.modules, "guest_texts") !== "off",
+      print: membership.permissions.includes("pos.use"),
+    }),
+    [membership.permissions, membership.modules, barOrdersShown],
   );
   // "Bar orders · 2" (M3-16): every ringing and asked-to-wait order.
   const label = (id: string, key: MessageKey) =>
@@ -172,6 +200,14 @@ function Frame({ membership, name }: { membership: Membership; name: string }) {
             </div>
           )}
           <div className="screen-slot" ref={setSlotNode} />
+          {bellOn && (
+            <Bell
+              venueId={membership.venue_id}
+              userId={userId}
+              timeZone={membership.venue.time_zone}
+              reach={bellReach}
+            />
+          )}
           {!ownWho && (
             <div className="who">
               {t("shell.signedInAs", { name, role: t(roleKey[membership.role]) })}
