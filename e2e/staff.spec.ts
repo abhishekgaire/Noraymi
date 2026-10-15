@@ -9876,6 +9876,60 @@ for (const size of [
 }
 
 /**
+ * P-07 · Reports → Month: September 2026 with Fri Sep 4 closed (its Z report, $1,060.63 net) is in
+ * progress, names the nights left out, totals the closed night, and August has no closed nights.
+ */
+test("P-07 · the month: its closed nights' totals, in progress, and an empty month", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    const venue = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    const andy = (await db.query<{ id: string }>("select id from users where email = $1", [ANDY]))
+      .rows[0]!.id;
+    await db.query(
+      "delete from night_closes where venue_id = $1 and business_date = '2026-09-04'",
+      [venue],
+    );
+    const report = {
+      kind: "z",
+      sales: { room_time_cents: 64400, drinks_room_checks_cents: 42000, net_cents: 106063 },
+      tax_cents: 9413,
+      gratuity: { total_cents: 19200 },
+      payments: { cash_cents: 22775, card_present_cents: 80001, card_tips_cents: 4100 },
+    };
+    await db.query(
+      `insert into night_closes (venue_id, business_date, z_number, closed_at, closed_by, totals)
+       values ($1, '2026-09-04', 900, '2026-09-05T04:40:00-04:00', $2, $3)`,
+      [venue, andy, JSON.stringify({ report })],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/reports");
+    const month = page.getByRole("region", { name: "Month", exact: true });
+    await expect(month.getByLabel("Which month")).toHaveValue("2026-09");
+    await expect(month).toContainText("This month isn't over yet");
+    await expect(month).toContainText("Z 900");
+    await expect(month).toContainText("$1,060.63");
+    await expect(month).toContainText("$644.00");
+    await expect(month).toContainText("$94.13");
+    await expect(month.getByRole("button", { name: "Download the month (CSV)" })).toBeVisible();
+    await month.getByRole("button", { name: "Previous month" }).click();
+    await expect(month.getByLabel("Which month")).toHaveValue("2026-08");
+    await expect(month).toContainText("No closed nights in this month.");
+    await expect(month).not.toContainText("This month isn't over yet");
+  } finally {
+    await db.query(
+      "delete from night_closes where business_date = '2026-09-04' and z_number = 900",
+    );
+    await db.end();
+  }
+});
+
+/**
  * The outage and vendor banners (M8-01; spec 09 · Outages, screens N29). The
  * vendor-health job runs here as the worker runs it, on the venue's 10:41 PM,
  * after our own error rate on Stripe or Twilio is forced over its threshold.

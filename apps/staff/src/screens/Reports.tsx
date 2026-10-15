@@ -5,6 +5,7 @@ import { api, stepUpToken } from "../api.js";
 import { useVenueTime } from "../clock.js";
 import { useT } from "../i18n.js";
 import "./desk.css";
+import { ReportsMonth } from "./ReportsMonth.js";
 import { useSession } from "../session.js";
 
 /**
@@ -12,7 +13,7 @@ import { useSession } from "../session.js";
  * the running X report until the close and the Z report after it, linked to
  * Close the night; this week by night and the 8-week trend; "Reviews from the
  * morning text", Off while the Review ask text is off; tonight's exceptions;
- * the tax quarter; and the exports, each asking for the passkey again.
+ * the month (P-07); the tax quarter; and the exports, each asking for the passkey again.
  * Desktop and phone; English and Spanish.
  */
 interface Sales {
@@ -211,6 +212,7 @@ export function Reports() {
           </button>
         </section>
       </div>
+      <ReportsMonth venueId={venueId} tonight={tonight ?? ""} download={download} />
       <div className="desk-cols two">
         <section className="card desk-card" aria-labelledby="trend-title">
           <h2 id="trend-title">{t("reports.trends")}</h2>

@@ -140,13 +140,16 @@ Definition of done: see CLAUDE.md.
 
 ### P-07 · Monthly sales report
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7 reports
 - **Spec:** [Money rules](../spec/05-money-rules.md) · Close the night and reports
 - **Build:** Reports → **Month**: a month picker, the month's totals (sales by category, tax, gratuity, tips, discounts and comps, refunds, cash, card, outside card machine, room hours), each night in the month, and a CSV. From closed nights only; the month in progress says so.
 - **Acceptance:**
-  - [ ] The month equals the sum of its nights' Z reports to the cent; EN and ES; tests.
+  - [x] The month equals the sum of its nights' Z reports to the cent; EN and ES; tests.
+- **Notes:**
+  - `GET /reports/month?month=YYYY-MM` (`apps/api/src/routes/month-report.ts`, figures in `apps/api/src/nights/month.ts`) reads each closed night's Z report as stored at its close (`night_closes.totals.report`) and sums it figure by figure, so the month equals its Z reports by construction; no migration. Staff: a Month card on Reports (`ReportsMonth.tsx`) with ‹ › and a month picker. Tests: `month.test.ts`, `month-report.int.test.ts` (a real Friday close plus a stored Sep 4 Z report), the P-07 e2e in `staff.spec.ts`; manual test 30.7; spec 05 rule 16 and spec 08 · Reports and exports.
+  - Cautious defaults: "tips" are the Z report's card, cash and outside-machine tips (the gratuity has its own line); "card" is tap, card on file and online amounts before tips; refunds show both the sales side (`refunds_cents`) and the money returned to guests; room hours aren't on the Z report, so they're each closed night's billed (unpaused) room-session segment minutes, practice left out, an open segment ending with its session; the month in progress is any month not yet over (this one and later); past nights with sales or payments that weren't closed are named under "Not closed, so not counted" and never counted; the CSV asks for the passkey again like every export; an older Z report without a figure counts it as zero.
 
 ### P-08 · Reservations by month
 

@@ -30,6 +30,7 @@ import { unmatchedRoutes } from "./routes/unmatched.js";
 import { exportRoutes } from "./routes/exports.js";
 import { taxQuarterRoutes } from "./routes/tax-quarter.js";
 import { reportRoutes } from "./routes/reports.js";
+import { monthReportRoutes } from "./routes/month-report.js";
 import { tabHandOverRoutes } from "./routes/tab-hand-over.js";
 import { songRoutes } from "./routes/songs.js";
 import { publicSongRoutes, singerAuthenticator } from "./routes/songs-public.js";
@@ -428,6 +429,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       exportRoutes(scope, { clock, email: () => options.email ?? { allowList: null } });
       taxQuarterRoutes(scope, { clock });
       reportRoutes(scope, { clock });
+      monthReportRoutes(scope, { clock });
       disputeRoutes(scope, {
         pool: gatePoolRef!,
         clock,

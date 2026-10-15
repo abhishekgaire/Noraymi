@@ -1784,3 +1784,12 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 5. At the bar (Maya), open **Jess P.**'s tab and press **Print the bill**: Check #… · Bar tab · Jess P., Total $32.66.
 6. With a cash discount on (Admin → Card fee, or Sing Sing's 3.38%), the bill shows **Cash price** under the total and under Left to pay.
 7. The bill prints in the venue's first staff language: with Spanish first, CUENTA, Por pagar and "Esto no es un recibo".
+
+### 30.7 The month (P-07)
+
+1. Sign in as Andy and open **Reports**. The **Month** card shows September 2026 (the picker reads 2026-09) and "This month isn't over yet: only the nights already closed are counted." Before any close it says "No closed nights in this month."
+2. Close Friday (Close the night, section 15), then come back: Month lists **Fri, Sep 25 · Z 1** with its net sales, and the totals (room time, drinks in rooms and at the bar, comps, voids, discounts, refunds, net sales, sales tax, gratuity, cash, cards, card and cash tips, refunded to guests, room hours) equal Friday's Z report line for line. Food, packages, songs, the outside card machine and the like show only when the month has any.
+3. A past night with sales that was never closed is named under "Not closed, so not counted" and isn't in the totals.
+4. Press **‹** for August: "No closed nights in this month.", and no in-progress note. **›** comes back.
+5. **Download the month (CSV)** asks for your passkey again, then saves `west4-month-2026-09.csv`: one row per closed night with its Z number, then the month's total ("(in progress)" while the month isn't over); amounts in dollars, room time in minutes.
+6. With Spanish chosen, the card reads **Mes**, "Cada noche" and "Descargar el mes (CSV)". With Reports & accounting off (Admin → Features), the month isn't there and its address answers module_off.
