@@ -78,6 +78,11 @@ describe("settings schemas", () => {
     const bad = parseSetting("pos", { ...pos, printBarDrinkTickets: "yes" });
     expect(bad.ok).toBe(false);
     if (!bad.ok) expect(bad.reasons[0]).toMatch(/^pos\.printBarDrinkTickets/);
+    // "We run our own orders" (U-11): the same yes or no, absent reads as off.
+    expect(parseSetting("pos", { ...pos, selfRunOrders: true }).ok).toBe(true);
+    const badRun = parseSetting("pos", { ...pos, selfRunOrders: "on" });
+    expect(badRun.ok).toBe(false);
+    if (!badRun.ok) expect(badRun.reasons[0]).toMatch(/^pos\.selfRunOrders/);
   });
 
   it("kitchen (K-01): unsentWarnMin defaults to 5 and refuses a value outside 1 to 60; the notice needs both languages", () => {

@@ -246,6 +246,13 @@ export const posSchema = z
      * so a venue saved before it existed stays off.
      */
     printBarDrinkTickets: z.boolean().optional(),
+    /**
+     * "We run our own orders" (U-11; D133): the bar carries its own room orders, so a Ready card on
+     * Bar orders has Delivered and no "ready for a runner" push goes to every phone. It changes only
+     * which buttons show: Accept is still the sale and Delivered still charges nothing. Off by
+     * default, and absent reads as off, so a venue saved before it existed keeps its runners.
+     */
+    selfRunOrders: z.boolean().optional(),
     orderAging: z
       .object({
         phonesSec: z.number().nonnegative(),

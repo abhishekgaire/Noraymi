@@ -87,6 +87,8 @@ export function BarOrders() {
   const cutover = signedIn?.membership.venue.day_cutover ?? "06:00";
   const [orders, setOrders] = useState<readonly Order[] | null>(null);
   const [aging, setAging] = useState<Aging>(WEST4_AGING);
+  // "We run our own orders" (U-11; D133): a Ready card has Delivered, so nobody needs Runs.
+  const [selfRun, setSelfRun] = useState(false);
   const [failedJobs, setFailedJobs] = useState<ReadonlyMap<string, FailedJob>>(new Map());
   const [items, setItems] = useState<readonly MenuItem[]>([]);
   // After the alcohol window closes there's no Decline: alcohol nobody accepted cancels itself (M3-22).
@@ -103,7 +105,7 @@ export function BarOrders() {
     if (!venueId) return;
     try {
       const [o, f, m] = await Promise.all([
-        api<{ orders: Order[]; aging: Aging }>(
+        api<{ orders: Order[]; aging: Aging; self_run?: boolean }>(
           "GET",
           `/v1/venues/${venueId}/orders?status=${ALL}${night ? `&business_date=${night}` : ""}`,
         ),
@@ -115,6 +117,7 @@ export function BarOrders() {
       ]);
       setOrders(o.orders);
       setAging(o.aging);
+      setSelfRun(o.self_run === true);
       setFailedJobs(new Map(f.jobs.map((j) => [j.id, j])));
       setItems(m.categories.flatMap((c) => c.items));
       setWindowClosed(m.alcohol.state === "closed");
@@ -403,17 +406,33 @@ export function BarOrders() {
             </section>
 
             <section aria-labelledby="col-ready" className="bar-compact">
-              <h2 id="col-ready">{t("barOrders.col.ready")}</h2>
+              <h2 id="col-ready">
+                {t(selfRun ? "barOrders.col.readyOwn" : "barOrders.col.ready")}
+              </h2>
               <ul>
                 {ready.map((o) =>
                   card(
                     o,
-                    <p className="status">
-                      {t(staffOrderWordsKey(o), {
-                        age: mmss(ageS(o.ready_at)),
-                        name: o.claimed_by_name ?? "",
-                      })}
-                    </p>,
+                    <>
+                      <p className="status">
+                        {selfRun && o.status === "ready"
+                          ? t("barOrders.readyOwn", { age: mmss(ageS(o.ready_at)) })
+                          : t(staffOrderWordsKey(o), {
+                              age: mmss(ageS(o.ready_at)),
+                              name: o.claimed_by_name ?? "",
+                            })}
+                      </p>
+                      {/* U-11: the bar carries it itself. Delivered ends the run and charges nothing. */}
+                      {selfRun && o.status === "ready" && (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => void step(o, "deliver")}
+                        >
+                          {t("runs.deliver")}
+                        </button>
+                      )}
+                    </>,
                   ),
                 )}
               </ul>

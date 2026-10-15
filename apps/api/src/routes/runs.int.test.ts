@@ -1,12 +1,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
 import pg from "pg";
-import { loadDemoSeed } from "@west4/db";
-import { createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
+import { loadDemoSeed, withVenue } from "@west4/db";
+import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { SEED_NOW, SimulatedClock, Temporal, defaultPermissions } from "@west4/shared";
 import { buildApp } from "../app.js";
 import { loadConfig } from "../config.js";
 import type { Principal } from "../http/principal.js";
+import { selfRunOrders, stepOrder } from "../orders/pipeline.js";
 
 /** M3-18: runs on staff phones, returns, refusals and the runner's ID check at the room. */
 let db: TestDatabase;
@@ -122,5 +123,80 @@ describe("runs", () => {
       [ids["order_o4"]],
     );
     expect(row.rows[0]!.n).toBe(1);
+  });
+});
+
+/** U-11 (D133): "We run our own orders": Accept, Ready and Delivered from Bar orders, no runner. */
+describe("We run our own orders (U-11)", () => {
+  // Admin → Bar POS saves it (the e2e "U-11 …" goes through Save and publish); here it's written as is.
+  const setSelfRun = (on: boolean) =>
+    raw.query(
+      "update venue_settings set value = value || jsonb_build_object('selfRunOrders', $2::boolean) where venue_id = $1 and key = 'pos'",
+      [venueId, on],
+    );
+  const readyPushes = async (orderId: string) =>
+    (
+      await raw.query<{ n: number }>(
+        "select count(*)::int as n from jobs where kind = 'push.send' and payload->'message'->>'key' = 'orders.push.ready' and payload->'message'->>'tag' = $1",
+        [`run-${orderId}`],
+      )
+    ).rows[0]!.n;
+
+  it("is off by default: the bar's list says so", async () => {
+    who = as("andy", "manager");
+    const list = (await req("GET", "/orders?status=ready")).json<{ self_run: boolean }>();
+    expect(list.self_run).toBe(false);
+  });
+
+  it("on: Room 9's order is Accept (the sale), Ready with no runner's push, Delivered charging nothing", async () => {
+    who = as("andy", "manager");
+    await setSelfRun(true);
+    expect((await req("GET", "/orders?status=ready")).json().self_run).toBe(true);
+    const o1 = ids["order_o1"]!;
+    const before = (await req("GET", `/checks/${ids["chk_room9"]}`)).json().lines_cents;
+    expect((await req("POST", `/orders/${o1}/accept`, {})).statusCode).toBe(200);
+    const sold = (await req("GET", `/checks/${ids["chk_room9"]}`)).json().lines_cents;
+    expect(sold).toBeGreaterThan(before);
+    expect((await req("POST", `/orders/${o1}/ready`, {})).json().order.status).toBe("ready");
+    expect(await readyPushes(o1)).toBe(0);
+    // Straight from Ready to Delivered, no I've got it; the check doesn't move.
+    const done = (await req("POST", `/orders/${o1}/deliver`, {})).json().order;
+    expect(done).toMatchObject({
+      status: "delivered",
+      claimed_by: null,
+      delivered_by_name: "Andy C.",
+    });
+    expect((await req("GET", `/checks/${ids["chk_room9"]}`)).json().lines_cents).toBe(sold);
+  });
+
+  it("works as the API's own role (app_rw), behind the venue wall", async () => {
+    const rw = appPool(db.url);
+    try {
+      const o2 = ids["order_o2"]!;
+      const at = clock.now();
+      const input = { userId: ids["andy"]!, now: at };
+      const on = await withVenue(rw, { venueId }, (c) => selfRunOrders(c, venueId, at));
+      expect(on).toBe(true);
+      for (const step of ["accept", "ready", "deliver"] as const)
+        await withVenue(rw, { venueId }, (c) => stepOrder(c, venueId, o2, step, input));
+      const row = await raw.query<{ status: string }>("select status from orders where id = $1", [
+        o2,
+      ]);
+      expect(row.rows[0]!.status).toBe("delivered");
+      expect(await readyPushes(o2)).toBe(0);
+      // Another venue's context can't see West 4 at all, let alone its setting.
+      const other = "00000000-0000-4000-8000-0000000000aa";
+      await expect(
+        withVenue(rw, { venueId: other }, (c) => selfRunOrders(c, venueId, at)),
+      ).rejects.toThrow("no such venue");
+    } finally {
+      await rw.end();
+    }
+  });
+
+  it("off again: the bar's list says so", async () => {
+    who = as("andy", "manager");
+    await setSelfRun(false);
+    expect((await req("GET", "/orders?status=ready")).json().self_run).toBe(false);
   });
 });

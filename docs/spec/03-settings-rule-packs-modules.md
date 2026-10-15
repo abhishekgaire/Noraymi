@@ -148,6 +148,8 @@ type PosSettings = {                                        // the same shape as
   barTabTip: "reader" | "slip";                             // the slip stays as the fallback either way
   printBarDrinkTickets: boolean;                            // false: drinks rung on a bar tab or quick sale print no bar ticket (D99);
                                                             // room orders always print; managers and the owner change it in Admin → Bar POS
+  selfRunOrders?: boolean;                                  // "We run our own orders": absent or false (runners carry room orders); true puts
+                                                            // Delivered on Bar orders' Ready cards and sends no run-ready push (U-11, D133)
   orderAging: { phonesSec: number; amberSec: number; pinkSec: number; callSec: number };
                                                             // 30, 120, 240, 360: the board alerts at amber, the manager on duty is told at pink
   chime: boolean;                                           // true: a backup to the colors

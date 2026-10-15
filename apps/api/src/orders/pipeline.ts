@@ -88,6 +88,17 @@ async function nightOfNow(c: Queryable, venueId: string, now: Temporal.Instant) 
   return businessDate(now, v.timeZone, v.dayCutover).businessDate.toString();
 }
 
+/** "We run our own orders" (U-11; D133) on tonight's settings: absent reads as off. */
+export async function selfRunOrders(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+): Promise<boolean> {
+  const night = await nightOfNow(c, venueId, now);
+  const pos = await readSetting(c, venueId, "pos", Temporal.PlainDate.from(night));
+  return pos?.value.selfRunOrders === true;
+}
+
 async function ticket(
   c: Queryable,
   venueId: string,
@@ -408,6 +419,9 @@ export async function stepOrder(
     case "ready": {
       const done = await move({ ready_by: by, ready_at: now });
       await announce(c, venueId, done, "order.ready");
+      // A venue that runs its own orders (U-11, `pos.selfRunOrders`) delivers from Bar orders, so no
+      // phone is told a run is ready; Runs still lists it for anyone who carries one anyway.
+      if (await selfRunOrders(c, venueId, input.now)) return { status: "done", order: done };
       // Every role carries runs, so every signed-in staff phone hears a run is ready (M3-18, flagged).
       await enqueuePush(c, {
         venueId,

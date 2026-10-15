@@ -462,6 +462,7 @@ The staff app at desktop width. The bar and front-desk computers run it inside t
 7. **Outage banners (F12, C11).** The canvas has none. Build the banners and queue mode ([N29](#n29-outage-banners-and-queue-mode)). *Decided in [FB 4.9]. Spec: [Devices, printing and offline][spec-09].*
 8. **Module (F37).** The canvas is always there. Build Bar orders only while Bar screen & tickets is on. *Decided in [FB 4.16]. Spec: [Settings, rule packs and modules][spec-03].*
 9. **No bar device (F53).** The canvas has no alert for a venue with no bar device connected. Build it ([N32](#n32-no-bar-device-connected)): every bar-role phone buzzes, and the Board shows an alert during opening hours. *Not decided in the fix brief. Spec: [Devices, printing and offline][spec-09].*
+10. **We run our own orders (U-11, D133).** The canvas assumes runners. With the venue setting on (Admin → Bar POS, off by default), the Ready column reads **Ready** and each Ready card has **Delivered** (44 px), so Accept, Ready and Delivered happen on this screen; Delivered charges nothing. *Decided in [D133](decisions.md). Spec: [Staff screens and the bar POS][spec-10].*
 
 ### Rail
 

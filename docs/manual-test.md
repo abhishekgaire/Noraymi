@@ -1964,3 +1964,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. On a phone (390 wide) **+ Walk-in** is in the header too; with no room free it opens the waitlist.
 7. Spanish: **Por llegar · …**, **Registrar llegada de …**, **Buscar una reserva**, **para 6–12**.
 
+### 31.11 Room orders without runners (U-11)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Sign in as Andy and open **Bar orders**: Room 3's order sits under **Ready for a runner** with no button; a runner carries it from **Runs** on a phone, as before.
+2. Open **Admin → Bar POS**. Under **Room orders**, **We run our own orders** is off. Tick it and **Save and publish**: "Published".
+3. Back on **Bar orders**, the column reads **Ready**. Room 9's **2 × Margarita · Peach**: **Accept** (Room 9's tab gains the drinks now; Accept is the sale), then **Ready** under Being made, then **Delivered** on its card under Ready ("Ready · 0:05"). It moves to **Delivered tonight** with the time and Andy. Room 9's tab is the same as after Accept: Delivered charges nothing. Three taps, one screen, no phone.
+4. Room 3's order shows **Delivered** too. Nobody's phone is told "Room 9's order is ready for a runner" while the setting is on; **Runs** still lists Ready orders for anyone who carries one anyway.
+5. After 4 AM, an alcohol order nobody accepted still cancels by itself ("Cancelled at 4:00 AM"), whichever way the setting is.
+6. Untick the setting and publish: the column reads **Ready for a runner** again, with no Delivered at the bar.
+7. Spanish: **Llevamos nuestros propios pedidos**, **Listo**, **Entregado**.
+

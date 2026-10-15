@@ -1587,6 +1587,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barOrders.col.waiting": "Esperándote",
   "barOrders.col.making": "Preparándose",
   "barOrders.col.ready": "Listo para llevar",
+  "barOrders.col.readyOwn": "Listo",
+  "barOrders.readyOwn": "Listo · {age}",
   "barOrders.col.delivered": "Entregado esta noche",
   "barOrders.col.returned": "Devuelto",
   "barOrders.accept": "Aceptar · imprimir ticket",
@@ -2498,6 +2500,10 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "barPos.tickets.label": "Imprimir tickets de las bebidas marcadas en la barra",
   "barPos.tickets.hint":
     "Si Enviar imprime un ticket en la barra para las bebidas de una cuenta de bar o de una venta rápida. Los pedidos de las salas, de los clientes o del personal, siempre se imprimen.",
+  "barPos.selfRun": "Pedidos de las salas",
+  "barPos.selfRun.label": "Llevamos nuestros propios pedidos",
+  "barPos.selfRun.hint":
+    "Activado: quien prepara un pedido de sala lo lleva, así que un pedido Listo en Pedidos del bar tiene Entregado y no se avisa a los teléfonos de que hay un pedido para llevar. Aceptar sigue siendo la venta; Entregado nunca cobra.",
   "barPos.aging": "Tiempo de los pedidos",
   "barPos.aging.phones": "Teléfonos de barra, en segundos",
   "barPos.aging.amber": "Ámbar y la alerta del tablero, en minutos",
