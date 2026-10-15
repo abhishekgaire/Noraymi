@@ -12249,11 +12249,6 @@ test("U-09 · Room 3 offers Check in Jae & co., and + Walk-in for 6 takes the sm
   }
 });
 
-  } finally {
-    await db.end();
-  }
-});
-
 /**
  * U-04 (D133) · the tab screen: the round and Send sit under the tab's name, above what's on it, with Fix
  * and Discount folded; Close tab with a Jäger Bomb rung and not sent says "1 not sent · Send them first or
@@ -12384,3 +12379,7 @@ test("U-04 · the round first, Send & close charges the unsent drink, and Close 
     await page.getByRole("button", { name: /^Modelo · \$/ }).click();
     await expect(panel.getByRole("button", { name: "Pay for 1" })).toBeVisible();
     expect(await unsentOnSeat7()).toBe(0);
+  } finally {
+    await db.end();
+  }
+});
