@@ -22,10 +22,32 @@ const toCents = (text: string): number | null => {
   return m ? Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0")) : null;
 };
 
+/**
+ * Both prices before the guest chooses (U-02; Money rules 10): "Card $13.92 · Cash $13.41", with the
+ * cash price the API worked out. Nothing with the cash discount off or nothing due.
+ */
+export function CardAndCash({
+  cardCents,
+  cashCents,
+}: {
+  cardCents: number;
+  cashCents: number | null | undefined;
+}) {
+  const { t, money } = useT();
+  if (cashCents === null || cashCents === undefined || cardCents <= 0 || cashCents === cardCents)
+    return null;
+  return (
+    <p className="small card-and-cash">
+      {t("cash.bothPrices", { card: money(cents(cardCents)), cash: money(cents(cashCents)) })}
+    </p>
+  );
+}
+
 export function CashPanel({
   venueId,
   checkId,
   dueCents,
+  cashCents = null,
   shareId,
   onTaken,
   oneTap = false,
@@ -34,6 +56,12 @@ export function CashPanel({
   venueId: string;
   checkId: string;
   dueCents: number;
+  /**
+   * The cash price of `dueCents` with the cash discount on (U-02), as the API gave it: Exact, the bill
+   * offers, the change and Take are worked from it. Null with the discount off (or on a share, which
+   * the server never discounts); what's sent is still `dueCents`, discounted on the server.
+   */
+  cashCents?: number | null;
   /** A split's share (M4-14): the payment pays it. */
   shareId?: string | null;
   onTaken: (taken: Taken) => void;
@@ -50,15 +78,14 @@ export function CashPanel({
   const [busy, setBusy] = useState(false);
 
   const tipCents = toCents(tip) ?? 0;
-  const offers = cashOffers(dueCents + tipCents);
+  // What the cash pays: the cash price with the cash discount on, else what's due.
+  const owedCents = !shareId && cashCents !== null && cashCents > 0 ? cashCents : dueCents;
+  const offers = cashOffers(owedCents + tipCents);
   const change =
-    tendered === null
-      ? null
-      : changeDue({ owedCents: dueCents, tipCents, tenderedCents: tendered });
+    tendered === null ? null : changeDue({ owedCents, tipCents, tenderedCents: tendered });
 
   const take = async (handed: number | null = tendered) => {
-    const owed =
-      handed === null ? null : changeDue({ owedCents: dueCents, tipCents, tenderedCents: handed });
+    const owed = handed === null ? null : changeDue({ owedCents, tipCents, tenderedCents: handed });
     if (handed === null || owed === null) return;
     setBusy(true);
     setError(null);
@@ -94,6 +121,7 @@ export function CashPanel({
   return (
     <section className="cash" aria-label={t("cash.title")}>
       <h3>{t("cash.title")}</h3>
+      {owedCents !== dueCents && <CardAndCash cardCents={dueCents} cashCents={owedCents} />}
       <div className="team-actions" role="group" aria-label={t("cash.handedOver")}>
         {offers.map((o) => (
           <button
@@ -148,7 +176,7 @@ export function CashPanel({
         disabled={busy || change === null}
         onClick={() => void take()}
       >
-        {t("cash.take", { amount: money(cents(dueCents + tipCents)) })}
+        {t("cash.take", { amount: money(cents(owedCents + tipCents)) })}
       </button>
       {error && (
         <p className="error" role="alert">

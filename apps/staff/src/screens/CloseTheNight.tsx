@@ -5,7 +5,7 @@ import { useEvents } from "../events.js";
 import "./desk.css";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
-import { CashPanel } from "./CashPanel.js";
+import { CardAndCash, CashPanel } from "./CashPanel.js";
 import { DrawerPanel } from "./DrawerPanel.js";
 import { NightChecks, type Check } from "./NightChecks.js";
 import { ReportPanel } from "./ReportPanel.js";
@@ -42,6 +42,8 @@ interface FailedTab {
   readonly card: { readonly brand: string; readonly last4: string } | null;
   readonly business_date: string;
   readonly owed_cents: number;
+  /** U-02: what cash pays for it with the cash discount on, or null. */
+  readonly cash_owed_cents?: number | null;
   readonly saved_card: boolean;
 }
 interface Night {
@@ -338,6 +340,7 @@ function FailedTabRow({
           })}
         </span>
       </div>
+      {way === null && <CardAndCash cardCents={tab.owed_cents} cashCents={tab.cash_owed_cents} />}
       {note && (
         <p role="status" className="notice">
           {note}
@@ -359,6 +362,7 @@ function FailedTabRow({
           venueId={venueId}
           checkId={tab.check_id}
           dueCents={tab.owed_cents}
+          cashCents={tab.cash_owed_cents ?? null}
           payUrl={settleUrl}
           oneTap
           onTaken={() => {

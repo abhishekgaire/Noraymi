@@ -1782,6 +1782,7 @@ export const en = {
   "cash.fixSave": "Fix the change",
   "cash.failed": "Couldn't take the cash. Try again.",
   "cash.overDue": "That's more than this check still owes",
+  "cash.bothPrices": "Card {card} · Cash {cash}",
   "drawers.title": "Cash drawers",
   "drawers.printer": "On {printer}'s kick port",
   "drawers.open": "Open · {amount} starting bank",

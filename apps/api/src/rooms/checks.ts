@@ -22,6 +22,8 @@ import { workOut } from "./finalize.js";
 import { discountView } from "./discount.js";
 import { savedCardFor } from "../payments/card-on-file.js";
 import { checkPayments } from "./guest-bill.js";
+import { cashPricer } from "../payments/surcharge.js";
+import { businessDate } from "@west4/rules";
 import { movableLines, movedHolds } from "../tabs/move.js";
 
 /**
@@ -146,6 +148,15 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
   // out of what's due, since paying the room replaces them (Money rules 12).
   const holds = await movedHolds(c, venueId, id);
   const due = holds.length ? await amountDueBesideHolds(c, id) : await amountDue(c, id);
+  const clock = await venueClock(c, venueId);
+  // The cash price of what's due (U-02; Money rules 10): what cash would pay tonight with the cash
+  // discount on, by the same rule as taking it, so the cash panel never works it out; null when off.
+  const pricer = await cashPricer(
+    c,
+    venueId,
+    businessDate(now, clock.timeZone, clock.dayCutover).businessDate.toString(),
+  );
+  const cashDue = pricer && due > 0 ? await pricer({ checkId: id, amountCents: due }) : null;
   // Moved lines name the check on the other side: "Moved from Jess P.'s bar tab", "Moved to Room 9".
   // Which lines are alcohol, for the fix panel's Move to grey out cut-off tabs (M6-13).
   const alcohol = new Set(
@@ -223,10 +234,11 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
     split: await openSplit(c, venueId, id),
     deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),
     amount_due_cents: due,
+    cash_due_cents: cashDue,
     check: {
       ...found.check,
       label: `#${found.check.number}`,
-      opened_label: formatCheckTime(found.check.opened_at, (await venueClock(c, venueId)).timeZone),
+      opened_label: formatCheckTime(found.check.opened_at, clock.timeZone),
     },
     totals,
     ...(await discountView(c, venueId, id, discountCents)),

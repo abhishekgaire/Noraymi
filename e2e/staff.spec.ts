@@ -6,7 +6,7 @@ import pg from "pg";
 import { SoftwarePasskey } from "../apps/api/src/auth/test-passkey.js";
 import { fakeFingerprint } from "../apps/api/src/stripe/fake/payments.js";
 import { catalogs, makeDeviceKey, signDeviceRequest, Temporal } from "@west4/shared";
-import { offlineCodeAt } from "@west4/rules";
+import { cashDiscount, offlineCodeAt } from "@west4/rules";
 import { sweepRouters } from "../apps/api/src/jobs/router-watch.js";
 import { subscribeVenue } from "../apps/api/src/billing/plan.js";
 import { StripeClient } from "../apps/api/src/stripe/client.js";
@@ -11874,6 +11874,79 @@ test("U-08: a void over the limit asks for Andy's PIN right there, and the strip
       "VOID · Jäger Bomb",
     );
     expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/** U-02 · with a cash discount on (Sing Sing's 3.38%), every cash screen works from the cash price. */
+test("U-02 · cash discount: the quick sale shows Card · Cash, Exact takes the cash price with $0.00 change, and Close tab shows both", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    // Sing Sing's cash discount (D130) on this venue's pay setting.
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select venue_id, key, version + 1,
+              jsonb_set(value, '{cardFee}', '{"mode":"discount","pct":3.38,"foodIncludesFee":true}'::jsonb), starts_on
+         from venue_settings where venue_id = $1 and key = 'pay' order by version desc limit 1`,
+      [venueId],
+    );
+    const usd = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const cashOf = (c: number) =>
+      cashDiscount({
+        amountCents: c,
+        pct: "3.38",
+        taxRatePct: "8.875",
+        foodIncludesFee: true,
+        foodWeightCents: 0,
+        otherWeightCents: 0,
+      }).cashPaysCents;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const sale = panel.getByRole("region", { name: "Quick sale" });
+    const totalText = (await sale.locator("p.total strong").textContent()) ?? "";
+    const card = Math.round(Number(totalText.replace(/[^\d.]/g, "")) * 100);
+    const cash = cashOf(card);
+    expect(cash).toBeLessThan(card);
+    // Both prices before the guest chooses, and the cash panel worked from the cash price.
+    await expect(sale.getByText(`Card ${usd(card)} · Cash ${usd(cash)}`)).toBeVisible();
+    const cashPanel = sale.getByRole("region", { name: "Cash" });
+    await expect(
+      cashPanel.getByRole("button", { name: `Take ${usd(cash)} in cash` }),
+    ).toBeVisible();
+    // One tap on Exact takes the cash price, with no change.
+    await cashPanel.getByRole("button", { name: `Exact ${usd(cash)}` }).click();
+    const taken = panel.getByRole("region", { name: "Cash taken" });
+    await expect(taken.getByLabel("Change")).toHaveText("Change $0.00");
+    const paid = await db.query<{ amount_cents: number }>(
+      `select p.amount_cents::int as amount_cents from payments p
+        where p.venue_id = $1 and p.method = 'cash' order by p.created_at desc limit 1`,
+      [venueId],
+    );
+    expect(paid.rows[0]!.amount_cents).toBe(cash);
+    expect(await clippedText(page)).toEqual([]);
+
+    // Close tab: the tab's rest at both prices before choosing how to pay.
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    const closeTab = panel.getByRole("region", { name: "Close tab" });
+    await expect(closeTab.getByText(/^Card \$[\d,.]+ · Cash \$[\d,.]+$/)).toBeVisible();
   } finally {
     await db.end();
   }

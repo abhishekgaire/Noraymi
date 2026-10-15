@@ -203,7 +203,7 @@ export function nightRoutes(
           },
           tab_cut_off_at: cutOff?.toString() ?? null,
           // Tabs whose capture failed, from any night, until a manager settles them (M6-17).
-          capture_failed: await failedTabs(c, venueId),
+          capture_failed: await failedTabs(c, venueId, now),
           // The checks before closing (M7-12), each with its fix; the person asking is exempt from the clock.
           checks: await nightChecks(
             c,

@@ -6,6 +6,7 @@ import { venueClock } from "../rooms/assignment.js";
 import { holdView, tabOfCheck } from "./hold.js";
 import { slipView } from "./tip.js";
 import { tabSavedCard } from "./saved-card.js";
+import { cashPricer } from "../payments/surcharge.js";
 
 /**
  * Bar tabs as the bar POS lists them (M6-02; API · Bar tabs; Staff screens and
@@ -86,6 +87,8 @@ export async function listTabs(
         ).rows.map((r) => [r.check_id, r.n]),
       )
     : new Map<string, number>();
+  // U-02: the cash price of each tab's rest with the cash discount on (one read of its terms).
+  const cashPrice = await cashPricer(c, venueId, today);
   return Promise.all(
     rows.map(async (t) => {
       const view = await checkView(c, venueId, t.check_id, now);
@@ -118,6 +121,7 @@ export async function listTabs(
         )
       ).rows[0]!;
       const total = view.totals?.total_cents ?? 0;
+      const rest = Math.max(0, total - beside.captured - beside.charging);
       // A tab with no standing hold (reopened after its hold was captured, M6-12): never "Close to card";
       // the card saved from its first tap, if the reader saved one, and a charge on it waiting for a Yes.
       const noHold = OPEN.includes(t.state) && held?.payment_status !== "authorized";
@@ -186,7 +190,12 @@ export async function listTabs(
           : null,
         paid_cents: beside.captured,
         // What the next charge is: always the rest.
-        rest_cents: Math.max(0, total - beside.captured - beside.charging),
+        rest_cents: rest,
+        // U-02: what cash pays for the rest with the cash discount on, or null (off, or nothing left).
+        cash_rest_cents:
+          cashPrice && rest > 0
+            ? await cashPrice({ checkId: t.check_id, amountCents: rest })
+            : null,
         cut_off: t.cut_off_at
           ? { at: t.cut_off_at, by: t.cut_off_by_name, reason: t.cut_off_reason }
           : null,

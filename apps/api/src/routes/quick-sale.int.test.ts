@@ -1,7 +1,8 @@
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { FastifyInstance } from "fastify";
-import { Worker, generateSigningKey, loadDemoSeed, publishRulePack } from "@west4/db";
+import { Worker, generateSigningKey, loadDemoSeed, publishRulePack, withVenue } from "@west4/db";
+import { cashDiscount } from "@west4/rules";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
@@ -11,6 +12,7 @@ import { makePaymentHandlers } from "../payments/run.js";
 import { StripeClient } from "../stripe/client.js";
 import { FakeStripe } from "../stripe/fake/index.js";
 import { fakeStripeSettings } from "../stripe/settings.js";
+import { nightReport } from "../nights/report.js";
 
 /** Quick sale (M6-05): a walk-up sale's own check, the reader's tip choices, cash, and a declined tap. */
 let db: TestDatabase;
@@ -271,5 +273,81 @@ describe("Quick sale", () => {
         [venueId],
       );
     }
+  });
+
+  it("U-02: with Sing Sing's 3.38% cash discount the sale, the check and each tab carry the cash price, and Exact takes it with no change", async () => {
+    // Sing Sing's cash discount (D130) on this venue's pay setting, as a new version for tonight.
+    const top = (
+      await owner.query<{ v: number }>(
+        "select max(version)::int as v from venue_settings where venue_id = $1 and key = 'pay'",
+        [venueId],
+      )
+    ).rows[0]!.v;
+    await owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select venue_id, key, version + 1, jsonb_set(value, '{cardFee}', $2::jsonb), starts_on
+         from venue_settings where venue_id = $1 and key = 'pay' and version = $3`,
+      [venueId, JSON.stringify({ mode: "discount", pct: 3.38, foodIncludesFee: true }), top],
+    );
+    const rule = (amountCents: number) =>
+      cashDiscount({
+        amountCents,
+        pct: 3.38,
+        taxRatePct: "8.875",
+        foodIncludesFee: true,
+        foodWeightCents: 0,
+        otherWeightCents: 0,
+      }).cashPaysCents;
+    const cashTonight = async () =>
+      (
+        await withVenue(workerPool, { venueId }, (c) =>
+          nightReport(c, venueId, "2026-09-25", clock.now()),
+        )
+      ).payments.cash_cents;
+    try {
+      const before = await cashTonight();
+      const sale = (await sell([{ variant_id: v("bud"), qty: 2 }])).json();
+      expect(sale.cash_due_cents).toBe(rule(sale.amount_due_cents));
+      expect(sale.cash_due_cents).toBeLessThan(sale.amount_due_cents);
+      // The check read (a room's close-out reads it) carries the same cash price.
+      const check = await app.inject({
+        method: "GET",
+        url: `/v1/venues/${venueId}/checks/${sale.check_id}`,
+      });
+      expect(check.json().cash_due_cents).toBe(sale.cash_due_cents);
+      // Exact: the cash price handed over, the card amount sent; the server discounts it, no change.
+      const cash = await app.inject({
+        method: "POST",
+        url: `/v1/venues/${venueId}/checks/${sale.check_id}/payments`,
+        headers: { "idempotency-key": `quick-cash-price-${n}` },
+        payload: {
+          method: "cash",
+          amount_cents: sale.amount_due_cents,
+          tendered_cents: sale.cash_due_cents,
+        },
+      });
+      expect(cash.statusCode, cash.body).toBe(201);
+      expect(cash.json().change_cents).toBe(0);
+      expect(cash.json().amount_cents).toBe(sale.cash_due_cents);
+      const k = await owner.query("select status from checks where id = $1", [sale.check_id]);
+      expect(k.rows[0].status).toBe("paid");
+      // The Z report's cash is the cash price.
+      expect((await cashTonight()) - before).toBe(sale.cash_due_cents);
+      // Each open tab with something left carries its rest's cash price.
+      const tabs = (
+        await app.inject({ method: "GET", url: `/v1/venues/${venueId}/tabs?state=open` })
+      ).json().tabs as { check_id: string; rest_cents: number; cash_rest_cents: number | null }[];
+      const owing = tabs.filter((t) => t.rest_cents > 0);
+      expect(owing.length).toBeGreaterThan(0);
+      for (const t of owing) expect(t.cash_rest_cents).toBe(rule(t.rest_cents));
+    } finally {
+      await owner.query(
+        "delete from venue_settings where venue_id = $1 and key = 'pay' and version > $2",
+        [venueId, top],
+      );
+    }
+    // With the discount off, no cash price.
+    const off = (await sell([{ variant_id: v("bud"), qty: 1 }])).json();
+    expect(off.cash_due_cents).toBeNull();
   });
 });

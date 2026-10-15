@@ -1882,6 +1882,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Back at West 4 (readers registered by the demo), on the bar computer as Maya: ring a drink and **Pay for 1**. The reader panel comes first with **Bar S710** already picked, so **Send $… to the reader** works in one tap; on the front desk, Room 9's close-out has **Front desk S710** picked. With Paid on outside card machine switched on in Admin → Features, **Outside card machine** shows below Cash.
 7. With the switch off, the server refuses an outside-machine payment on a quick sale (`quick-sale.int.test.ts` checks it).
 
+### 31.2 The cash price wherever cash is taken (U-02)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing's cash discount is on at 3.38%). On the bar computer, switch to Sing Sing and sign in as Maya (`4071`).
+2. Tap a drink, then **Pay for 1**. Above the cash buttons: **Card $… · Cash $…**, the cash price lower by 3.38% and the tax on that (Money rules 10: a $13.92 amount due is Cash $13.41, the $0.47 discount and $0.04 of tax off). **Exact** and **Take … in cash** show the cash price, and the $5/$10/$20 offers are the next bills above it.
+3. Tap **Exact**: the cash is taken in one tap, the change reads **$0.00**, and Close the night's X report counts the cash price under Cash.
+4. Tap a bill instead (say **$20.00**) on another sale: the change is $20.00 less the cash price, not the card price.
+5. Open a tab with drinks and tap **Close tab**: **Card $… · Cash $…** shows under the total before choosing; **Cash** then works from the cash price. A room's close-out (Present the check) shows the same line in its cash panel, and Close the night's tab that couldn't be charged shows both prices before **Cash**.
+6. A split share shows one price: a share is never discounted.
+7. At West 4 (no cash discount) nothing changes: one price, Exact is the total.
+8. With Spanish chosen: **Tarjeta $… · Efectivo $…**.
+
 ### 31.8 The manager's PIN where the approval is asked (U-08)
 
 1. As Abhishek (owner), open **Admin → Features → Choices** and pick **Manager's PIN at the register** under how approvals are decided.
@@ -1890,3 +1901,4 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 4. Void **Jäger Bomb** the same way, but tap **Later**: the panel reads "Needs a manager's PIN", and the strip at the top reads "Void Needs a manager's PIN" with **Manager's PIN**. Tap it: the same dialog. Andy's PIN and **Decline**: the strip reads "Declined by Andy C." and clears itself after about 8 seconds (or tap **Dismiss**); the Jäger Bomb stays on the tab.
 5. With Spanish chosen: **Necesita el PIN de un gerente**, **Aprobar**, **Rechazar**, **Más tarde**.
 6. Back in Admin, pick **On the manager's phone**: the next void over the limit reads "Waiting for Andy C." on the strip as before, with no dialog, and Andy approves on his phone.
+

@@ -119,6 +119,8 @@ export async function quickSaleView(
     check_label: view.check.label,
     totals: view.totals,
     amount_due_cents: view.amount_due_cents,
+    // U-02: the cash price with the cash discount on (null when off), for "Card $13.92 · Cash $13.41".
+    cash_due_cents: view.cash_due_cents,
     drinks_before_tax_cents: drinks,
     tip_choices: choices ? { kind: choices.kind, choices_cents: choices.choicesCents } : null,
     lines: view.lines.filter((l) => !["tax", "gratuity", "room_time"].includes(l.kind)),

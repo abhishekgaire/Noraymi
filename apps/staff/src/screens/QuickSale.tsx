@@ -31,6 +31,8 @@ interface Sale {
   readonly check_id: string;
   readonly check_label: string;
   readonly amount_due_cents: number;
+  /** U-02: the cash price with the cash discount on (null when off), from the API. */
+  readonly cash_due_cents?: number | null;
   readonly totals: { readonly total_cents: number } | null;
   readonly tip_choices: {
     readonly kind: "fixed" | "percent";
@@ -248,6 +250,7 @@ export function QuickSale({
                 venueId={venueId}
                 checkId={sale.check_id}
                 dueCents={sale.amount_due_cents}
+                cashCents={sale.cash_due_cents ?? null}
                 oneTap
                 onTaken={(taken) => {
                   setCash(taken);

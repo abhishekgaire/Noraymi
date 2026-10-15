@@ -119,6 +119,8 @@ interface Tab {
   readonly split: Split | null;
   readonly paid_cents: number;
   readonly rest_cents: number;
+  /** U-02: what cash pays for the rest with the cash discount on (the API's), or null. */
+  readonly cash_rest_cents?: number | null;
   /** Reopened after its hold was captured (M6-12): "Paid $272.19 · no hold", never Close to card. */
   readonly no_hold: boolean;
   /** Opened without a card (P-03). */
@@ -1482,6 +1484,7 @@ export function Rail() {
                     checkId={tab.check_id}
                     card={tab.card ? `${tab.card.brand ?? ""} ··${tab.card.last4}`.trim() : null}
                     totalCents={tab.rest_cents}
+                    cashCents={tab.cash_rest_cents ?? null}
                     resume={tab.state === "tipping"}
                     noHold={tab.no_hold}
                     savedCard={

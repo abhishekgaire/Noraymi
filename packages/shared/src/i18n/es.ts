@@ -1821,6 +1821,7 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cash.fixSave": "Corregir el cambio",
   "cash.failed": "No se pudo cobrar el efectivo. Inténtalo de nuevo.",
   "cash.overDue": "Es más de lo que aún se debe de esta cuenta",
+  "cash.bothPrices": "Tarjeta {card} · Efectivo {cash}",
   "drawers.title": "Cajones de efectivo",
   "drawers.printer": "En el puerto del cajón de {printer}",
   "drawers.open": "Abierto · fondo inicial de {amount}",
