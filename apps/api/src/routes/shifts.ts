@@ -84,6 +84,9 @@ const refusal = (e: unknown): never => {
   throw e;
 };
 
+/** Cash tips as whole cents, $0.00 included: never a float (U-06). */
+const cashTips = z.number().int().min(0).max(10_000_000);
+
 export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   const staff = route({ principals: ["owner_manager", "staff"], module: "team" });
   const write = route({
@@ -166,12 +169,22 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       return request.inVenue(async (c) => {
         const team = await teamOnTheClock(c, request.venueId!);
         const mine = team.find((t) => t.membership_id === m.membershipId);
+        // The duty of their last shift, so Clock in comes with it picked (U-14).
+        const last = (
+          await c.query<{ duty: Duty }>(
+            `select duty from shifts where venue_id = $1 and membership_id = $2
+              order by started_at desc limit 1`,
+            [request.venueId!, m.membershipId],
+          )
+        ).rows[0];
         return {
           server_time: options.clock.now().toString(),
           me: {
             membership_id: m.membershipId,
             duties: dutiesFor(m.role),
             shift: mine?.shift ?? null,
+            last_duty:
+              last && dutiesFor(m.role).includes(last.duty) ? last.duty : (null as Duty | null),
           },
           team,
         };
@@ -210,25 +223,46 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
     },
   );
 
+  // Clock out (M7-11), in one tap (U-14; D133): with { cash_tips_cents } the cash tips are
+  // declared in the same transaction, then the checklist is checked, then the punch. Any other
+  // line still open refuses with 409 checklist_open and rolls the declaration back with it, so
+  // nothing is half done; without an amount, a shift still owing its declaration is refused.
+  const clockOutBody = z.object({ cash_tips_cents: cashTips.optional() }).strict();
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/shifts/clock-out",
     { config: write },
     async (request) => {
-      // The checklist (M7-11): clock-out finishes only once it's clear.
+      const parsed = clockOutBody.safeParse(request.body ?? {});
+      if (!parsed.success)
+        throw new ApiError("invalid_request", "send {} or { cash_tips_cents } in whole cents");
       const m = me(request);
       const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
-      const items = await request.inVenue((c) =>
-        clockOutChecklist(c, request.venueId!, {
+      const venueId = request.venueId!;
+      const tips = parsed.data.cash_tips_cents;
+      return request.inVenue(async (c) => {
+        if (tips !== undefined) await declareCashTips(c, venueId, m.membershipId, tips, true);
+        const items = await clockOutChecklist(c, venueId, {
           userId: p.userId,
           membershipId: m.membershipId,
           role: m.role,
-        }),
-      );
-      if (items.length > 0)
-        throw new ApiError("checklist_open", "there's still something to do before you clock out", {
-          details: { items },
         });
-      return punch(request, "clock_out");
+        if (items.length > 0)
+          throw new ApiError(
+            "checklist_open",
+            "there's still something to do before you clock out",
+            { details: { items } },
+          );
+        const venue = await venueClock(c, venueId);
+        const shift = await recordPunch(c, {
+          venueId,
+          membershipId: m.membershipId,
+          kind: "clock_out",
+          at: options.clock.now(),
+          deviceId: deviceOf(request),
+          venue,
+        }).catch(refusal);
+        return { shift: shiftView(shift), cash_tips_cents: tips ?? null };
+      });
     },
   );
 
@@ -252,9 +286,7 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
   );
 
   // Declare cash tips at clock-out (M7-11): any amount, $0.00 included; over zero it's a cash_tip ledger row.
-  const declareBody = z
-    .object({ cash_tips_cents: z.number().int().min(0).max(10_000_000) })
-    .strict();
+  const declareBody = z.object({ cash_tips_cents: cashTips }).strict();
   app.post<{ Params: { venueId: string }; Body: unknown }>(
     "/v1/venues/:venueId/shifts/declare-tips",
     { config: write },
@@ -263,32 +295,51 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
       if (!parsed.success) throw new ApiError("invalid_request", "send { cash_tips_cents }");
       const m = me(request);
       const venueId = request.venueId!;
-      return request.inVenue(async (c) => {
-        const shift = (
-          await c.query<{ id: string; business_date: string; declared: boolean }>(
-            `select id, business_date::text, cash_tips_declared_at is not null as declared from shifts
-              where venue_id = $1 and membership_id = $2 and ended_at is null for update`,
-            [venueId, m.membershipId],
-          )
-        ).rows[0];
-        if (!shift) throw new ApiError("invalid_request", "you're not on the clock");
-        if (shift.declared)
-          throw new ApiError("version_conflict", "your cash tips are already declared");
-        await c.query(
-          "update shifts set cash_tips_declared_cents = $3, cash_tips_declared_at = $4 where venue_id = $1 and id = $2",
-          [venueId, shift.id, parsed.data.cash_tips_cents, options.clock.now().toString()],
-        );
-        if (parsed.data.cash_tips_cents > 0)
-          await c.query("select tip_ledger_write($1, 'cash_tip', $2, $3::date, null, null, null)", [
-            venueId,
-            parsed.data.cash_tips_cents,
-            shift.business_date,
-          ]);
-        await emitEvent(c, { venueId, type: "shift.updated", entityId: shift.id });
-        return { shift_id: shift.id, cash_tips_cents: parsed.data.cash_tips_cents };
-      });
+      return request.inVenue((c) =>
+        declareCashTips(c, venueId, m.membershipId, parsed.data.cash_tips_cents, false),
+      );
     },
   );
+
+  /**
+   * The declaration on the caller's open shift. Once made it stands: declaring again is refused,
+   * except that clock-out (`again`) may carry the same amount, so its retry still goes through.
+   */
+  async function declareCashTips(
+    c: Queryable,
+    venueId: string,
+    membershipId: string,
+    cents: number,
+    again: boolean,
+  ) {
+    const shift = (
+      await c.query<{ id: string; business_date: string; declared: boolean; cents: number | null }>(
+        `select id, business_date::text, cash_tips_declared_at is not null as declared,
+                cash_tips_declared_cents::int as cents from shifts
+          where venue_id = $1 and membership_id = $2 and ended_at is null for update`,
+        [venueId, membershipId],
+      )
+    ).rows[0];
+    if (!shift) throw new ApiError("invalid_request", "you're not on the clock");
+    if (shift.declared) {
+      if (again && shift.cents === cents) return { shift_id: shift.id, cash_tips_cents: cents };
+      throw new ApiError("version_conflict", "your cash tips are already declared", {
+        details: { cash_tips_cents: shift.cents },
+      });
+    }
+    await c.query(
+      "update shifts set cash_tips_declared_cents = $3, cash_tips_declared_at = $4 where venue_id = $1 and id = $2",
+      [venueId, shift.id, cents, options.clock.now().toString()],
+    );
+    if (cents > 0)
+      await c.query("select tip_ledger_write($1, 'cash_tip', $2, $3::date, null, null, null)", [
+        venueId,
+        cents,
+        shift.business_date,
+      ]);
+    await emitEvent(c, { venueId, type: "shift.updated", entityId: shift.id });
+    return { shift_id: shift.id, cash_tips_cents: cents };
+  }
 
   // Tonight's punches, for Admin → Team's "Time clock · tonight" (owners and managers).
   const managers = route({ principals: ["owner_manager"], module: "team" });

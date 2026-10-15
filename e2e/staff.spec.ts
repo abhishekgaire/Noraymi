@@ -9408,7 +9408,8 @@ for (const width of [1280, 390]) {
       const tile = (name: RegExp) => page.getByRole("button", { name });
       const lockScreen = async () => {
         if (width === 390) await page.getByRole("button", { name: "Open the menu" }).click();
-        await page.getByRole("button", { name: "Lock", exact: true }).click();
+        // The bar POS has its own Lock too (U-07): either one locks.
+        await page.getByRole("button", { name: "Lock", exact: true }).first().click();
         await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
       };
       await expect(tile(/Maya S\./).locator(".tile-shift")).toHaveText("On since 4:00 PM (6h 41m)");
@@ -9419,7 +9420,14 @@ for (const width of [1280, 390]) {
       await expect(tile(/Abhishek G\./).locator(".tile-shift")).toHaveText("Not on shift");
       expect(await clippedText(page)).toEqual([]);
 
-      // Abhishek isn't on the clock: after his PIN, the duty picker, Manager included; no duty, no clock-in.
+      // Abhishek, an owner off the clock, goes straight on after his PIN (U-14).
+      await tile(/Abhishek G\./).click();
+      await typePin(page, "915204");
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+      await lockScreen();
+      await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
+      // Asking for the time clock: the duty picker, Manager included; no duty, no clock-in.
+      await page.getByRole("button", { name: "Time clock" }).click();
       await tile(/Abhishek G\./).click();
       await typePin(page, "915204");
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("Time clock");
@@ -9427,10 +9435,8 @@ for (const width of [1280, 390]) {
       await expect(duties).toHaveText(["Bar", "Front desk", "Runner", "Manager"]);
       await expect(page.getByRole("button", { name: "Clock in" })).toBeDisabled();
       expect(await clippedText(page)).toEqual([]);
-      await page.getByRole("button", { name: "Not now" }).click();
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
-      await lockScreen();
-      await expect(page.getByRole("status")).toHaveText("Locked · sign in to continue");
+      await page.getByRole("button", { name: "Done" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
 
       // Maya asks for the time clock and starts a break.
       await page.getByRole("button", { name: "Time clock" }).click();
@@ -9456,34 +9462,39 @@ for (const width of [1280, 390]) {
       await page.getByRole("button", { name: "Time clock" }).click();
       await tile(/Diego R\./).click();
       await typePin(page, "6358");
-      await page.getByRole("button", { name: "Clock out" }).click();
-      // His clock-out checklist (M7-11): two open tabs, his unsent Red Bull, and his cash tips.
+      // His clock-out checklist (M7-11), before the first tap (U-14): two open tabs, his unsent
+      // Red Bull, and his cash tips.
       const list = page.getByRole("region", { name: "Before you clock out" });
       await expect(list).toContainText("Tariq A.'s tab is still open");
+      await expect(list).toContainText("Seat 6 · blue jacket's tab is still open");
       await expect(list).toContainText("1 unsent on Tariq A.'s tab: they go with the tab");
-      for (const name of ["Tariq A.", "Seat 6 · blue jacket"]) {
-        await list.getByLabel(`Hand ${name}'s tab to`).selectOption({ label: "Maya S." });
-        await list
-          .getByRole("listitem")
-          .filter({ hasText: `${name}'s tab is still open` })
-          .getByRole("button", { name: "Hand it over" })
-          .click();
-        await expect(list).not.toContainText(`${name}'s tab is still open`);
-      }
-      await list.getByLabel("Cash tips you got tonight, $").fill("0");
-      await list.getByRole("button", { name: "Declare" }).click();
-      await expect(list).toContainText("All clear: you can clock out");
+      await list.getByLabel("Hand your tabs to").selectOption({ label: "Maya S." });
+      await list.getByRole("button", { name: "Hand all tabs to Maya S." }).click();
+      await expect(list).not.toContainText("tab is still open");
+      await expect(list).not.toContainText("unsent");
+      await list.getByRole("button", { name: "$0" }).click();
       await page.getByRole("button", { name: "Clock out" }).click();
-      await expect(page.locator(".clock-status")).toHaveText("Not on shift");
+      await expect(page.getByRole("status").filter({ hasText: "Clocked out" })).toHaveText(
+        "Clocked out · see you next shift",
+      );
+      // Clocked out: no duty picker again; Done locks the shared screen.
+      await expect(page.locator(".duties")).toHaveCount(0);
+      await page.getByRole("button", { name: "Done" }).click();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+      // Back in: his last duty (Front desk) is picked, his picker has no Manager, and Clock in goes home.
+      await page.getByRole("button", { name: "Time clock" }).click();
+      await tile(/Diego R\./).click();
+      await typePin(page, "6358");
       await expect(page.locator(".duties").getByRole("button")).toHaveText([
         "Bar",
         "Front desk",
         "Runner",
       ]);
-      await page.getByRole("button", { name: "Front desk" }).click();
+      await expect(page.getByRole("button", { name: "Front desk" })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
       await page.getByRole("button", { name: "Clock in" }).click();
-      await expect(page.locator(".clock-status")).toHaveText("On since 10:41 PM (0h 0m)");
-      await page.getByRole("button", { name: "Done" }).click();
       await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
       await lockScreen();
 
@@ -13000,6 +13011,76 @@ test("U-12 · Undo goes after 10 seconds, and a move into Room 9 offers none", a
     await panel.getByRole("button", { name: /Room 9/ }).click();
     await expect(bar).toContainText("Moved to Room 9");
     await expect(bar.getByRole("button", { name: "Undo", exact: true })).toHaveCount(0);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * Clock out in one step (U-14; D133): with her tabs gone and no cash, Maya
+ * sees her checklist before the first tap, and $0 then Clock out declares
+ * $0.00 and clocks her out in one call. Back at the bar, clock in is her name,
+ * her PIN and Clock in: Bar, her last duty, is picked, and the bar POS opens.
+ */
+test("U-14: Maya clocks out in 2 taps ($0, Clock out) and back in with name, PIN, Clock in", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    // Her three tabs are Andy's tonight: nothing left on her checklist but her cash tips.
+    await db.query(
+      `update tabs set owner_id = (select id from users where name = 'Andy C.')
+        where owner_id = (select id from users where name = 'Maya S.') and state = 'open'`,
+    );
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    const tile = page.getByRole("button", { name: /Maya S\./ });
+
+    await page.getByRole("button", { name: "Time clock" }).click();
+    await tile.click();
+    await typePin(page, "4071");
+    const list = page.getByRole("region", { name: "Before you clock out" });
+    await expect(list).toContainText("Cash tips you got tonight, $");
+    await expect(list).not.toContainText("tab is still open");
+    const clockOut = page.getByRole("button", { name: "Clock out" });
+    // No amount yet: Clock out waits for the tips (typed, or $0).
+    await expect(clockOut).toBeDisabled();
+    await list.getByRole("button", { name: "$0" }).click();
+    await clockOut.click();
+    await expect(page.getByRole("status").filter({ hasText: "Clocked out" })).toHaveText(
+      "Clocked out · see you next shift",
+    );
+    await expect(page.locator(".duties")).toHaveCount(0);
+    expect(await clippedText(page)).toEqual([]);
+    const shift = await db.query<{ cents: number; ended: boolean }>(
+      `select s.cash_tips_declared_cents::int as cents, s.ended_at is not null as ended
+         from shifts s join memberships m on m.id = s.membership_id join users u on u.id = m.user_id
+        where u.name = 'Maya S.'`,
+    );
+    expect(shift.rows).toEqual([{ cents: 0, ended: true }]);
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
+
+    // Name, PIN, Clock in: Bar is picked, and the bar POS opens.
+    await tile.click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("button", { name: "Bar", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await page.getByRole("button", { name: "Clock in" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+    const open = await db.query<{ duty: string }>(
+      `select s.duty from shifts s join memberships m on m.id = s.membership_id join users u on u.id = m.user_id
+        where u.name = 'Maya S.' and s.ended_at is null`,
+    );
+    expect(open.rows).toEqual([{ duty: "bar" }]);
   } finally {
     await db.end();
   }

@@ -1071,7 +1071,7 @@ The reader can't show our own consent line, so New tab shows it for the bartende
 
 Clock-in asks for the duty (Bar, Front desk, Runner or Manager), and the tip pool uses it (`shifts.duty`). The bar POS shows "Maya · on break" during a break.
 
-- **Clock-out checklist.** Each line links to its fix. Hand over open tabs (Maya has 3) and unsent drinks to someone still on. Make a cash drop, or count your own drawer (a drawer per person only). Declare cash tips. Clock-out finishes once the list is clear.
+- **Clock-out checklist.** Each line links to its fix. Hand over open tabs (Maya has 3) and unsent drinks to someone still on. Make a cash drop, or count your own drawer (a drawer per person only). Declare cash tips. Clock-out finishes once the list is clear. Since U-14 ([D133](decisions.md)) the list shows before the first tap with the cash tips box and a **$0** chip, and one **Clock out** declares and clocks out; open tabs go in one tap (**Hand all tabs to [name]**, or **Close these tabs** with nobody else on), and **Drop my cash**, **Count** and the drawer handover act right there. Clock-in has the duty picked (one duty, else the last one) and goes straight home.
 
 *Decided in [FB 4.13]. Spec: [Staff screens and the bar POS][spec-10].*
 

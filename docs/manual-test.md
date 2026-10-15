@@ -1985,6 +1985,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Untick the setting and publish: the column reads **Ready for a runner** again, with no Delivered at the bar.
 7. Spanish: **Llevamos nuestros propios pedidos**, **Listo**, **Entregado**.
 
+
 ### 31.12 Moving a bar tab into a new room, and Undo (U-12)
 
 1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Sign in as Maya on the bar computer (Bar POS). Tap **Luis M.** in Bar tabs and note his total.
@@ -1996,4 +1997,16 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 7. If the move fails after seating (say the bar stopped serving alcohol, or someone started paying the tab meanwhile), the sheet says "The party is seated, but the tab stayed at the bar." with the reason, and **Done**.
 8. Offline: **Move to a new room**, the rooms and **Undo** are greyed, "Nothing moves while the bar computer is offline."
 9. Spanish: **Mover a una sala nueva**, **Sentarlos y mover la cuenta**, **Deshacer**, **De vuelta en la cuenta de Luis M.**
+
+### 31.14 Clock out in one step (U-14)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. On the bar computer, tap **Time clock**, then Diego, then his PIN. The clock panel shows **Before you clock out** at once, before any tap: Tariq A.'s and Seat 6 · blue jacket's tabs, his 1 unsent Red Bull ("they go with the tab"), and the cash tips box with a **$0** chip. **Clock out** stays greyed until an amount is typed or $0 tapped.
+2. Pick **Maya S.** under **Hand your tabs to** and tap **Hand all tabs to Maya S.**: both tabs and the Red Bull go to her, and only the tips box is left. (With nobody else on the clock the line offers **Close these tabs**, which opens the bar POS.)
+3. Tap **$0**, then **Clock out**: "Clocked out · see you next shift". No duty picker comes back. Tap **Done**: the screen locks for the next person.
+4. Type **12.5** instead of $0 and tap Clock out while a tab is still open: the checklist names the tab and nothing is declared yet; hand the tab over and tap Clock out again: $12.50 is declared and the shift ends, in one call.
+5. A staff bank shows **Drop my cash** (it drops into this screen's drawer; on a screen with no drawer the drawers open below), an own drawer shows **Count**, and the manager on duty with another manager on shows **Hand over the drawers**; each opens the drawers right on the panel.
+6. Clock in: tap Diego, his PIN: the duty picker has **Front desk** picked (his last duty); tap **Clock in** and Rooms opens. A bartender who has only one duty has it picked too.
+7. Tap Abhishek (owner) and his PIN while he's off the clock: Rooms opens with no time clock in between. He clocks in from **Time clock** on the sign-in screen.
+8. Turn the Wi-Fi off: the panel says "Clocking in and out needs the connection · try again when it's back" and its buttons wait.
+9. Spanish: **Antes de marcar la salida**, **Pasar todas las cuentas a Maya S.**, **Marcar salida**, **Entregar mi efectivo**, **Contar**.
 

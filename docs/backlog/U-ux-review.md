@@ -210,19 +210,22 @@ Definition of done: see CLAUDE.md.
 
 ### U-14 · Clock out in one step
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7 (time clock, tips)
-- **Spec:** [Team, time clock & tips](../spec/06-team-shifts-tips.md)
+- **Spec:** [Staff screens · Shifts](../spec/10-staff-screens-bar-pos.md), [API · Time clock](../spec/08-api.md) (the ticket first linked a `06-team-shifts-tips.md` that doesn't exist)
 - **Build:**
   - The Clock out screen shows the checklist before the first tap, with the cash tips box on it and a **$0** chip; one tap declares and clocks out. Today the first Clock out is always refused and the bartender must declare, then tap again (timeclock/checklist.ts 84–86, shifts.ts 226–229, TimeClock.tsx 116–140, 391–414).
   - Each checklist line has its action: open that tab, Drop my cash, Count. Open tabs: **Hand all tabs to [name]**; with nobody else on the clock, "Close these tabs".
   - Clock in: a person with one duty has it pre-selected (else the one they used last), and Clock in goes straight to their home screen (TimeClock.tsx 216–233).
   - After "Clocked out", the panel doesn't ask "Pick your duty to clock in" again; an owner or manager not on the clock isn't shown the clock panel after every PIN sign-in (SignIn.tsx 147–152).
 - **Acceptance:**
-  - [ ] A bartender with no open tabs and no cash tips clocks out in 2 taps ($0, Clock out).
-  - [ ] Clock in is name, PIN, Clock in.
+  - [x] A bartender with no open tabs and no cash tips clocks out in 2 taps ($0, Clock out).
+  - [x] Clock in is name, PIN, Clock in.
 - **Notes:**
+  - Server: `POST /shifts/clock-out` takes an optional `{ cash_tips_cents }` (whole cents, $0 included; a float, negative or string is 400). In one transaction it declares, checks the checklist, then punches; any other line still open answers `409 checklist_open` with what's left and the declaration rolls back with it, so nothing is half done. Without an amount, a shift owing its declaration is still refused; the checklist is never skipped. `POST /shifts/declare-tips` is unchanged and shares the same code. `GET /shifts` adds `me.last_duty`. No migration. Tests: `clock-out.int.test.ts` (one call, rollback, malformed amounts, already declared), the e2e "U-14: Maya clocks out in 2 taps…", and the M7 time clock e2e rewritten for the new flow.
+  - Cautious defaults: (1) a shift already declared takes the same amount again (so a retried Clock out goes through) and refuses another amount (`409 version_conflict`); the declaration is never changed. (2) Clock-in picks a duty only for a person with one duty or a last shift; nobody's duty is guessed from their role, since the tip pool uses it. (3) **Hand all tabs to [name]** defaults to the first person on the clock (in Team order), with a picker when there's more than one; it calls the existing hand-over route once per tab, and a failure leaves the rest listed to try again. (4) "Open that tab" isn't deep-linked: **Close these tabs** (nobody else on) and an unsent quick sale's **Go to the bar POS** open the bar POS, because opening one tab by link means editing Rail, which U-12 is changing. (5) **Drop my cash** drops into this screen's open drawer; with none here, and for **Count** and the drawer handover, the drawers open on the panel itself (the same DrawerPanel as Rooms). (6) An owner or manager off the clock goes straight on after a PIN or passkey sign-in; they clock in from **Time clock** on the sign-in screen or the phone's tab. (7) Offline, the panel says clocking needs the connection and its buttons wait; nothing is queued.
+  - Fixed on the way: the M7 time clock e2e's Lock helper clicks the first Lock, since U-07 put a second one on the bar POS. Spec 10 · Shifts, spec 08 · Time clock and screens N24 updated (D133).
 
 ### U-15 · Close the night without getting stuck
 
