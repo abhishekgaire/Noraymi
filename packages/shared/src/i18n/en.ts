@@ -4142,4 +4142,17 @@ export const en = {
   "tipChange.refused.unchanged": "That's the tip it already has.",
   "tipChange.refused.tip_waiting": "A change to this tip is already waiting.",
   "tipChange.refused.outside_card_off": "The outside card machine is off at this venue.",
+  // Admin → Features → Menu order (P-13).
+  "menuOrder.title": "Menu order",
+  "menuOrder.hint":
+    "Move the side menu's entries up or down. Everyone at the venue sees them in this order; each person still sees only what they may open. Lock stays last.",
+  "menuOrder.up": "Move {name} up",
+  "menuOrder.down": "Move {name} down",
+  "menuOrder.save": "Save order",
+  "menuOrder.reset": "Use the app's order",
+  "menuOrder.saved": "Saved · everyone's menu follows it now",
+  "menuOrder.unsaved": "Not saved yet",
+  "menuOrder.featureOff": "Hidden while its feature is off",
+  "menuOrder.failed": "The order wasn't saved. Try again.",
+  "menuOrder.cantLoad": "Can't load the menu order.",
 } as const;

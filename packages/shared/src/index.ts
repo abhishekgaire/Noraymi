@@ -54,6 +54,10 @@ export {
   APPROVALS_DEFAULTS,
   approvalModes,
   approvalsSchema,
+  MENU_ORDER_DEFAULTS,
+  menuOrderSchema,
+  staffMenuIds,
+  inMenuOrder,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,
   walkInTakes,
@@ -95,6 +99,8 @@ export type {
   FormLimits,
   PublicForm,
   PublicFormsSettings,
+  MenuOrderSettings,
+  StaffMenuId,
 } from "./settings.js";
 export {
   modules,

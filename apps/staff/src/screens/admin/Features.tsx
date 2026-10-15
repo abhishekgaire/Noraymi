@@ -11,6 +11,7 @@ import { useEvents } from "../../events.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { FeatureChoices } from "./FeatureChoices.js";
+import { MenuOrder } from "./MenuOrder.js";
 
 /**
  * Admin → Features (M1-32; spec 03 · Modules, What each module hides;
@@ -266,6 +267,10 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
             ))}
           </ul>
           {venueId && <FeatureChoices venueId={venueId} />}
+          {/* Menu order (P-13): Admin only; Set up your venue keeps the app's own order. */}
+          {venueId && !embedded && state.status === "signedIn" && (
+            <MenuOrder venueId={venueId} modules={state.membership.modules} />
+          )}
         </>
       )}
     </section>

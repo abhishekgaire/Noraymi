@@ -49,8 +49,17 @@ import {
   type RecoveryContact,
   type SessionAssurance,
   trainingOf,
+  latestSetting,
 } from "@west4/db";
-import { Temporal, actions, moduleIds, permissionFor, stateOf, type Clock } from "@west4/shared";
+import {
+  MENU_ORDER_DEFAULTS,
+  Temporal,
+  actions,
+  moduleIds,
+  permissionFor,
+  stateOf,
+  type Clock,
+} from "@west4/shared";
 import { businessDate } from "@west4/rules";
 import { z } from "zod";
 import type { AuthConfig } from "../config.js";
@@ -827,6 +836,10 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
             membershipId: m.membershipId,
             deviceIds: [session.deviceId, request.signedDevice?.deviceId],
           }),
+          // The side menu's order (P-13): the venue's, for everyone there; live as soon as it's saved.
+          menuOrder: (
+            (await latestSetting(c, m.venueId, "menuOrder"))?.value ?? MENU_ORDER_DEFAULTS
+          ).order,
         }),
       );
       const states = statesOf(venue.rows);
@@ -847,6 +860,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions): vo
         permissions: actions.filter((a) => permissionFor(venue.overrides, m.role, a).allowed),
         training: venue.training,
         setup: venue.setup,
+        menu_order: venue.menuOrder,
       });
     }
     return reply.code(200).send({

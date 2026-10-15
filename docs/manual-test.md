@@ -1840,3 +1840,11 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. On the bar computer (paired, nobody signed in) the sign-in screen shows **3 on shift** beside the venue's name ("3 en turno" in Spanish). Clock Diego out and lock: it reads **2 on shift**, and Andy's On the clock reads 2.
 5. Sign in on the bar computer as Andy by PIN (`730915`): Rooms shows Open checks, Rooms in use and On the clock, but no Sales so far (a PIN session can't open the X report). Lock, then sign in as Diego (`6358`): no glance at all.
 6. With Team, time clock & tips off (Admin → Features), On the clock and "N on shift" go. (A role without Reports losing Sales so far has no switch in the app yet; the integration test `glance.int.test.ts` checks it.)
+
+### 30.13 The order of the menu (P-13)
+
+1. Sign in as Andy and open Admin → Features. Below Choices, **Menu order** lists the side menu's twelve entries in the app's order (Rooms first, Admin last; Lock isn't listed, it stays last). An entry a switched-off feature hides reads "Hidden while its feature is off". **Save order** is greyed out.
+2. Tap **Move Calendar up** four times and **Move Rooms down** once: "Not saved yet". Tap **Save order**: "Saved · everyone's menu follows it now", and Andy's side menu reads Calendar, Bar POS, Rooms, … Lock. Reload: the same.
+3. On the bar computer, sign in as Maya (`4071`): her side menu is in the same order, Calendar first and Lock last, with no Reports, Close the night or Admin (a bartender's menu, only placed differently). The phone's tabs at the bottom of a phone keep each role's own order.
+4. With Spanish chosen: **Orden del menú**, "Subir Calendario", "Guardar orden", "Usar el orden de la app", and the side menu starts with **Calendario**.
+5. Tap **Use the app's order**, then **Save order**: everyone's menu is back to Rooms first. (The order never reaches another venue: with `--sing-sing`, Sing Sing's menu keeps the app's order; `menu-order.int.test.ts` checks it.)

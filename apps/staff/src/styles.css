@@ -686,6 +686,33 @@ main select {
   max-width: 100%;
 }
 
+/* Admin → Features → Menu order (P-13). */
+.menu-order {
+  margin-top: 24px;
+}
+.menu-order-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+}
+.menu-order-moves {
+  display: flex;
+  gap: 6px;
+}
+.menu-order-moves button {
+  min-width: 44px;
+}
+.menu-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
 /* Admin → Features (M1-32). */
 .module-list {
   list-style: none;

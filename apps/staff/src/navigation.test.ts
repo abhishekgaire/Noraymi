@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   actions,
   defaultPermissions,
+  inMenuOrder,
+  menuOrderSchema,
+  staffMenuIds,
   roles,
   type Action,
   type ModuleStates,
@@ -179,5 +182,63 @@ describe("the staff phone's tabs (M2-32)", () => {
 
   it("turning off Walk-in waitlist removes the Waitlist tab", () => {
     expect(tabsFor("front_desk", { ...everythingOn, waitlist: "off" })).not.toContain("waitlist");
+  });
+});
+
+describe("the venue's menu order (P-13)", () => {
+  it("every entry but Lock can be moved, and the shared list names exactly the menu's entries", () => {
+    expect([...staffMenuIds, "lock"]).toEqual(menu.map((e) => e.id));
+  });
+
+  it("puts the listed entries first, the rest after in the app's order, and Lock last", () => {
+    const ids = inMenuOrder(menu, ["admin", "reports", "barPos"]).map((e) => e.id);
+    expect(ids).toEqual([
+      "admin",
+      "reports",
+      "barPos",
+      "tonight",
+      "barOrders",
+      "songQueue",
+      "calendar",
+      "messages",
+      "tips",
+      "clock",
+      "closeNight",
+      "incidents",
+      "lock",
+    ]);
+    expect(inMenuOrder(menu, []).map((e) => e.id)).toEqual(menu.map((e) => e.id));
+    expect(inMenuOrder(menu, undefined).map((e) => e.id)).toEqual(menu.map((e) => e.id));
+    // An id the app doesn't have any more is skipped, never shown.
+    expect(inMenuOrder(menu, ["gone", "clock"]).map((e) => e.id)[0]).toBe("clock");
+  });
+
+  it("never shows a role an entry it can't open: the order only places what visibleMenu kept", () => {
+    const bartender = visibleMenu({
+      modules: everythingOn,
+      permissions: allowedFor("bartender"),
+      includeUnshipped: true,
+    });
+    const ids = inMenuOrder(bartender, ["admin", "reports", "clock", "barPos"]).map((e) => e.id);
+    expect(ids).toEqual([
+      "clock",
+      "barPos",
+      "tonight",
+      "barOrders",
+      "songQueue",
+      "calendar",
+      "messages",
+      "tips",
+      "lock",
+    ]);
+  });
+
+  it("saves only known entries, each once, and never Lock", () => {
+    expect(menuOrderSchema.safeParse({ order: ["admin", "tonight"] }).success).toBe(true);
+    expect(menuOrderSchema.safeParse({ order: [] }).success).toBe(true);
+    expect(menuOrderSchema.safeParse({ order: ["admin", "admin"] }).success).toBe(false);
+    expect(menuOrderSchema.safeParse({ order: ["lock"] }).success).toBe(false);
+    expect(menuOrderSchema.safeParse({ order: ["nope"] }).success).toBe(false);
+    expect(menuOrderSchema.safeParse({ order: [], extra: 1 }).success).toBe(false);
   });
 });

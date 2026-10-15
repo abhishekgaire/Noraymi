@@ -208,6 +208,8 @@ export interface Membership {
   readonly training?: boolean;
   /** Set up your venue (O-02): "pending" on a venue made in our Console until Finish setup. */
   readonly setup?: "pending" | null;
+  /** The side menu's order (P-13), the venue's: entry ids first to last; empty is the app's own. */
+  readonly menu_order?: readonly string[];
 }
 
 export interface Me {

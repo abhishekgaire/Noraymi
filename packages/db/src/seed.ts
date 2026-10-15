@@ -611,6 +611,8 @@ export function mapSeedSettings(
     texting: s["texting"],
     // How approvals are decided (D124): absent, so West 4 decides on the manager's phone.
     approvals: s["approvals"],
+    // The side menu's order (P-13): absent, so the app's own order.
+    menuOrder: s["menuOrder"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,

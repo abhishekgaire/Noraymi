@@ -227,13 +227,18 @@ Definition of done: see CLAUDE.md.
 
 ### P-13 · The order of the menu
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** F-03
 - **Spec:** [Settings and modules](../spec/03-settings-rule-packs-modules.md)
 - **Build:** Admin → Features → **Menu order**: move the staff app's main menu entries up and down for the venue; each role still sees only what it may open.
 - **Acceptance:**
-  - [ ] The order shows for everyone at the venue and doesn't cross venues; EN and ES; tests.
+  - [x] The order shows for everyone at the venue and doesn't cross venues; EN and ES; tests.
+- **Notes:**
+  - "Menu" here is the staff app's side menu (spec 10 rule 1), not the drinks and food menu: the item menu already has its own order (the `sort` on each section and item, set in Admin → Menu). No migration: a new settings key `menuOrder` (`{ order: StaffMenuId[] }`, `packages/shared/src/settings.ts`, default `{ order: [] }` = the app's order), saved with the existing `PUT /v1/venues/{v}/settings/menuOrder` (owners and managers, `admin.access`; unknown ids, Lock or an id twice are 400). `GET /v1/auth/me` hands each membership its venue's `menu_order` (read as app_rw inside that venue's wall), so everyone at the venue gets it, the front desk and bartenders by PIN too; `settings.changed` refreshes the session, so open screens follow at once. `inMenuOrder` places the entries the person already has (`visibleMenu`), so the order never shows an entry a role or a switched-off module hides.
+  - Staff: `apps/staff/src/screens/admin/MenuOrder.tsx` below Choices in Admin → Features: the twelve entries with ↑ and ↓ (44 px), **Save order**, **Use the app's order**, "Not saved yet" and "Saved · everyone's menu follows it now", loading and can't-load (with Try again) states; an entry hidden by a switched-off feature is listed and marked so its place is kept. The shell (`layout/Shell.tsx`) orders the side menu by it.
+  - Cautious defaults: Lock isn't movable and stays last; the phone's bottom tabs keep each role's own order (Pin note 4: each role's portal), only the side menu (desktop and the phone's drawer) follows; Set up your venue doesn't show it (the app's order until the owner moves something); managers can save it like the other Features choices (P-10 can narrow that); the app's own order saves as an empty list so an entry added to the app later takes its own place.
+  - Tests: `apps/staff/src/navigation.test.ts` (the shared ids are the menu's, listed first then the rest, Lock last, a role's hidden entries stay hidden, the schema refuses Lock, repeats and unknown ids), `packages/shared/src/settings.test.ts` and `packages/db/src/seed.test.ts` (22 keys), `apps/api/src/routes/menu-order.int.test.ts` (default, saved by the owner and seen by the front desk by PIN, not by venue B, bad values 400, front desk 403 and venue B's owner refused, app_rw reads it behind the wall), and the e2e "P-13 · menu order" at the end of `e2e/staff.spec.ts` (Andy saves, his menu and Maya's at the bar computer follow, Lock last, 44 px, Spanish). Spec 03 (key table and Menu order), spec 10 rule 1, the glossary (Menu order) and manual-test 30.13 updated.
 
 ### P-14 · Activity log and About
 

@@ -363,6 +363,56 @@ export type ApprovalMode = (typeof approvalModes)[number];
 export const approvalsSchema = z.object({ mode: z.enum(approvalModes) }).strict();
 export const APPROVALS_DEFAULTS: z.infer<typeof approvalsSchema> = { mode: "phone" };
 
+/**
+ * The order of the staff app's side menu (P-13; spec 03 · Menu order), the venue's choice in
+ * Admin → Features: the entries' ids, first to last. Lock isn't one of them, it stays last. An
+ * entry the list leaves out (one added to the app later) keeps its place after the listed ones, in
+ * the app's own order; an empty list is the app's own order. Each role still sees only what it may
+ * open: the order never shows an entry, it only places the ones the person has.
+ */
+export const staffMenuIds = [
+  "tonight",
+  "barPos",
+  "barOrders",
+  "songQueue",
+  "calendar",
+  "messages",
+  "tips",
+  "clock",
+  "reports",
+  "closeNight",
+  "incidents",
+  "admin",
+] as const;
+export type StaffMenuId = (typeof staffMenuIds)[number];
+export const menuOrderSchema = z
+  .object({
+    order: z
+      .array(z.enum(staffMenuIds))
+      .max(staffMenuIds.length)
+      .refine((ids) => new Set(ids).size === ids.length, "each menu entry appears once"),
+  })
+  .strict();
+export const MENU_ORDER_DEFAULTS: z.infer<typeof menuOrderSchema> = { order: [] };
+
+/**
+ * Entries in the venue's order: the listed ids first, as listed, then the rest in their own order,
+ * and anything not in `staffMenuIds` (Lock) last, where it was.
+ */
+export function inMenuOrder<T extends { readonly id: string }>(
+  entries: readonly T[],
+  order: readonly string[] | null | undefined,
+): T[] {
+  const rank = new Map((order ?? []).map((id, i) => [id, i] as const));
+  const movable = (id: string) => (staffMenuIds as readonly string[]).includes(id);
+  const placed = (e: T, i: number) =>
+    !movable(e.id) ? 2e6 + i : rank.has(e.id) ? rank.get(e.id)! : 1e6 + i;
+  return entries
+    .map((e, i) => [e, placed(e, i)] as const)
+    .sort((a, b) => a[1] - b[1])
+    .map(([e]) => e);
+}
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -481,6 +531,7 @@ export const settingsSchemas = {
   contacts: contactsSchema,
   texting: textingSchema,
   approvals: approvalsSchema,
+  menuOrder: menuOrderSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -508,6 +559,7 @@ export type LanguageSettings = z.infer<typeof languagesSchema>;
 export type KitchenSettings = z.infer<typeof kitchenSchema>;
 export type FormLimits = z.infer<typeof formLimitsSchema>;
 export type PublicFormsSettings = z.infer<typeof publicFormsSchema>;
+export type MenuOrderSettings = z.infer<typeof menuOrderSchema>;
 export type PublicForm = keyof PublicFormsSettings;
 export type ContactsSettings = z.infer<typeof contactsSchema>;
 export type TextingSettings = z.infer<typeof textingSchema>;
@@ -546,6 +598,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   publicForms: PUBLIC_FORM_DEFAULTS,
   texting: TEXTING_DEFAULTS,
   approvals: APPROVALS_DEFAULTS,
+  menuOrder: MENU_ORDER_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

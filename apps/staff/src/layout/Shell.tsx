@@ -1,4 +1,4 @@
-import { stateOf, type MessageKey } from "@west4/shared";
+import { inMenuOrder, stateOf, type MessageKey } from "@west4/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { Membership } from "../api.js";
@@ -81,9 +81,10 @@ function Frame({
   const [slotNode, setSlotNode] = useState<HTMLElement | null>(null);
   const [ownWho, setOwnWho] = useState(false);
   const topBar = useMemo(() => ({ node: slotNode, setOwnWho }), [slotNode]);
-  const entries = visibleMenu(
-    { modules: membership.modules, permissions: membership.permissions },
-    menu,
+  // What this person may open, in the venue's order (P-13).
+  const entries = inMenuOrder(
+    visibleMenu({ modules: membership.modules, permissions: membership.permissions }, menu),
+    membership.menu_order,
   );
   const unread = useUnreadTexts(membership.venue_id, membership.permissions.includes("texts.send"));
   const waiting = useWaitingOrders(

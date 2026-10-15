@@ -44,7 +44,9 @@ describe("settings mapping", () => {
   ) as Record<string, Record<string, unknown>>;
 
   it("every key passes spec 03's schema", () => {
-    expect(Object.keys(parsed)).toHaveLength(21);
+    expect(Object.keys(parsed)).toHaveLength(22);
+    // The side menu's order (P-13): the app's own order until a venue moves an entry.
+    expect(parsed["menuOrder"]).toEqual({ order: [] });
     // The venue's own contacts (D115): empty, never guessed.
     expect(parsed["contacts"]).toEqual({
       bookingEmails: [],

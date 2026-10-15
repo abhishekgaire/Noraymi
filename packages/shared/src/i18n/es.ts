@@ -4253,4 +4253,17 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "tipChange.refused.tip_waiting": "Ya hay un cambio de esta propina esperando.",
   "tipChange.refused.outside_card_off":
     "La terminal de tarjetas externa está apagada en este local.",
+  // Admin → Funciones → Orden del menú (P-13).
+  "menuOrder.title": "Orden del menú",
+  "menuOrder.hint":
+    "Sube o baja las entradas del menú lateral. Todos en el local las ven en este orden; cada persona sigue viendo solo lo que puede abrir. Bloquear queda al final.",
+  "menuOrder.up": "Subir {name}",
+  "menuOrder.down": "Bajar {name}",
+  "menuOrder.save": "Guardar orden",
+  "menuOrder.reset": "Usar el orden de la app",
+  "menuOrder.saved": "Guardado · el menú de todos ya lo sigue",
+  "menuOrder.unsaved": "Sin guardar",
+  "menuOrder.featureOff": "Oculta mientras su función está apagada",
+  "menuOrder.failed": "No se guardó el orden. Inténtalo de nuevo.",
+  "menuOrder.cantLoad": "No se puede cargar el orden del menú.",
 };

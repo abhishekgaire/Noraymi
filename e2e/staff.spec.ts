@@ -11311,3 +11311,70 @@ test("P-11 · one bell: the count matches the list, clears on read and stays rea
     await db.end();
   }
 });
+
+/**
+ * P-13 · the order of the menu: Andy moves Calendar to the top and Rooms below Bar POS in Admin →
+ * Features → Menu order and saves; his side menu follows at once and after a reload, Lock stays last;
+ * Maya at the bar computer gets the same order with only what a bartender may open; the buttons are
+ * 44 px; the words in Spanish. (Venue B never sees it: menu-order.int.test.ts.)
+ */
+test("P-13 · menu order: saved in Admin → Features, the same for everyone at the venue, Lock last, in Spanish", async ({
+  page,
+  request,
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const other = await browser.newContext();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/admin/features");
+    const section = page.getByRole("region", { name: "Menu order" });
+    const rows = section.getByTestId("menu-order").locator("li");
+    await expect(rows.first()).toContainText("Rooms");
+    await expect(rows).toHaveCount(12);
+    const up = section.getByRole("button", { name: "Move Calendar up" });
+    const box = await up.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    expect(box!.width).toBeGreaterThanOrEqual(44);
+    await expect(section.getByRole("button", { name: "Save order" })).toBeDisabled();
+    for (let i = 0; i < 4; i++) await up.click();
+    await section.getByRole("button", { name: "Move Rooms down" }).click();
+    await expect(section).toContainText("Not saved yet");
+    await section.getByRole("button", { name: "Save order" }).click();
+    await expect(section.getByRole("status")).toHaveText("Saved · everyone's menu follows it now");
+
+    const menuOf = (p: Page) => p.locator("#side-menu > ul .menu-link");
+    await expect(menuOf(page).nth(0)).toHaveText("Calendar");
+    await expect(menuOf(page).nth(1)).toHaveText("Bar POS");
+    await expect(menuOf(page).nth(2)).toHaveText("Rooms");
+    await expect(menuOf(page).last()).toHaveText("Lock");
+    await page.reload();
+    await expect(menuOf(page).nth(0)).toHaveText("Calendar");
+    await expect(rows.nth(0)).toContainText("Calendar");
+
+    // Maya, a bartender at the bar computer: the venue's order, only what she may open.
+    const maya = await other.newPage();
+    await signInMayaAtTheBar(maya, request, db);
+    await expect(menuOf(maya).nth(0)).toHaveText("Calendar");
+    await expect(menuOf(maya).nth(1)).toHaveText("Bar POS");
+    await expect(menuOf(maya).nth(2)).toHaveText("Rooms");
+    await expect(menuOf(maya).last()).toHaveText("Lock");
+    await expect(menuOf(maya).filter({ hasText: /^(Admin|Reports)$/ })).toHaveCount(0);
+
+    // In Spanish.
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    const es = page.getByRole("region", { name: "Orden del menú" });
+    await expect(es.getByRole("button", { name: "Subir Calendario" })).toBeDisabled();
+    await expect(es.getByRole("button", { name: "Usar el orden de la app" })).toBeEnabled();
+    await expect(menuOf(page).nth(0)).toHaveText("Calendario");
+  } finally {
+    await other.close();
+    await db.query(
+      "delete from venue_settings where key = 'menuOrder' and jsonb_array_length(value->'order') > 0",
+    );
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
