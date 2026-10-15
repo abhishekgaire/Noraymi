@@ -173,15 +173,15 @@ Definition of done: see CLAUDE.md.
 
 ### U-11 · Room orders without runners
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M3
 - **Spec:** [Room orders and the bar screen](../spec/10-staff-screens-bar-pos.md) · Bar orders, Runs
 - **Build:**
   - A venue setting **We run our own orders** (off by default): on, a Ready card on Bar orders has **Delivered** on it, and Runs isn't needed (BarOrders.tsx 406–420, Runs.tsx 199–211). Sold stays at Accept; Delivered still never charges.
 - **Acceptance:**
-  - [ ] With the setting on, a room order is Accept, Ready, Delivered on one screen.
-- **Notes:**
+  - [x] With the setting on, a room order is Accept, Ready, Delivered on one screen.
+- **Notes:** Built Oct 15, 2026. The setting is `pos.selfRunOrders` (optional in the shared settings schema, absent reads as off, so no seed or key-count change and no migration), a **Room orders** row in Admin → Bar POS, "We run our own orders" (en/es), saved through Save and publish like the drink-tickets switch. The server reads it twice: `GET /orders` returns `self_run`, and the Ready step (`stepOrder` in `apps/api/src/orders/pipeline.ts`, helper `selfRunOrders`) skips the "ready for a runner" push to every phone while it's on. Bar orders (`BarOrders.tsx`): with it on, the column reads **Ready**, each card in status `ready` reads "Ready · 0:05" and has **Delivered** (44 px), which posts the existing `/orders/{o}/deliver`; Delivered tonight shows who. Accept stays the sale, Delivered charges nothing (the step adds no line), and the 4 AM sweep is untouched. **No server refusal was added for "off":** the order machine has always allowed Ready → Delivered without I've got it (`packages/rules/src/orders.ts`), and Runs offers Delivered on a Ready order today, so refusing it while the setting is off would break runners; the setting only changes which buttons show, and the step still needs `runs.carry`, which every role has. Cautious defaults: off by default; Runs stays in the menu and still lists Ready orders when it's on (food runs and a manager who carries one still use it), only the push is skipped; Delivered shows on `ready` cards, not on an order a runner already took (`on_the_way`, the runner's to finish). Runs.tsx unchanged. Tests: `settings.test.ts` (yes or no, absent parses); `runs.int.test.ts` "We run our own orders (U-11)" (off by default in the list, Accept adds the lines, Ready sends no push, Delivered from Ready with no claim leaves the check as it was, the same as app_rw behind the venue wall); e2e "U-11 · We run our own orders: …" at the end of `e2e/staff.spec.ts` (Admin save, Accept, Ready, Delivered, the check unchanged). Spec 10 (Bar orders · columns, We run our own orders), spec 03 (`PosSettings`), glossary (Ready for a runner) and screens.md (Bar note 10) updated, citing D133; manual test 31.11.
 
 ### U-12 · Moving a bar tab into a new room, and undo
 

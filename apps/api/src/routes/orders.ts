@@ -102,6 +102,8 @@ export function orderRoutes(app: FastifyInstance, options: { clock: Clock }): vo
             chime: pos?.chime ?? true,
             mute_sec: pos?.muteSec ?? 60,
           },
+          // "We run our own orders" (U-11; D133): a Ready card on Bar orders has Delivered.
+          self_run: pos?.selfRunOrders === true,
         };
       });
     },

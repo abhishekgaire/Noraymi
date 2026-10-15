@@ -1552,6 +1552,8 @@ export const en = {
   "barOrders.col.waiting": "Waiting for you",
   "barOrders.col.making": "Being made",
   "barOrders.col.ready": "Ready for a runner",
+  "barOrders.col.readyOwn": "Ready",
+  "barOrders.readyOwn": "Ready · {age}",
   "barOrders.col.delivered": "Delivered tonight",
   "barOrders.col.returned": "Returned",
   "barOrders.accept": "Accept · print ticket",
@@ -2455,6 +2457,10 @@ export const en = {
   "barPos.tickets.label": "Print tickets for drinks rung at the bar",
   "barPos.tickets.hint":
     "Whether Send prints a bar ticket for a bar tab's or a quick sale's drinks. Room orders, from guests or from staff, always print.",
+  "barPos.selfRun": "Room orders",
+  "barPos.selfRun.label": "We run our own orders",
+  "barPos.selfRun.hint":
+    "On: whoever makes a room order carries it, so a Ready order on Bar orders has Delivered and nobody's phone is told a run is ready. Accept is still the sale; Delivered never charges.",
   "barPos.aging": "Order aging",
   "barPos.aging.phones": "Bar phones, in seconds",
   "barPos.aging.amber": "Amber and the Board alert, in minutes",

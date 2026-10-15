@@ -12672,6 +12672,84 @@ test("No sale from the bar POS top bar in two taps, the PIN again, locked offlin
 });
 
 /**
+ * U-11 · room orders without runners (D133). With "We run our own orders" on in Admin → Bar POS,
+ * a room order is Accept (the sale), Ready and Delivered on the bar orders screen, and Delivered
+ * charges nothing. Off (West 4's way), the Ready column is for a runner and has no Delivered.
+ */
+test("U-11 · We run our own orders: Room 9's order is Accept, Ready, Delivered on Bar orders, and Delivered charges nothing", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const room9Lines = async () =>
+    (
+      await db.query<{ n: string }>(
+        `select coalesce(sum(amount_cents), 0)::text as n from check_lines
+          where check_id = (select row_id from seed_ids where slug = 'chk_room9')`,
+      )
+    ).rows[0]!.n;
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+
+    // Off, as seeded: Room 3's ready order waits for a runner, with no Delivered at the bar.
+    await page.goto("/bar-orders");
+    const readyCol = page.getByRole("region", { name: "Ready for a runner" });
+    await expect(readyCol.locator(".bar-order", { hasText: "Room 3" })).toBeVisible();
+    await expect(readyCol.getByRole("button", { name: "Delivered", exact: true })).toHaveCount(0);
+
+    await page.goto("/admin/bar-pos");
+    const selfRun = page.getByLabel("We run our own orders");
+    await expect(selfRun).not.toBeChecked();
+    await selfRun.check();
+    await page.getByRole("button", { name: "Save and publish" }).click();
+    await expect(page.getByText("Published")).toBeVisible();
+    const saved = await db.query<{ on: boolean }>(
+      `select (value->>'selfRunOrders')::boolean as on from venue_settings
+        where key = 'pos' order by version desc limit 1`,
+    );
+    expect(saved.rows[0]!.on).toBe(true);
+
+    await page.goto("/bar-orders");
+    const before = await room9Lines();
+    const waiting = page.getByRole("region", { name: "Waiting for you" });
+    await waiting
+      .locator(".bar-order", { hasText: "Room 9" })
+      .getByRole("button", { name: "Accept" })
+      .click();
+    // Accept is the sale: Room 9's drinks join its check now.
+    await expect.poll(room9Lines).not.toBe(before);
+    const sold = await room9Lines();
+    const making = page.getByRole("region", { name: "Being made" });
+    await making
+      .locator(".bar-order", { hasText: "Room 9" })
+      .getByRole("button", { name: "Ready" })
+      .click();
+    const ready = page.getByRole("region", { name: "Ready", exact: true });
+    const o1 = "Room 9 · 2 × Margarita · Peach";
+    const card = ready.getByRole("listitem", { name: o1, exact: true });
+    await expect(card).toContainText(/Ready · \d+:\d\d/);
+    const delivered = card.getByRole("button", { name: "Delivered", exact: true });
+    expect((await delivered.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await delivered.click();
+    await expect(
+      page
+        .getByRole("region", { name: "Delivered tonight" })
+        .getByRole("listitem", { name: o1, exact: true }),
+    ).toContainText("Andy");
+    // Delivered charges nothing.
+    expect(await room9Lines()).toBe(sold);
+    const status = await db.query<{ status: string; claimed_by: string | null }>(
+      "select status, claimed_by from orders where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    expect(status.rows[0]).toEqual({ status: "delivered", claimed_by: null });
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * U-10 · Ending a room in fewer taps (D133): at a venue with no readers and the outside card machine,
  * Room 9's close-out is the tile, Present & pay (which presents the check through its own route), the
  * outside machine's Record payment with $498.60 filled in, the receipt (back to the Board, Room 9's

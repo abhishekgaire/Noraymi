@@ -14,7 +14,8 @@ import { Money } from "./Prices.js";
  * and live at once; saving the tab settings writes the consent line's new
  * version, and tabs already open keep theirs. There's no "Ring the bar until
  * someone accepts" toggle: the aging times, the chime and Mute replace it.
- * "Open a tab without a card" (P-03) is `tabs.cardRequired`, inverted.
+ * "Open a tab without a card" (P-03) is `tabs.cardRequired`, inverted. "We run our own orders" (U-11)
+ * is `pos.selfRunOrders`: a Ready card on Bar orders gets Delivered.
  */
 export function BarPosSettings({ venueId }: { venueId: string }) {
   const { t } = useT();
@@ -121,6 +122,19 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
         </label>
       </div>
       <p className="small muted">{t("barPos.tickets.hint")}</p>
+
+      <h3>{t("barPos.selfRun")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={pos.selfRunOrders === true}
+            onChange={(e) => setPos({ selfRunOrders: e.target.checked })}
+          />
+          <span>{t("barPos.selfRun.label")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.selfRun.hint")}</p>
 
       <h3>{t("barPos.aging")}</h3>
       <div className="invite-fields">

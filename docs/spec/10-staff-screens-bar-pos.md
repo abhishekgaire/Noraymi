@@ -106,8 +106,8 @@ Prices on the site read "$10 a person an hour, plus tax and a 20% gratuity" and 
 | --- | --- | --- |
 | Waiting for you | Ringing and asked-to-wait orders, oldest first, still aging. An asked-to-wait order stays here and still needs Accept | Accept · print ticket, Ask the room to wait, Decline… |
 | Being made | Accepted orders: "Accepted by Maya · 10:33 · on Room 9's tab · ticket printed" | Ready |
-| Ready for a runner | Made orders with their age since Ready; every staff phone's Runs shows them too | — (the runner taps I've got it) |
-| Delivered tonight | Only orders a runner marked Delivered, with the time and the runner | — |
+| Ready for a runner | Made orders with their age since Ready; every staff phone's Runs shows them too | — (the runner taps I've got it); **Delivered** while the venue runs its own orders |
+| Delivered tonight | Only orders marked Delivered (by a runner, or at the bar while the venue runs its own orders), with the time and who | — |
 | Returned | "Couldn't serve: *reason* · Andy", with the manager on duty told | Void · not made, Void · made (waste), Remake |
 
 Declined and cancelled orders are listed under Returned with their reason, including "Cancelled at 4:00 AM". After 4 AM there's no Decline button: alcohol orders nobody accepted are cancelled automatically with a message to the room.
@@ -115,6 +115,7 @@ Declined and cancelled orders are listed under Returned with their reason, inclu
 - **Escalation.** Ages on screen: amber at 2 min, pink at 4 when the manager on duty is told; bar phones at 30 s; a text or call at 6; chime as backup. The board gets an alert at 2 min; at 4 min the alert says "on Andy's phone", and at 6 min "texted Andy". The board's "Bar orders · 2" badge counts every ringing and asked-to-wait order.
 - **Print failure.** A ticket the printer hasn't confirmed shows "Ticket didn't print · Reprint" on the bar orders screen and the bar POS, and a reprint prints "REPRINT 2", then "REPRINT 3" and so on ([Devices, printing and offline](09-devices-printing-offline.md)).
 - **Runners.** Ready orders show on every staff phone's Runs. The runner taps I've got it ("On its way · Andy"), then Delivered or Couldn't serve… with a reason, which sends the order to Returned.
+- **We run our own orders** (`pos.selfRunOrders`, off by default; Admin → Bar POS; U-11, [D133](../decisions.md)). For a venue where whoever makes a room order carries it (often one bartender doing everything), the column reads **Ready** ("Ready · 0:05") and each Ready card has **Delivered**, so a room order is Accept, Ready, Delivered on one screen. Ready then sends no "ready for a runner" push to every phone; Runs still lists the order for anyone who carries one. It changes only which buttons show: Accept is still the sale, Delivered still charges nothing and goes through the same delivery step (straight from Ready, with no I've got it, as Runs has always allowed), and after 4 AM alcohol orders nobody accepted still cancel by themselves.
 - **Same again.** The guest's room page lists the room's last delivered rounds, and one tap orders one again; it still rings the bar like any other order.
 
 **Adding drinks to a room from a staff screen.** The room tab on desktop and phone adds drinks through the same menu search as the bar POS, with variants, required choices, 86, cut-offs and the alcohol window. It creates a staff order that's accepted at once, so the drinks go on the room's check and a ticket prints at the bar, and the order then goes through Being made, Ready and a runner like any room order. Open in the bar POS does the same from the bar with the room's tab selected. There are no generic quick-add chips such as "+ Cocktail $12".
