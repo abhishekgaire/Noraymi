@@ -1,4 +1,4 @@
-import { inMenuOrder, stateOf, type MessageKey } from "@west4/shared";
+import { inMenuOrder, stateOf, Temporal, type MessageKey } from "@west4/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import type { Membership } from "../api.js";
@@ -19,6 +19,12 @@ import { OfflineCodesSync } from "../screens/OfflineCodes.js";
 import { useUnreadTexts, useWaitingOrders } from "./unread.js";
 import { Bell } from "./Bell.js";
 import { TimeUpStrip, useTimeUp } from "../room-sound.js";
+
+/** "Fri night" for a business date (U-20): Temporal's day of week, 1 Monday to 7 Sunday. */
+function nightKey(day: Temporal.PlainDate | string): MessageKey {
+  const d = typeof day === "string" ? Temporal.PlainDate.from(day) : day;
+  return `shell.night.${d.dayOfWeek}` as MessageKey;
+}
 
 /**
  * The frame around every staff screen: the venue, the venue's time and
@@ -65,7 +71,7 @@ function Frame({
   name: string;
   userId: string;
 }) {
-  const { t, time, date } = useT();
+  const { t, tn, time, date } = useT();
   const { lock, refresh } = useSession();
   const { connected, subscribe } = useEvents();
   const navigate = useNavigate();
@@ -121,7 +127,7 @@ function Frame({
     id === "barOrders" && waiting > 0 ? t("menu.barOrders.count", { n: waiting }) : t(key);
   const badge = (id: string) =>
     id === "messages" && unread > 0 ? (
-      <span className="badge" aria-label={t("messages.unread", { count: unread })}>
+      <span className="badge" aria-label={tn("messages.unread", unread)}>
         {unread}
       </span>
     ) : null;
@@ -231,8 +237,12 @@ function Frame({
               <time dateTime={venueTime.now.toString()}>
                 {time(venueTime.now, venueTime.timeZone)}
               </time>
-              <span className="muted">
-                {t("shell.businessDate", { date: date(venueTime.businessDate) })}
+              {/* The night, as the bar says it (U-20, D133): "Fri night"; the date stays in the title. */}
+              <span
+                className="muted"
+                title={t("shell.businessDate", { date: date(venueTime.businessDate) })}
+              >
+                {t(nightKey(venueTime.businessDate))}
               </span>
             </div>
           )}

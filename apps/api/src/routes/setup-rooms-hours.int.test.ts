@@ -252,7 +252,7 @@ describe("Steps 4 and 5: rooms and prices, hours, kitchen times, the age policy 
     const late = await call("PUT", "/settings/hours", { value: { weekly, lastCall: "05:00" } });
     expect(late.statusCode).toBe(400);
     expect((late.json() as { error: { message: string } }).error.message).toContain(
-      "can't be later than the rule pack's last sale",
+      "can't be later than the state rules' last sale",
     );
     const ok = await call("PUT", "/settings/hours", { value: { weekly, lastCall: "03:30" } });
     expect(ok.statusCode, ok.body).toBe(200);

@@ -1595,6 +1595,7 @@ export function Rail() {
                       kitchenRequest={kitchenRequest}
                       onSent={() => void load()}
                       onUnsentDrinks={setUnsentDrinks}
+                      atBar={{ tabName: tab ? tab.name : null }}
                       sendAndClose={
                         tab && tab.state === "open" && (tab.hold || tab.no_hold)
                           ? {

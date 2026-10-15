@@ -89,7 +89,7 @@ export function checkHours(
     const packLast = minutesOnBusinessDate(pack.alcohol.lastSale, cutover);
     if (house > packLast) {
       reasons.push(
-        `The house last call (${clock(hours.lastCall)}) can't be later than the rule pack's last sale (${clock(pack.alcohol.lastSale)}).`,
+        `The house last call (${clock(hours.lastCall)}) can't be later than the state rules' last sale (${clock(pack.alcohol.lastSale)}).`,
       );
     }
   }
@@ -121,7 +121,7 @@ export function checkPay(pay: SettingsValue<"pay">, { pack, today }: CheckContex
     }
   }
   if (fee.mode === "discount" && !pack.cardFee.discount.allowed) {
-    reasons.push("A cash discount isn't allowed under this rule pack.");
+    reasons.push("A cash discount isn't allowed under this state's rules.");
   }
   return reasons;
 }

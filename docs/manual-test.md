@@ -123,7 +123,7 @@ At West 4, approvals are decided on the approver's own phone (the default; a ven
 
 1. Open an **Incognito window** (Cmd + Shift + N), or a second Chrome profile.
 2. Repeat 0.2 with Andy's invite link and `andy@demo.west4.local`.
-3. In Andy's window, open **Alerts** (on the phone layout, or the side menu) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
+3. In Andy's window, open **Phone alerts** (the phone tab; **Alerts on this phone** in the side menu) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
 
 Do the same for Abhishek's window: requests from Andy himself go to Abhishek.
 
@@ -290,14 +290,14 @@ Check each tile's words and money:
 | Room 3 | Wrap up · 4 min left | $96.67 | $175.67 |
 | Room 4 | Out of service | none | none |
 | Room 5 | In room · 79 min left | $40.00 | $40.00 |
-| Room 6 | Needs a wipe · left 10:33 PM (8 min) | none | none |
+| Room 6 | Needs cleaning · left 10:33 PM (8 min) | none | none |
 | Room 7 | Needed now · 11 min past | $152.83 | $210.83 |
 | Room 8 | Open · next 11:00 | none | none |
 | Room 9 | In room · 19 min left | $322.00 | $480.00 |
 | Room 10 | Staying · 41 min past | $331.50 | $441.50 |
 | Room 11 | Open · free all night | none | none |
 | Room 12 | In room · 79 min left | $235.67 | $305.67 |
-| Room 13 | Needs a wipe · left 10:36 PM (5 min) | none | none |
+| Room 13 | Needs cleaning · left 10:36 PM (5 min) | none | none |
 | VIP room | In room · 109 min left | $295.83 | $775.83 |
 
 - Wait one minute: the times and money move by one minute.
@@ -311,7 +311,7 @@ The alerts band at the top should list, in this order:
 2. Pink: Room 9 called for another mic.
 3. Amber: Room 3, 4 min left, Jae & co. at 11:00.
 4. Lime: Room 11 is free all night, and Amara B. (7) has waited 26 min.
-5. Grey: Rooms 6 and 13 need a wipe; Nadia K. and Chris P. are waiting.
+5. Grey: Rooms 6 and 13 need cleaning; Nadia K. and Chris P. are waiting.
 6. Grey: Sam O. running 15 late, held until 10:45.
 
 Press **Show all {count}**, then **Show only the {count} most urgent**. The waitlist name must be **Nadia K.**, never "Priya K.".
@@ -433,7 +433,7 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 ### 3.5 Cleaning and notes
 
-1. Room 6 reads "Needs a wipe · left 10:33 PM (8 min)". Press **Mark clean**: it becomes Open.
+1. Room 6 reads "Needs cleaning · left 10:33 PM (8 min)". Press **Mark clean**: it becomes Open.
 2. Room 6's **Room notes** read "TV remote goes missing. Check under the couch."
 
 ### 3.6 Lost and found
@@ -1253,7 +1253,7 @@ See section 16.
 ### 19.8 Phone & texts, and Texts
 +1 212 255 0011. All 14 texts. The **Erase a guest** panel is here: **Erase** → "Erase {name}'s details for good?" → **Erase for good** → "Erased. Saved cards and texts are removed in the next few minutes." A guest with a future booking gets a warning; a singer who still owes money is refused.
 
-### 19.9 Alerts & rules
+### 19.9 Sounds & rules
 A 15-minute room-ending warning turns tiles amber. There's no "ring the bar until accepted" toggle.
 
 **Sound when a room's time is up (P-05).** On by default, with a volume slider (50) and Play it, which plays the sound here.
@@ -1775,13 +1775,13 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 
 ## 30. Everything Sing Sing's register does (P tickets)
 
-### 30.1 Print the bill (P-01)
+### 30.1 Print the check (P-01)
 
-1. Sign in as Andy and open **Room 9**. Under Present the check, press **Print the bill**: "The bill is printing". With the desktop app's virtual printer (0.11) the slip lands in its folder; without one, the job shows in the failed-print list with **Reprint**, the usual print error.
+1. Sign in as Andy and open **Room 9**. Under Present the check, press **Print the check**: "The check is printing". With the desktop app's virtual printer (0.11) the slip lands in its folder; without one, the job shows in the failed-print list with **Reprint**, the usual print error.
 2. The slip: West 4, BILL, Check #1042 · Room 9, Guests: 12, Room time · 161 min $322.00, the drinks, tax, Gratuity included (20%) $96.00, **Total $618.60**, Deposit −$120.00, **Left to pay $498.60**, and "This is not a receipt".
-3. Press **Print the bill** again: "The bill is printing · reprint 1", and the slip starts REPRINT 1. Each print is in the audit log.
-4. Present the check, then **Print the bill**: the same amounts.
-5. At the bar (Maya), open **Jess P.**'s tab and press **Print the bill**: Check #… · Bar tab · Jess P., Total $32.66.
+3. Press **Print the check** again: "The check is printing · reprint 1", and the slip starts REPRINT 1. Each print is in the audit log.
+4. Present the check, then **Print the check**: the same amounts.
+5. At the bar (Maya), open **Jess P.**'s tab and press **Print the check**: Check #… · Bar tab · Jess P., Total $32.66.
 6. With a cash discount on (Admin → Card fee, or Sing Sing's 3.38%), the bill shows **Cash price** under the total and under Left to pay.
 7. The bill prints in the venue's first staff language: with Spanish first, CUENTA, Por pagar and "Esto no es un recibo".
 
@@ -1908,7 +1908,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 
 1. Start the demo (`scripts/demo-start.sh`). On the bar computer, sign in as Maya (`4071`) and open a new tab on the bar reader (Read to guest ✓, a label such as Seat 7, Open).
 2. Under the tab's name come **Repeat round**, the round being rung and **Send** (with **Send & close** beside it), above **On the tab**, the total and Split, Move, Print bill and Close tab. No Fix or Discount panel shows until you tap a sent line or **Discount the check**.
-3. Ring 2 × Modelo and **Send 2 to the bar**. Ring a Jäger Bomb and don't send it. Tap **Close tab**: it doesn't open; it says "1 not sent · Send them first or Send & close", with **Send & close** and **Back to the tab**.
+3. Ring 2 × Modelo and **Send 2**. Ring a Jäger Bomb and don't send it. Tap **Close tab**: it doesn't open; it says "1 not sent · Send them first or Send & close", with **Send & close** and **Back to the tab**.
 4. Tap **Send & close**: the Jäger Bomb goes on the tab (it shows under On the tab) and Close tab opens at $32.66. Nothing rung is left unsent.
 5. **Close to the card**, pick a tip on the bar reader, then **Print** (or Text, or No receipt). There's no Done: the screen goes straight back to **Quick sale**, nothing picked, reading "Tab closed · Seat 7 · Paid … with a tip of …". The tab is in Closed tonight. That's 3 taps on the tab.
 6. Tap a drink: it rings as a new quick sale (**Pay for 1**), not on the closed tab, and Repeat round isn't offered for a closed tab.
@@ -2060,7 +2060,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 
 1. Start the demo (`scripts/demo-start.sh`) and sign in as Andy on a laptop. On **Rooms**, Room 7's tile reads "Needed now · 11 min past", and the alerts band's first line reads "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00." Tap the words of that line (not its buttons): Room 7's panel opens.
 2. Open the bell on Rooms: it lists no room lines (the board already shows them), only approvals, bar orders, guest texts and tickets that didn't print. The browser's network panel shows one `/board` read for the page and a `/bell/alerts` read for the bell.
-3. Open **Time clock** and the bell again: now it lists "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past" with the other room lines (Room 9's call, the free room for the waitlist). There's no "needs a wipe" or "new room code" line. Tap Room 7's line: the board opens with Room 7's panel.
+3. Open **Time clock** and the bell again: now it lists "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past" with the other room lines (Room 9's call, the free room for the waitlist). There's no "needs cleaning" or "new room code" line. Tap Room 7's line: the board opens with Room 7's panel.
 4. Back on Time clock, Room 9's call ("Room 9 wants another mic") has **On it** beside it. Tap On it: the line goes, and Calls no longer lists the call. Go to **Bar orders**: the bell leaves the ringing orders out there; on Time clock each has **Accept**, and Accept prints its ticket as on Bar orders.
 5. In Admin → Devices, pair this browser as the bar computer (or use the desktop app). Locked at 10:41 PM, the sound plays once, and nothing shows on the lock screen. Sign in as Maya (4071): under the top of the screen the **Time's up** strip lists "Room 3 · Wrap up · … min left", "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past". Tap Room 7: it leaves the strip and the board opens on Room 7's panel. Tap **Clear all**: the strip goes and doesn't come back at the next read; nothing plays again.
 6. Take the network away (the browser's offline switch): the bell shows its kept list, "Offline · as of 10:41 PM", with On it and Accept greyed.
@@ -2075,4 +2075,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 5. Diego (front desk) gets Rooms, Bookings, Calls, Messages and More; a runner gets Runs, Bookings, Calls, Waitlist and More; Abhishek (owner) gets Rooms, Approvals, Reports, Calls and More.
 6. In Admin → Features switch off **Guest texts**: Maya's Messages tab goes and **Tips to enter** takes its place; More no longer lists Tips to enter. Switch it back on.
 7. Spanish (Language under More): the tabs read Bar POS, Salas, Llamadas, Mensajes and **☰ Más**, and still fit without scrolling.
+
+### 31.20 One word for each thing (U-20)
+
+1. Start the demo (`scripts/demo-start.sh`) and sign in as Andy on a laptop. The top bar reads "10:41 PM · **Fri night**" (hover it for "Business date Fri, Sep 25"); Admin and the reports still say business date.
+2. On **Rooms**, Room 6's tile reads "**Needs cleaning** · left 10:33 PM (8 min)" and its panel offers **Mark clean**; the grey alert reads "Rooms 6 and 13 need cleaning (8 and 5 min), …". The band above the tiles is still **Alerts**.
+3. Open **Admin**: the section that sets when a tile warns and the time's-up sound is **Sounds & rules**; Features says "what each feature hides", a core one is "a core feature", and Hours & prices says "the state rules' last sale". No owner screen says module or rule pack.
+4. Open Room 9's tab: the button is **Print the check** ("The check is printing"); the slip itself still starts BILL (CUENTA in Spanish).
+5. Sign in at the bar as Maya (`4071`), open **Jess P.**, ring a Modelo: the button reads **Send 1** (no "to the bar"), and after it "Sent · on Jess P.'s tab" with no ticket mention. A room picked on the bar POS still says "Sent · on the tab, ticket printing at the bar", since a runner carries it.
+6. Make a room order wait (**Ask the room to wait** on Bar orders), then open the bell from Time clock: the line reads "Room 5's order · Asked to wait".
+7. Phone layout (narrow the window): the tab that turns on this phone's alerts is **Phone alerts**. Switch to Español: **Avisos del teléfono**, and the bell's name reads "Campana · 1 nuevo" with one line, "Campana · 2 nuevos" with two. The top bar reads "Viernes noche".
+8. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing has no badge reader). On the bar computer, switch to Sing Sing: the sign-in screen leads with "Tap your name, then your PIN" and the name tiles, with no badge card. West 4 (two badge readers) still shows "Tap your badge on the reader" first.
+9. A failed action now reads in one form, for example "Couldn't save · Try again" or "Couldn't do that · Try again".
+
 

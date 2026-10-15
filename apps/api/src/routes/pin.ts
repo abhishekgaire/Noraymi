@@ -62,8 +62,16 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
     "/v1/venues/:venueId/team/tiles",
     { config: route({ principals: ["shared_device", "owner_manager"], module: "core" }) },
     async (request) => {
-      const { tiles, venue, shifts } = await request.inVenue(async (c) => ({
+      const { tiles, venue, shifts, badgeReaders } = await request.inVenue(async (c) => ({
         tiles: await nameTiles(c, request.venueId!),
+        // A venue with no badge reader leads with the name tiles (U-20, D133).
+        badgeReaders:
+          ((
+            await c.query(
+              "select 1 from devices where venue_id = $1 and kind = 'nfc_reader' and revoked_at is null limit 1",
+              [request.venueId],
+            )
+          ).rowCount ?? 0) > 0,
         // Who's on the clock (M7-01), while Team, time clock & tips is on.
         shifts:
           stateOf(statesOf(await venueModules(c, request.venueId!)), "team") === "off"
@@ -91,6 +99,7 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
         })),
         // "N on shift" on the sign-in screen (P-12): everyone on the clock, null while the module is off.
         on_shift: shifts ? shifts.size : null,
+        badge_readers: badgeReaders,
         venue: { id: request.venueId, ...venue },
         server_time: now().toString(),
       };

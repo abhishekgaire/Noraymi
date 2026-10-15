@@ -127,6 +127,8 @@ export function AddDrinks(props: {
    *  then `onSent` opens Close tab. Bumping `request` (the Close tab warning's Send & close) does the
    *  same. A round that didn't go on (waiting for a manager, a raise being checked) never closes. */
   sendAndClose?: { readonly request: number; readonly onSent: () => void } | undefined;
+  /** The bar POS (U-20, D133): Send reads "Send 3", and a bar tab's round says "Sent · on Jess's tab". */
+  atBar?: { readonly tabName: string | null } | undefined;
 }) {
   const { t, money, time } = useT();
   const { subscribe } = useEvents();
@@ -738,7 +740,9 @@ export function AddDrinks(props: {
                     ? t("drinks.pay", { count })
                     : giftName
                       ? t("gift.send", { count, name: giftName })
-                      : t("drinks.send", { count })}
+                      : props.atBar
+                        ? t("drinks.sendAtBar", { count })
+                        : t("drinks.send", { count })}
             </button>
             {props.sendAndClose && !props.onPay && (
               <button
@@ -790,7 +794,9 @@ export function AddDrinks(props: {
       ) : (
         sent && (
           <p className="small" role="status">
-            {t("drinks.sent")}
+            {props.atBar?.tabName
+              ? t("drinks.sentOnTab", { name: props.atBar.tabName })
+              : t("drinks.sent")}
           </p>
         )
       )}

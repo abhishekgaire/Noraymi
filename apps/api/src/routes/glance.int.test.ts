@@ -237,4 +237,24 @@ describe("today at a glance", () => {
       );
     }
   });
+
+  it("tells the PIN screen whether the venue has a badge reader, so the name tiles lead without one (U-20)", async () => {
+    as("andy", "manager", "passkey");
+    const readers = async () =>
+      ((await get("/team/tiles")).json() as { badge_readers: boolean }).badge_readers;
+    expect(await readers()).toBe(true);
+    const revoked = await owner.query<{ id: string }>(
+      `update devices set revoked_at = now()
+        where venue_id = $1 and kind = 'nfc_reader' and revoked_at is null returning id`,
+      [venueId],
+    );
+    try {
+      expect(revoked.rowCount).toBeGreaterThan(0);
+      expect(await readers()).toBe(false);
+    } finally {
+      await owner.query("update devices set revoked_at = null where id = any($1::uuid[])", [
+        revoked.rows.map((r) => r.id),
+      ]);
+    }
+  });
 });

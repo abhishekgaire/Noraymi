@@ -316,7 +316,7 @@ test("Your plan through Stripe Checkout (O-04), Connect with Stripe (O-05), room
     await page.getByLabel("House last call").fill("05:00");
     await page.getByLabel("21 and over", { exact: true }).check();
     await page.getByRole("button", { name: "Continue" }).click();
-    await expect(page.getByText(/can't be later than the rule pack's last sale/)).toBeVisible();
+    await expect(page.getByText(/can't be later than the state rules' last sale/)).toBeVisible();
     await page.getByLabel("House last call").fill("03:30");
     await page.getByRole("button", { name: "Continue" }).click();
     await expect(

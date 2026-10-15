@@ -115,7 +115,7 @@ export async function endTimedCleaning(
   return due.rows.map((r) => r.room_id);
 }
 
-/** "Needs a wipe · left 10:33 PM (8 min)", flagged once it's been longer than the flag minutes. */
+/** "Needs cleaning · left 10:33 PM (8 min)", flagged once it's been longer than the flag minutes. */
 export async function cleaningStatus(c: Queryable, venueId: string, now: Temporal.Instant) {
   const settings = await roomSettings(c, venueId, now);
   const r = await c.query<{ room_id: string; since: string }>(

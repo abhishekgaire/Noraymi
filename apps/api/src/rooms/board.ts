@@ -248,7 +248,7 @@ export async function board(
  * The alerts band (M2-30; Board note 3). Pink: a room past its end with a
  * booking next, then room calls; amber: a room near its end with a booking
  * next; lime: a free room for the first waiting party that fits; grey: rooms
- * that need a wipe while parties wait, then a guest who texted they're late.
+ * that need cleaning while parties wait, then a guest who texted they're late.
  * Ordered by color, then that order of kinds, then oldest first (cautious
  * reading of the seed's order, flagged). Room-order alerts join in M3.
  */

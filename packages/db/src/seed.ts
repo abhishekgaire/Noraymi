@@ -1526,7 +1526,7 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
     log(`waitlist: ${waiting.length}`);
 
     // Who was here earlier (M2-35): Ella S. in Room 6 and Yuki H. in Room 13 paid and left, which is why those rooms
-    // need a wipe. The seed gives when they left, not when they came, so their sessions start and end then (flagged).
+    // need cleaning. The seed gives when they left, not when they came, so their sessions start and end then (flagged).
     type SeedEarlier = { room: string; guest: string; party_size: number; left_at: string };
     const earlier = (seed as { earlier_sessions?: SeedEarlier[] }).earlier_sessions ?? [];
     for (const e of earlier)

@@ -72,6 +72,15 @@ Other words, the same on every screen:
 | "The bar screen lights up" (room calls) | "Staff get it on their phones" |
 | "Tonight" for the board (the side menu, its title, the phone tab) | "Rooms" (D111). The phone's list of tonight's bookings is "Bookings" |
 | "Hold a card" or "Card hold" at a walk-in check-in | "Card on the tab" (staff) and "Put a card on the tab" (Admin, D112): the card is saved, nothing is charged |
+| "Alerts" for the phone tab that turns on this phone's alerts, and Admin's "Alerts & rules" | "Phone alerts" (Avisos del teléfono) and "Sounds & rules". "Alerts" is only the board's alerts ([D133](../decisions.md), U-20) |
+| "Bill" on a staff screen ("Print the bill") | "Check" ("Print the check"). The printed slip still reads BILL (CUENTA), and the guest's phone keeps "Your bill" |
+| "Room time" for the time-up strip | "Time's up". "Room time" is only the money line |
+| "Business date Fri Sep 25" in the top bar | "Fri night" (Viernes noche). Admin and the reports keep "business date" |
+| "Module" and "rule pack" on an owner's screen | "Feature" and "state rules". The spec and the code keep module and rule pack |
+| "Needs a wipe" | "Needs cleaning" on the tile and the phone, **Mark clean** on the button |
+| "is waiting" for a room order in the bell | "Asked to wait" ("Room 5's order · Asked to wait") |
+| "Send 3 to the bar" and "ticket printing at the bar" on the bar POS | "Send 3", then "Sent · on Jess P.'s tab". A room's round rung at the bar still says its ticket prints |
+| "That didn't go through. Try again." and other shapes of an error | "Couldn't … · Try again" ("Couldn't save · Try again"); buttons are verbs |
 
 Prices on the site read "$10 a person an hour, plus tax and a 20% gratuity" and "VIP room $250 an hour".
 
@@ -109,7 +118,7 @@ Prices on the site read "$10 a person an hour, plus tax and a 20% gratuity" and 
 
 **Food runs.** A food order rings at the bar with the drinks, marked with a "Kitchen" chip. Once its kitchen ticket prints (at Accept for a guest's order, at Send to kitchen for staff-rung food), a room's food shows in Being made and on every staff phone's Runs as "In the kitchen · ticket printed · 6:12", with no Ready at the bar. The runner taps **Picked up** at the kitchen, which records Ready and I've got it in one tap ("On its way · Andy"), then Delivered, or Couldn't serve… as for drinks; a remake prints REMAKE in the kitchen. Food for a bar tab or a quick sale has no run ([Kitchen and food](16-kitchen.md) · Runners and delivery, K-06).
 
-**Sharing a terminal.** Each person taps their badge to take over, in about a second, against about 5 seconds for a name and PIN. Unsent drinks belong to whoever rang them, so two bartenders can work one tab without mixing rounds, and the check says when someone else has drinks not sent on it. Each person has their own quick sale.
+**Sharing a terminal.** Each person taps their badge to take over, in about a second, against about 5 seconds for a name and PIN. Where the venue has no badge reader (no registered `nfc_reader`), sign-in leads with the name tiles under "Tap your name, then your PIN" and shows no badge card (`badge_readers` on `GET /team/tiles`; [D133](../decisions.md), U-20). Unsent drinks belong to whoever rang them, so two bartenders can work one tab without mixing rounds, and the check says when someone else has drinks not sent on it. Each person has their own quick sale.
 
 **Room orders at the bar.** Orders from the rooms show across the top of the bar POS and on the bar orders screen, oldest first, with their age and ID status ("ID ✓ 3 of 4 · the runner checks the last ID"). The bar orders screen has the same side menu, signed-in person and Lock as the bar POS, and every Accept is stamped with whoever is signed in. Its columns:
 

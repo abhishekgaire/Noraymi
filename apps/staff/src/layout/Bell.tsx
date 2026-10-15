@@ -196,7 +196,7 @@ export function Bell({
   timeZone: string;
   reach: BellReach;
 }) {
-  const { t, time } = useT();
+  const { t, tn, time } = useT();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const bell = useBell(venueId, userId, reach);
@@ -269,7 +269,7 @@ export function Bell({
       <button
         type="button"
         className="icon-button bell-button"
-        aria-label={t("bell.open", { count })}
+        aria-label={tn("bell.open", count)}
         aria-expanded={open}
         aria-controls="bell-panel"
         data-testid="bell"

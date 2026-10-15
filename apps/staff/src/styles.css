@@ -2545,7 +2545,7 @@ a.song-count {
   background: color-mix(in srgb, var(--w4-lime) 20%, transparent);
   border-color: var(--w4-lime);
 }
-/* Needs a wipe: grey. */
+/* Needs cleaning: grey. */
 .room-clocks.board .room-clock[data-state="cleaning"] {
   background: var(--w4-cleaning);
   border-color: var(--w4-cleaning);
