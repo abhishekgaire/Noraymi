@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 import {
   choiceLabel,
   defaultPicks,
@@ -58,85 +59,87 @@ export function FoodChoices(props: {
   const v = item.variants.find((x) => x.id === variant);
   const price = v ? unitWithChoices(item.groups, v, picked) : 0;
   return (
-    <div className="sheet food-choices" role="dialog" aria-label={item.name}>
-      <h3 data-guest-text>
-        {item.name} {!props.drink && <span className="kchip">{t("kitchen.chip")}</span>}
-      </h3>
-      {item.variants.length > 1 && (
-        <fieldset>
-          <legend>{t("kitchen.choices.size")}</legend>
-          <div className="choice-row">
-            {item.variants.map((x) => (
-              <button
-                key={x.id}
-                type="button"
-                className={x.id === variant ? "chip on" : "chip"}
-                aria-pressed={x.id === variant}
-                disabled={x.out_tonight}
-                onClick={() => pickSize(x.id)}
-              >
-                <span data-guest-text>{x.name}</span>{" "}
-                {x.out_tonight ? t("drinks.out") : money(x.price_cents as never)}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      )}
-      {openGroups(item.groups, variant, picked).map((g) => (
-        <fieldset key={g.id}>
-          <legend>
-            {needsPick(g)
-              ? (g.max_choices ?? 1) > 1
-                ? t("kitchen.choices.pickUpTo", { group: g.name, n: g.max_choices ?? 1 })
-                : t("kitchen.choices.pickOne", { group: g.name })
-              : t("kitchen.choices.optional", { group: g.name })}
-          </legend>
-          {g.included_choices != null && (
-            <p className="hint">
-              {(g.extra_choice_cents ?? 0) > 0
-                ? t("kitchen.choices.included", {
-                    n: g.included_choices,
-                    price: money((g.extra_choice_cents ?? 0) as never),
-                  })
-                : t("kitchen.choices.includedOnly", { n: g.included_choices })}
-            </p>
-          )}
-          <div className="choice-row">
-            {g.options.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                className={picked.includes(o.id) ? "chip on" : "chip"}
-                aria-pressed={picked.includes(o.id)}
-                disabled={o.out_tonight}
-                onClick={() => toggle(g, o.id)}
-              >
-                <span data-guest-text>{choiceLabel(o)}</span>
-                {o.out_tonight
-                  ? ` · ${t("drinks.out")}`
-                  : (o.price_delta_cents ?? 0) > 0
-                    ? ` +${money(o.price_delta_cents as never)}`
-                    : ""}
-              </button>
-            ))}
-          </div>
-        </fieldset>
-      ))}
-      <div className="actions">
-        <button type="button" className="secondary" onClick={props.onCancel}>
-          {t("kitchen.send.cancel")}
-        </button>
-        <button
-          type="button"
-          className="primary"
-          disabled={!v || missing !== undefined}
-          onClick={() => props.onAdd(variant, picked)}
-        >
-          {missing
-            ? t("kitchen.choices.needed", { group: missing.name.toLowerCase() })
-            : t("kitchen.choices.add", { price: money(price as never) })}
-        </button>
+    <Dialog onClose={props.onCancel} label={item.name}>
+      <div className="sheet food-choices">
+        <h3 data-guest-text>
+          {item.name} {!props.drink && <span className="kchip">{t("kitchen.chip")}</span>}
+        </h3>
+        {item.variants.length > 1 && (
+          <fieldset>
+            <legend>{t("kitchen.choices.size")}</legend>
+            <div className="choice-row">
+              {item.variants.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  className={x.id === variant ? "chip on" : "chip"}
+                  aria-pressed={x.id === variant}
+                  disabled={x.out_tonight}
+                  onClick={() => pickSize(x.id)}
+                >
+                  <span data-guest-text>{x.name}</span>{" "}
+                  {x.out_tonight ? t("drinks.out") : money(x.price_cents as never)}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        )}
+        {openGroups(item.groups, variant, picked).map((g) => (
+          <fieldset key={g.id}>
+            <legend>
+              {needsPick(g)
+                ? (g.max_choices ?? 1) > 1
+                  ? t("kitchen.choices.pickUpTo", { group: g.name, n: g.max_choices ?? 1 })
+                  : t("kitchen.choices.pickOne", { group: g.name })
+                : t("kitchen.choices.optional", { group: g.name })}
+            </legend>
+            {g.included_choices != null && (
+              <p className="hint">
+                {(g.extra_choice_cents ?? 0) > 0
+                  ? t("kitchen.choices.included", {
+                      n: g.included_choices,
+                      price: money((g.extra_choice_cents ?? 0) as never),
+                    })
+                  : t("kitchen.choices.includedOnly", { n: g.included_choices })}
+              </p>
+            )}
+            <div className="choice-row">
+              {g.options.map((o) => (
+                <button
+                  key={o.id}
+                  type="button"
+                  className={picked.includes(o.id) ? "chip on" : "chip"}
+                  aria-pressed={picked.includes(o.id)}
+                  disabled={o.out_tonight}
+                  onClick={() => toggle(g, o.id)}
+                >
+                  <span data-guest-text>{choiceLabel(o)}</span>
+                  {o.out_tonight
+                    ? ` · ${t("drinks.out")}`
+                    : (o.price_delta_cents ?? 0) > 0
+                      ? ` +${money(o.price_delta_cents as never)}`
+                      : ""}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ))}
+        <div className="actions">
+          <button type="button" className="secondary" onClick={props.onCancel}>
+            {t("kitchen.send.cancel")}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            disabled={!v || missing !== undefined}
+            onClick={() => props.onAdd(variant, picked)}
+          >
+            {missing
+              ? t("kitchen.choices.needed", { group: missing.name.toLowerCase() })
+              : t("kitchen.choices.add", { price: money(price as never) })}
+          </button>
+        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

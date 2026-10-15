@@ -1700,6 +1700,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "cutOff.why.tab": "¿Por qué se corta esta cuenta?",
   "drinks.alcohol.cutOffTab": "Sin alcohol · esta cuenta tiene corte",
   "cutOff.failed": "No se pudo hacer · Inténtalo de nuevo",
+  "cutOff.reasons": "Motivos comunes",
+  "cutOff.reason.drunk": "Parece demasiado ebrio",
+  "cutOff.reason.noId": "Sin identificación válida",
+  "cutOff.reason.behavior": "Alborotado o agresivo",
+  "cutOff.reason.asked": "Lo pidió el cliente",
   // The clear-out check (M3-23).
   "clearOut.push": "Revisión de cierre: recorre cada sala y la barra · que no quede ninguna bebida",
   // The age policy (D108): the board at the switch to 21 and over.
@@ -2555,6 +2560,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "rail.rooms": "Salas",
   "rail.roomOpened": "Abierta {time} · {min} min · {amount} de sala",
   "rail.closed": "Cerradas esta noche · {n}",
+  "rail.closedList": "Cerradas esta noche",
+  "rail.closedSale": "Venta rápida {label}",
   "rail.search": "Buscar en el menú",
   "rail.86": "86",
   "rail.86.hint":
@@ -4419,6 +4426,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "discount.failed": "No se pudo hacer · Inténtalo de nuevo",
   "discount.pctBad": "Escribe un porcentaje de 0.01 a 100",
   "discount.amountBad": "Escribe un monto mayor que $0.00",
+  "discount.presets": "Descuentos comunes",
+  "discount.preset": "{pct}%",
   "receipt.discount": "Descuento · {what}",
   "receipt.discountAmount": "Descuento",
   "report.discounts": "Descuentos",

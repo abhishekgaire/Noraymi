@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import type { MessageKey } from "@west4/shared";
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 
 /**
  * Connect your Twilio account (T-02; D123; spec 11 · Accounts), in Admin → Phone & texts and in Set
@@ -216,20 +217,32 @@ export function TwilioConnect({
                 {t("twilio.replace")}
               </button>
               {confirming ? (
-                <p className="notice" role="alertdialog">
-                  {t("twilio.disconnect.confirm")}
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={busy !== null}
-                    onClick={() => void act("disconnect")}
-                  >
-                    {t("twilio.disconnect.yes")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => setConfirming(false)}>
-                    {t("twilio.cancel")}
-                  </button>
-                </p>
+                <Dialog
+                  role="alertdialog"
+                  onClose={() => setConfirming(false)}
+                  label={t("twilio.disconnect.confirm")}
+                >
+                  <div className="sheet confirm-sheet">
+                    <p>{t("twilio.disconnect.confirm")}</p>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="primary"
+                        disabled={busy !== null}
+                        onClick={() => void act("disconnect")}
+                      >
+                        {t("twilio.disconnect.yes")}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setConfirming(false)}
+                      >
+                        {t("twilio.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                </Dialog>
               ) : (
                 <button
                   type="button"

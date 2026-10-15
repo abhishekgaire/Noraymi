@@ -191,6 +191,24 @@ describe("Quick sale", () => {
     expect(cash.json().logged_to.name).toMatch(/^Maya/);
     const k = await owner.query("select status from checks where id = $1", [sale.check_id]);
     expect(k.rows[0].status).toBe("paid");
+
+    // U-22: Closed tonight lists the paid sale (newest first) for Change tip and Refund, and a sale
+    // still waiting to be paid isn't there.
+    const unpaid = (await sell([{ variant_id: v("modelo"), qty: 1 }])).json();
+    const list = await app.inject({ method: "GET", url: `/v1/venues/${venueId}/quick-sales` });
+    expect(list.statusCode, list.body).toBe(200);
+    const sales = list.json().sales as { check_id: string; label: string; total_cents: number }[];
+    const mine = sales.find((x) => x.check_id === sale.check_id);
+    expect(mine).toMatchObject({ total_cents: sale.amount_due_cents, rung_by: "Maya" });
+    expect(mine!.label).toMatch(/^#\d+$/);
+    expect(sales.some((x) => x.check_id === unpaid.check_id)).toBe(false);
+    // Its tips read like a tab's (P-06's route takes any check), so Change tip works from here.
+    const tips = await app.inject({
+      method: "GET",
+      url: `/v1/venues/${venueId}/checks/${sale.check_id}/tips`,
+    });
+    expect(tips.statusCode, tips.body).toBe(200);
+    expect(tips.json().payments).toHaveLength(1);
   });
 
   it("a retried Pay answers the same sale, and an empty round is refused", async () => {

@@ -25,7 +25,22 @@ const TitleId = createContext<string | null>(null);
 const FOCUSABLE =
   'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-export function Dialog({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+export function Dialog({
+  onClose,
+  children,
+  label,
+  role = "dialog",
+  onTop = false,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+  /** A sheet with no title of its own to point at (U-22): its accessible name, as `aria-label`. */
+  label?: string;
+  /** A question that must be answered before going on (a confirm), read as an alert dialog. */
+  role?: "dialog" | "alertdialog";
+  /** The PIN-again and manager's-PIN dialogs open over a sheet that's already open (U-22). */
+  onTop?: boolean;
+}) {
   const titleId = useId();
   const panel = useRef<HTMLDivElement>(null);
   const close = useRef(onClose);
@@ -71,13 +86,13 @@ export function Dialog({ onClose, children }: { onClose: () => void; children: R
   };
 
   return (
-    <div className="dialog-scrim" onKeyDown={onKeyDown}>
+    <div className={onTop ? "dialog-scrim on-top" : "dialog-scrim"} onKeyDown={onKeyDown}>
       <div
         ref={panel}
         className="dialog"
-        role="dialog"
+        role={role}
         aria-modal="true"
-        aria-labelledby={titleId}
+        {...(label !== undefined ? { "aria-label": label } : { "aria-labelledby": titleId })}
         tabIndex={-1}
       >
         <span className="dialog-grip" aria-hidden="true" />
@@ -89,14 +104,15 @@ export function Dialog({ onClose, children }: { onClose: () => void; children: R
 
 /**
  * What a sheet puts on its root and its title: inside a Dialog, the title's id
- * (the dialog is labelled by it); on its own, the sheet is the dialog.
+ * (the dialog is labelled by it); on its own, the sheet is a panel in the page
+ * (a named region), never a dialog without the Dialog's Esc and focus trap (U-22).
  */
 export function useSheetDialog(label: string): {
-  readonly root: { role?: "dialog"; "aria-label"?: string };
+  readonly root: { role?: "region"; "aria-label"?: string };
   readonly title: { id?: string };
 } {
   const id = useContext(TitleId);
   return id
     ? { root: {}, title: { id } }
-    : { root: { role: "dialog", "aria-label": label }, title: {} };
+    : { root: { role: "region", "aria-label": label }, title: {} };
 }

@@ -195,6 +195,23 @@ export function DiscountPanel(props: {
               <span>{t("discount.amount")}</span>
             </label>
           </fieldset>
+          {/* U-22 (D133): 10% and 20% in one tap; the server still checks the amount and the limit. */}
+          <div className="chips" role="group" aria-label={t("discount.presets")}>
+            {(["10", "20"] as const).map((pct) => (
+              <button
+                key={pct}
+                type="button"
+                className="secondary"
+                aria-pressed={mode === "pct" && value.trim() === pct}
+                onClick={() => {
+                  setMode("pct");
+                  setValue(pct);
+                }}
+              >
+                {t("discount.preset", { pct })}
+              </button>
+            ))}
+          </div>
           <div className="invite-fields">
             <label>
               <span>{mode === "pct" ? t("discount.pctField") : t("discount.amountField")}</span>

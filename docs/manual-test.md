@@ -2098,3 +2098,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. **Texting** under Choices says off stops every text even with Guest texts or Marketing texts on; **Guest texts** and **Marketing texts** above each say their texts go out only while Texting is on too; Admin → Texts' Texting switch says it's the same switch as Choices.
 7. **Approvals** says Ask for the PIN again is separate; **Ask for the PIN again for** says Approvals decides who says yes.
 8. Switch to Español: the headings read **Salas**, **Barra**, **Clientes**, **Equipo**, **Dinero** and **Local**, and each hint is in Spanish.
+
+### 31.22 Every sheet and dialog works the same way (U-22)
+
+1. Start the demo (`scripts/demo-start.sh`), pair this browser as the bar computer (Admin → Devices) and sign in as Maya (4071) on the **Bar POS**. Ring a Bud Light on Quick sale, **Pay for 1**, then **Exact** in Cash. Open **Closed tonight** on the left: "Quick sale #…" (the next check number) is there with "Maya · 10:41 PM", and **Change tip**.
+2. Type the sale's number in the find box: Closed tonight opens on it. Type "zzzz": nothing, not even Closed tonight. Type "Jess": Jess P.'s tab shows if it's closed tonight.
+3. Tap **Change tip** on the quick sale: a dialog opens over the screen. Press Tab many times: the focus never leaves it. Press Esc: it closes and nothing changed; the focus is back on Change tip.
+4. Open Luis M.'s tab and tap **No more alcohol on this tab**: the dialog shows the chips Looks too drunk, No valid ID, Rowdy or aggressive and The guest asked above the reason. Tap **Looks too drunk**: it fills the reason (and turns lime). Press Esc: the tab isn't cut off. Do it again and tap **Cut off**: "Cut off by Maya at 10:4x PM".
+5. On another tab, tap **Discount the check**: **10%** and **20%** fill Percent off in one tap (even with Amount picked). Give it with a reason: under the reason-only limit it's on; over it, it waits for a manager as before.
+6. Pick Room 9 and tap a sent line (Fix · Large bucket · 10 beers): tap **Rang it wrong**: **Not made** is picked. **VOID · take the sale back** is the main (filled) button and **COMP** sits beside it as the second choice.
+7. Lock and sign in as Andy (730915), open the Bar POS again: the quick sale has **Refund** too; it opens Refund from check #… in the same kind of dialog, and Esc closes it.
+8. As Andy in Admin → Rooms, tap **Archive** on Room 8: "Archive Room 8?" is a dialog over the page; Esc keeps the room. The same goes for Team's Deactivate, Devices' Revoke, Features' switches that ask first, Texts' Erase a guest and Phone & texts' Disconnect.
+9. On a phone (or the browser's phone view at 390 × 844), open Room 9 and tap **Report a fault**: it's a bottom sheet across the whole width with a grip at the top; Esc (with a keyboard) or Cancel closes it.
+10. Spanish (Language): the chips read Parece demasiado ebrio, Sin identificación válida, Alborotado o agresivo and Lo pidió el cliente; the quick sale reads "Venta rápida #…".
+

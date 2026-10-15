@@ -47,7 +47,7 @@ export function PinAgainDialog() {
   }, []);
   if (!asking) return null;
   return (
-    <Dialog onClose={() => asking.answer(null)}>
+    <Dialog onTop onClose={() => asking.answer(null)}>
       <PinAgainSheet asking={asking} />
     </Dialog>
   );

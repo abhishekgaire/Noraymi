@@ -238,3 +238,25 @@
     padding: 16px;
   }
 }
+
+/* The PIN again and the manager's PIN (U-22) open over a sheet that's already open, so they sit above it. */
+.dialog-scrim.on-top {
+  z-index: 210;
+}
+
+/* Quick choices in a sheet (U-22, D133): reason chips and preset amounts, 44 px or more; the chosen
+   one is lime. Zero specificity, so a sheet's own chips (No sale's 56 px) keep theirs. */
+:where(.dialog > .sheet:not(.checkin-sheet)) .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+:where(.dialog > .sheet:not(.checkin-sheet)) .chips > button {
+  min-height: 44px;
+  min-width: 44px;
+}
+:where(.dialog > .sheet:not(.checkin-sheet)) .chips > button[aria-pressed="true"] {
+  color: var(--w4-on-accent);
+  background: var(--w4-lime);
+  border-color: var(--w4-lime);
+}

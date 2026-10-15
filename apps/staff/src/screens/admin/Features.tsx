@@ -10,6 +10,7 @@ import { api, type ApiCallError } from "../../api.js";
 import { useEvents } from "../../events.js";
 import { byGroup, groupLabelKey, MODULE_GROUP } from "../../admin/groups.js";
 import { useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 import { useSession } from "../../session.js";
 import { FeatureChoices } from "./FeatureChoices.js";
 import { MenuOrder } from "./MenuOrder.js";
@@ -247,24 +248,32 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
                       </div>
                     </div>
                     {pending?.id === m.id && (
-                      <p className="notice" role="alertdialog">
-                        {confirmQuestion(pending)}
-                        <button
-                          type="button"
-                          className="primary"
-                          disabled={busy !== null}
-                          onClick={() => void change(pending.id, pending.state, true)}
-                        >
-                          {t("modules.confirm.yes")}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          onClick={() => setPending(null)}
-                        >
-                          {t("modules.confirm.no")}
-                        </button>
-                      </p>
+                      <Dialog
+                        role="alertdialog"
+                        onClose={() => setPending(null)}
+                        label={confirmQuestion(pending)}
+                      >
+                        <div className="sheet confirm-sheet">
+                          <p>{confirmQuestion(pending)}</p>
+                          <div className="actions">
+                            <button
+                              type="button"
+                              className="primary"
+                              disabled={busy !== null}
+                              onClick={() => void change(pending.id, pending.state, true)}
+                            >
+                              {t("modules.confirm.yes")}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => setPending(null)}
+                            >
+                              {t("modules.confirm.no")}
+                            </button>
+                          </div>
+                        </div>
+                      </Dialog>
                     )}
                     {!m.core && (
                       <dl className="module-hides">

@@ -3,6 +3,7 @@ import type { MessageKey, RoomSettings } from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 import { useSession } from "../../session.js";
 
 /**
@@ -185,23 +186,31 @@ export function Rooms() {
                             {off ? t("rooms.switchOn") : t("rooms.switchOff")}
                           </button>
                           {confirming === room.id ? (
-                            <p className="notice" role="alertdialog">
-                              {t("rooms.archive.confirm", { name: room.name })}
-                              <button
-                                type="button"
-                                className="primary"
-                                onClick={() => void archive(room)}
-                              >
-                                {t("team.confirm")}
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() => setConfirming(null)}
-                              >
-                                {t("team.badge.cancel")}
-                              </button>
-                            </p>
+                            <Dialog
+                              role="alertdialog"
+                              onClose={() => setConfirming(null)}
+                              label={t("rooms.archive.confirm", { name: room.name })}
+                            >
+                              <div className="sheet confirm-sheet">
+                                <p>{t("rooms.archive.confirm", { name: room.name })}</p>
+                                <div className="actions">
+                                  <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={() => void archive(room)}
+                                  >
+                                    {t("team.confirm")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => setConfirming(null)}
+                                  >
+                                    {t("team.badge.cancel")}
+                                  </button>
+                                </div>
+                              </div>
+                            </Dialog>
                           ) : (
                             <button
                               type="button"

@@ -4,6 +4,7 @@ import { api, ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import "./desk.css";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 import { useSession } from "../session.js";
 import { useClock } from "../clock.js";
 import { useConnection } from "../connection.js";
@@ -502,41 +503,43 @@ export function Calendar() {
               </p>
             )}
             {blocking && !past && (
-              <div className="sheet" role="dialog" aria-label={t("calendar.block")}>
-                <h2>{t("calendar.blockTitle", { date: dayLabel(day) })}</h2>
-                <p>{t("calendar.affects", { count: bookings?.length ?? 0 })}</p>
-                <ul className="bookings-list">
-                  {bookings?.map((b) => (
-                    <li key={b.id} className="small">
-                      {t("phone.row", {
-                        time: time(b.starts_at, timeZone),
-                        name: b.guest_name,
-                        party: b.party_size,
-                        room: b.room_name,
-                        hours: hoursOf(b),
-                        deposit: money(b.deposit_cents as never),
-                      })}
-                    </li>
-                  ))}
-                </ul>
-                <div className="actions">
-                  {(bookings?.length ?? 0) > 0 && (
-                    <button type="button" className="primary" onClick={() => void block(true)}>
-                      {t("calendar.cancelRefundAll")}
+              <Dialog onClose={() => setBlocking(false)} label={t("calendar.block")}>
+                <div className="sheet">
+                  <h2>{t("calendar.blockTitle", { date: dayLabel(day) })}</h2>
+                  <p>{t("calendar.affects", { count: bookings?.length ?? 0 })}</p>
+                  <ul className="bookings-list">
+                    {bookings?.map((b) => (
+                      <li key={b.id} className="small">
+                        {t("phone.row", {
+                          time: time(b.starts_at, timeZone),
+                          name: b.guest_name,
+                          party: b.party_size,
+                          room: b.room_name,
+                          hours: hoursOf(b),
+                          deposit: money(b.deposit_cents as never),
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="actions">
+                    {(bookings?.length ?? 0) > 0 && (
+                      <button type="button" className="primary" onClick={() => void block(true)}>
+                        {t("calendar.cancelRefundAll")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className={(bookings?.length ?? 0) > 0 ? "secondary" : "primary"}
+                      onClick={() => void block()}
+                    >
+                      {t("calendar.blockIt")}
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className={(bookings?.length ?? 0) > 0 ? "secondary" : "primary"}
-                    onClick={() => void block()}
-                  >
-                    {t("calendar.blockIt")}
-                  </button>
-                  <button type="button" onClick={() => setBlocking(false)}>
-                    {t("checkIn.cancel")}
-                  </button>
+                    <button type="button" onClick={() => setBlocking(false)}>
+                      {t("checkIn.cancel")}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </Dialog>
             )}
             {adding && !past && (
               <form

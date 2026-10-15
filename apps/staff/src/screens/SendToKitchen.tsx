@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 
 /**
  * Food rung by staff (K-05; Kitchen and food · Ordering food; FoodBar.dc.html): the "Send to kitchen
@@ -52,28 +53,26 @@ export function UnsentWarning(props: {
 }) {
   const { t, tn } = useT();
   return (
-    <div
-      className="kitchen-warning"
-      role="alertdialog"
-      aria-label={tn("kitchen.unsent", props.count)}
-    >
-      <p>
-        <strong>{tn("kitchen.unsent", props.count)}</strong>
-      </p>
-      <div className="actions">
-        <button type="button" className="primary" onClick={props.onSend}>
-          {t("kitchen.send.button", { n: props.count })}
-        </button>
-        <button type="button" className="secondary" onClick={props.onAnyway}>
-          {props.anyway === "close"
-            ? t("kitchen.unsent.closeAnyway")
-            : t("kitchen.unsent.payAnyway")}
-        </button>
-        <button type="button" className="link" onClick={props.onBack}>
-          {t("kitchen.send.cancel")}
-        </button>
+    <Dialog onClose={props.onBack} role="alertdialog" label={tn("kitchen.unsent", props.count)}>
+      <div className="sheet kitchen-warning">
+        <p>
+          <strong>{tn("kitchen.unsent", props.count)}</strong>
+        </p>
+        <div className="actions">
+          <button type="button" className="primary" onClick={props.onSend}>
+            {t("kitchen.send.button", { n: props.count })}
+          </button>
+          <button type="button" className="secondary" onClick={props.onAnyway}>
+            {props.anyway === "close"
+              ? t("kitchen.unsent.closeAnyway")
+              : t("kitchen.unsent.payAnyway")}
+          </button>
+          <button type="button" className="link" onClick={props.onBack}>
+            {t("kitchen.send.cancel")}
+          </button>
+        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -135,77 +134,79 @@ export function SendToKitchen(props: {
         {t("kitchen.send.button", { n: count })}
       </button>
       {open && (
-        <div className="sheet kitchen-sheet" role="dialog" aria-label={t("kitchen.send.title")}>
-          <h3>{t("kitchen.send.title")}</h3>
-          <p className="small muted">{t("kitchen.send.only")}</p>
-          {props.needsName && (
-            <label className="grow">
-              <span>{t("kitchen.send.name")}</span>
-              <input
-                value={name}
-                maxLength={40}
-                placeholder={t("kitchen.send.nameHint")}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </label>
-          )}
-          <ul className="kitchen-lines">
-            {props.lines.map((l) => {
-              const n = notes[l.key] ?? { note: "", allergy: false };
-              const set = (next: Partial<typeof n>) =>
-                setNotes((all) => ({ ...all, [l.key]: { ...n, ...next } }));
-              return (
-                <li key={l.key} className={n.allergy && n.note.trim() ? "allergy" : undefined}>
-                  <span data-guest-text>{`${l.qty} × ${l.label}`}</span>
-                  <input
-                    aria-label={`${t("kitchen.send.note")} · ${l.label}`}
-                    placeholder={t("kitchen.send.note")}
-                    value={n.note}
-                    maxLength={200}
-                    onChange={(e) => set({ note: e.target.value })}
-                  />
-                  <label className="kitchen-allergy">
+        <Dialog onClose={() => !busy && setOpen(false)} label={t("kitchen.send.title")}>
+          <div className="sheet kitchen-sheet">
+            <h3>{t("kitchen.send.title")}</h3>
+            <p className="small muted">{t("kitchen.send.only")}</p>
+            {props.needsName && (
+              <label className="grow">
+                <span>{t("kitchen.send.name")}</span>
+                <input
+                  value={name}
+                  maxLength={40}
+                  placeholder={t("kitchen.send.nameHint")}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </label>
+            )}
+            <ul className="kitchen-lines">
+              {props.lines.map((l) => {
+                const n = notes[l.key] ?? { note: "", allergy: false };
+                const set = (next: Partial<typeof n>) =>
+                  setNotes((all) => ({ ...all, [l.key]: { ...n, ...next } }));
+                return (
+                  <li key={l.key} className={n.allergy && n.note.trim() ? "allergy" : undefined}>
+                    <span data-guest-text>{`${l.qty} × ${l.label}`}</span>
                     <input
-                      type="checkbox"
-                      checked={n.allergy}
-                      onChange={(e) => set({ allergy: e.target.checked })}
+                      aria-label={`${t("kitchen.send.note")} · ${l.label}`}
+                      placeholder={t("kitchen.send.note")}
+                      value={n.note}
+                      maxLength={200}
+                      onChange={(e) => set({ note: e.target.value })}
                     />
-                    <span>{t("kitchen.send.allergy")}</span>
-                  </label>
-                  {n.allergy && n.note.trim() && (
-                    <span className="small kitchen-allergy-hint">
-                      {t("kitchen.send.allergyHint", { note: n.note.trim().toUpperCase() })}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="actions">
-            <button
-              type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => setOpen(false)}
-            >
-              {t("kitchen.send.cancel")}
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy || count === 0}
-              aria-busy={busy}
-              onClick={() => void send()}
-            >
-              {busy ? t("kitchen.send.sending") : t("kitchen.send.button", { n: count })}
-            </button>
+                    <label className="kitchen-allergy">
+                      <input
+                        type="checkbox"
+                        checked={n.allergy}
+                        onChange={(e) => set({ allergy: e.target.checked })}
+                      />
+                      <span>{t("kitchen.send.allergy")}</span>
+                    </label>
+                    {n.allergy && n.note.trim() && (
+                      <span className="small kitchen-allergy-hint">
+                        {t("kitchen.send.allergyHint", { note: n.note.trim().toUpperCase() })}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="actions">
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setOpen(false)}
+              >
+                {t("kitchen.send.cancel")}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || count === 0}
+                aria-busy={busy}
+                onClick={() => void send()}
+              >
+                {busy ? t("kitchen.send.sending") : t("kitchen.send.button", { n: count })}
+              </button>
+            </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </>
   );

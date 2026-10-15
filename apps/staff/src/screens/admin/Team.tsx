@@ -16,6 +16,7 @@ const NONE: readonly string[] = [];
 import { usE164 } from "../../us-phone.js";
 import { readDevice } from "../../device.js";
 import { roleKey, useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 import { useSession } from "../../session.js";
 import { useVenueTime } from "../../clock.js";
 import { PunchesTonight } from "./PunchesTonight.js";
@@ -596,23 +597,31 @@ export function Team() {
                             </button>
                           )}
                           {confirming === person.membership_id && (
-                            <p className="notice" role="alertdialog">
-                              {t("team.deactivate.confirm", { name: person.name })}
-                              <button
-                                type="button"
-                                className="primary"
-                                onClick={() => void deactivate(person)}
-                              >
-                                {t("team.confirm")}
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() => setConfirming(null)}
-                              >
-                                {t("team.badge.cancel")}
-                              </button>
-                            </p>
+                            <Dialog
+                              role="alertdialog"
+                              onClose={() => setConfirming(null)}
+                              label={t("team.deactivate.confirm", { name: person.name })}
+                            >
+                              <div className="sheet confirm-sheet">
+                                <p>{t("team.deactivate.confirm", { name: person.name })}</p>
+                                <div className="actions">
+                                  <button
+                                    type="button"
+                                    className="primary"
+                                    onClick={() => void deactivate(person)}
+                                  >
+                                    {t("team.confirm")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary"
+                                    onClick={() => setConfirming(null)}
+                                  >
+                                    {t("team.badge.cancel")}
+                                  </button>
+                                </div>
+                              </div>
+                            </Dialog>
                           )}
                         </div>
                       )}
