@@ -1560,6 +1560,7 @@ export function Rail() {
                     cashCents={tab.cash_rest_cents ?? null}
                     resume={tab.state === "tipping"}
                     noHold={tab.no_hold}
+                    cardless={!!tab.cardless}
                     savedCard={
                       tab.no_hold && tab.saved_card
                         ? {

@@ -1896,7 +1896,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 ### 31.3 Split a cardless tab (U-03)
 
 1. Start the demo with `scripts/demo-start.sh --sing-sing` (tabs without a card on, no Stripe reader, Paid on outside card machine on). On the bar computer, switch to Sing Sing and sign in as Maya (`4071`).
-2. Tap **New tab**, type a name under **Or open it without a card** (say "Dana") and tap **Open without a card**. Ring three drinks and send them.
+2. Tap **New tab**, type a name (say "Dana") and tap **Open** (U-05: the name comes first). Ring three drinks and send them.
 3. **Split** shows on the tab, as on a card tab. Tap it, then **Split 3 ways**: three shares, each with its own **Pay this share** (no "On Visa ··… · charged last", since there's no held card). The shares add up to the tab's total to the cent; an odd cent goes to the first shares.
 4. Share 1: **Pay this share**, then Cash (**Exact**, **Take … in cash**). It shows **Paid**, and the tab list shows "Partly paid · … of …".
 5. Shares 2 and 3: **Pay this share**, then **Outside card machine** (the share's amount is filled in) and **Record payment**. No reader panel shows at any point.
@@ -1914,6 +1914,15 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Tap a drink: it rings as a new quick sale (**Pay for 1**), not on the closed tab, and Repeat round isn't offered for a closed tab.
 7. Closing in cash instead keeps the change (and Wrong amount? Fix the change) in view after the receipt until **Done**, which also goes back to Quick sale.
 8. Spanish: **Enviar y cerrar**, "1 sin enviar · Envíalas primero o usa Enviar y cerrar", "Cuenta cerrada · Seat 7".
+
+### 31.5 Opening and closing a cardless tab where cardless is the venue's way (U-05)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` (tabs without a card on, no Stripe reader, Paid on outside card machine on). On the bar computer, switch to Sing Sing and sign in as Maya (`4071`).
+2. Tap **New tab**: the guest's first name and the label chips (Seat 1 to 8, Standing, By the stage, Window) come first, with **Open**. There's no consent line, no **Read to guest ✓** and no **Hold a card instead** (Sing Sing has no reader).
+3. Tap **Seat 4**, then **Open**: the tab "Seat 4" opens at once. That's 3 taps. Typing a name and pressing Enter opens it too; Open stays greyed until there's a name or a label.
+4. Ring a drink and send it. Tap **Close tab**: **Outside card machine** comes first (highlighted), then **Cash**. There's no **Another card** and no reader button. **Outside card machine**, **Record payment**, then a receipt choice closes it and goes back to Quick sale.
+5. At West 4 (`scripts/demo-start.sh`), New tab is unchanged: the consent line and **Read to guest ✓** first. Turn on "Open a tab without a card" in Admin → Bar POS: New tab now leads with the name too, and **Hold a card instead** brings back the line and Read to guest ✓ (**Open without a card** goes back). A cardless tab's Close tab there leads with **Tap at the reader**, then Cash (then Outside card machine where it's on); a card tab still offers **Close to the card** and **Another card** as before.
+6. Spanish: **Abrir**, **Mejor retener una tarjeta**, **Pagar con tarjeta en el lector**.
 
 ### 31.6 The tip asked once, and money typed in cents (U-06)
 

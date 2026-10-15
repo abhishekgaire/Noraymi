@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { TestCard } from "./TestCard.js";
+import { hasReaders, useReaders } from "../useReaders.js";
 
 /**
  * New tab, card first (M6-06; Staff screens and the bar POS · Tabs, card
@@ -13,8 +14,10 @@ import { TestCard } from "./TestCard.js";
  * brings the name; a card that already has an open tab opens it instead,
  * with no second hold. Four taps for a tapped phone: New tab, Read to guest ✓,
  * a label, Open. Where the venue turned on "Open a tab without a card"
- * (P-03), the panel also takes a name alone: Open without a card opens the
- * tab at once, with no reader and no hold.
+ * (P-03), the panel leads with the name instead (U-05, D133): a name or a
+ * label, then Open, and the tab opens at once with no reader and no hold;
+ * Hold a card instead (only where the venue has a reader) brings back the
+ * consent line and the card-first steps above.
  */
 interface Consent {
   readonly version_id: string;
@@ -58,7 +61,9 @@ export function NewTab({
   const [opening, setOpening] = useState<Opening | null>(null);
   const [readerId, setReaderId] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [cardlessName, setCardlessName] = useState("");
+  // U-05: where cards aren't required the name comes first; the card hold is the second choice.
+  const [withCard, setWithCard] = useState(false);
+  const readerList = useReaders(venueId);
   const [label, setLabel] = useState<string | null>(null);
   const [openPressed, setOpenPressed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -144,7 +149,8 @@ export function NewTab({
   // Open without a card (P-03): a name alone, no reader and no hold; the server refuses it unless the
   // venue turned on "Open a tab without a card".
   const openWithoutCard = async () => {
-    const typed = cardlessName.trim();
+    // A tapped label alone names the tab too (the server needs a name).
+    const typed = name.trim() || label;
     if (!typed) return;
     setBusy(true);
     setProblem(null);
@@ -152,7 +158,12 @@ export function NewTab({
       const o = await api<{ tab: { id: string; name: string } }>(
         "POST",
         `/v1/venues/${venueId}/tabs`,
-        { card: "none", name: typed, ...(partySize ? { party_size: partySize } : {}) },
+        {
+          card: "none",
+          name: typed,
+          label,
+          ...(partySize ? { party_size: partySize } : {}),
+        },
         { idempotencyKey: newKey() },
       );
       done.current = true;
@@ -160,6 +171,8 @@ export function NewTab({
     } catch (e) {
       const refused = e instanceof ApiCallError && e.details["reason"] === "card_required";
       setProblem(refused ? "cardRequired" : "failed");
+      // The venue now opens tabs on a card: the consent line comes back to read out.
+      if (refused) setWithCard(true);
     } finally {
       setBusy(false);
     }
@@ -214,30 +227,93 @@ export function NewTab({
     t("newTab.label.window"),
   ].filter((l) => !takenLabels.includes(l));
   const state = opening?.payment.state;
+  const nameFirst = consent?.card_required === false && !withCard;
+
+  const partySizeField = consent?.asks_party_size ? (
+    <label>
+      <span>{t("newTab.partySize")}</span>
+      <input
+        type="number"
+        inputMode="numeric"
+        min={1}
+        max={200}
+        value={partySize ?? ""}
+        onChange={(e) => setPartySize(Number(e.target.value) || null)}
+      />
+    </label>
+  ) : null;
+  // The guest's name, or a label in one tap: while the card is read, or first on a tab without one.
+  const nameAndLabels = (
+    <>
+      <label>
+        <span className="small">{t("newTab.name")}</span>
+        <input
+          value={name}
+          maxLength={80}
+          placeholder={t("newTab.nameHint")}
+          aria-label={t("newTab.name")}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
+      <div className="labels" role="group" aria-label={t("newTab.labels")}>
+        <span className="small">{t("newTab.labels")}</span>
+        {labels.map((l) => (
+          <button
+            key={l}
+            type="button"
+            className={label === l ? "chip on" : "chip"}
+            aria-pressed={label === l}
+            onClick={() => setLabel(label === l ? null : l)}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+    </>
+  );
 
   return (
     <section className="new-tab" aria-label={t("newTab.title")}>
       <h2>{t("newTab.title")}</h2>
       {!consent && !problem && <p role="status">{t("shell.loading")}</p>}
-      {consent && !opening && (
+      {consent && !opening && nameFirst && (
+        <form
+          className="new-tab-no-card"
+          aria-label={t("newTab.openNoCard")}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void openWithoutCard();
+          }}
+        >
+          {partySizeField}
+          {nameAndLabels}
+          <p className="small muted">{t("newTab.noCardHint")}</p>
+          <button
+            type="submit"
+            className="primary"
+            disabled={busy || (!name.trim() && !label) || (consent.asks_party_size && !partySize)}
+          >
+            {t("newTab.open")}
+          </button>
+          {hasReaders(readerList) && (
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setWithCard(true)}
+            >
+              {t("newTab.withCard")}
+            </button>
+          )}
+        </form>
+      )}
+      {consent && !opening && !nameFirst && (
         <>
           <p className="small muted">{t("newTab.readOut")}</p>
           <blockquote className="consent" data-guest-text>
             {consent.text}
           </blockquote>
-          {consent.asks_party_size && (
-            <label>
-              <span>{t("newTab.partySize")}</span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={200}
-                value={partySize ?? ""}
-                onChange={(e) => setPartySize(Number(e.target.value) || null)}
-              />
-            </label>
-          )}
+          {partySizeField}
           <button
             type="button"
             className="primary"
@@ -247,27 +323,9 @@ export function NewTab({
             {t("newTab.read")}
           </button>
           {consent.card_required === false && (
-            <div className="new-tab-no-card" role="group" aria-label={t("newTab.noCard")}>
-              <h3>{t("newTab.noCard")}</h3>
-              <label>
-                <span className="small">{t("newTab.noCardName")}</span>
-                <input
-                  value={cardlessName}
-                  maxLength={80}
-                  aria-label={t("newTab.noCardName")}
-                  onChange={(e) => setCardlessName(e.target.value)}
-                />
-              </label>
-              <p className="small muted">{t("newTab.noCardHint")}</p>
-              <button
-                type="button"
-                className="secondary"
-                disabled={busy || !cardlessName.trim() || (consent.asks_party_size && !partySize)}
-                onClick={() => void openWithoutCard()}
-              >
-                {t("newTab.openNoCard")}
-              </button>
-            </div>
+            <button type="button" className="secondary" onClick={() => setWithCard(false)}>
+              {t("newTab.openNoCard")}
+            </button>
           )}
         </>
       )}
@@ -293,30 +351,7 @@ export function NewTab({
               {opening.card.brand} ··{opening.card.last4}
             </p>
           )}
-          <label>
-            <span className="small">{t("newTab.name")}</span>
-            <input
-              value={name}
-              maxLength={80}
-              placeholder={t("newTab.nameHint")}
-              aria-label={t("newTab.name")}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <div className="labels" role="group" aria-label={t("newTab.labels")}>
-            <span className="small">{t("newTab.labels")}</span>
-            {labels.map((l) => (
-              <button
-                key={l}
-                type="button"
-                className={label === l ? "chip on" : "chip"}
-                aria-pressed={label === l}
-                onClick={() => setLabel(label === l ? null : l)}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
+          {nameAndLabels}
           <p className="small muted">{t("newTab.lastFour")}</p>
           <button
             type="button"

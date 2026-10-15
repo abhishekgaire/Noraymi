@@ -62,6 +62,7 @@ export function CloseTab({
   cashCents = null,
   resume,
   noHold = false,
+  cardless = false,
   savedCard = null,
   onClose,
   onClosed,
@@ -78,6 +79,8 @@ export function CloseTab({
   resume: boolean;
   /** A reopened tab whose hold was captured (M6-12): no "Close to the card". */
   noHold?: boolean;
+  /** A tab opened without a card (P-03): it never had one, so no "Another card" (U-05, D133). */
+  cardless?: boolean;
   /** The card saved from its first tap, and a charge on it already waiting. */
   savedCard?: { card: string; paymentId: string | null } | null;
   /** Back: the tab stays picked and open. */
@@ -333,14 +336,16 @@ export function CloseTab({
               <span data-guest-text>{savedCard.card}</span>
             </button>
           )}
+          {/* U-05 (D133): a tab that never had a card leads with the reader (or, with none, the
+              outside machine) and then Cash; "Another card" only where there was a first one. */}
           {readers ? (
             <button
               type="button"
-              className="secondary"
+              className={cardless ? "primary" : "secondary"}
               disabled={busy}
               onClick={() => setOther("card")}
             >
-              {t("closeTab.anotherCard")}
+              {cardless ? t("pay.tap.title") : t("closeTab.anotherCard")}
             </button>
           ) : (
             outsideOn && (
@@ -356,7 +361,7 @@ export function CloseTab({
           )}
           <button
             type="button"
-            className="secondary"
+            className={noHold && !savedCard && !readers && !outsideOn ? "primary" : "secondary"}
             disabled={busy}
             onClick={() => setOther("cash")}
           >

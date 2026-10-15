@@ -4089,8 +4089,7 @@ export const en = {
   "barPos.tabs.cardless": "Open a tab without a card",
   "barPos.tabs.cardlessHint":
     "New tab also takes a name alone. A tab without a card has no hold: it closes in cash, on the outside card machine or a reader, and the tab cut-off can't charge it.",
-  "newTab.noCard": "Or open it without a card",
-  "newTab.noCardName": "Name on the tab",
+  "newTab.withCard": "Hold a card instead",
   "newTab.openNoCard": "Open without a card",
   "newTab.noCardHint": "No hold: the tab closes in cash, on the outside card machine or a reader.",
   "newTab.cardRequired": "This venue opens tabs on a card. Read the line above to the guest.",
