@@ -397,3 +397,30 @@
 | [P-17 · Kitchen screen](P-register-parity.md#p-17--kitchen-screen) | M | K (kitchen tickets) |
 | [P-18 · A screen for the guest at the bar](P-register-parity.md#p-18--a-screen-for-the-guest-at-the-bar) | M | W-01 |
 | [P-19 · A missed sale on tonight's date](P-register-parity.md#p-19--a-missed-sale-on-tonights-date) | S | M7 (closed nights) |
+
+### [U · Fewer taps for the bartender](U-ux-review.md)
+
+| Ticket | Size | Depends on |
+| --- | --- | --- |
+| [U-01 · The outside card machine on a quick sale, and no reader panel where there are no readers](U-ux-review.md#u-01--the-outside-card-machine-on-a-quick-sale-and-no-reader-panel-where-there-are-no-readers) | M | F (outside card machine), M6 (quick sale) |
+| [U-02 · Show the cash price wherever cash is taken](U-ux-review.md#u-02--show-the-cash-price-wherever-cash-is-taken) | M | the cash discount (rule 10), P-01 |
+| [U-03 · Split a cardless tab](U-ux-review.md#u-03--split-a-cardless-tab) | S | P-03 |
+| [U-04 · The tab screen: the round first, nothing left unsent, a clean screen after closing](U-ux-review.md#u-04--the-tab-screen-the-round-first-nothing-left-unsent-a-clean-screen-after-closing) | M | M6 |
+| [U-05 · Opening and closing a cardless tab where cardless is the venue's way](U-ux-review.md#u-05--opening-and-closing-a-cardless-tab-where-cardless-is-the-venues-way) | S | P-03, U-01 |
+| [U-06 · Fix the card tip field's float math, and ask for the tip once](U-ux-review.md#u-06--fix-the-card-tip-fields-float-math-and-ask-for-the-tip-once) | S | M4 |
+| [U-07 · No sale and Lock on the bar POS](U-ux-review.md#u-07--no-sale-and-lock-on-the-bar-pos) | S | M7 (drawers), P-10 |
+| [U-08 · The manager's PIN where the approval is asked](U-ux-review.md#u-08--the-managers-pin-where-the-approval-is-asked) | M | approvals (Oct 13 setting), P-10 |
+| [U-09 · A booked party's room offers Check in; Walk-in from anywhere](U-ux-review.md#u-09--a-booked-partys-room-offers-check-in-walk-in-from-anywhere) | M | M2 |
+| [U-10 · Ending a room in fewer taps](U-ux-review.md#u-10--ending-a-room-in-fewer-taps) | M | M4, U-01 |
+| [U-11 · Room orders without runners](U-ux-review.md#u-11--room-orders-without-runners) | S | M3 |
+| [U-12 · Moving a bar tab into a new room, and undo](U-ux-review.md#u-12--moving-a-bar-tab-into-a-new-room-and-undo) | S | M6, M2 |
+| [U-13 · Booking from the calendar like checking in](U-ux-review.md#u-13--booking-from-the-calendar-like-checking-in) | S | P-08 |
+| [U-14 · Clock out in one step](U-ux-review.md#u-14--clock-out-in-one-step) | M | M7 (time clock, tips) |
+| [U-15 · Close the night without getting stuck](U-ux-review.md#u-15--close-the-night-without-getting-stuck) | M | M7 |
+| [U-16 · Offline, said plainly; cash sales offline as the owner's choice](U-ux-review.md#u-16--offline-said-plainly-cash-sales-offline-as-the-owners-choice) | M | M8 (offline), U-02 |
+| [U-17 · Drawer counts, tip-outs and paid-outs](U-ux-review.md#u-17--drawer-counts-tip-outs-and-paid-outs) | S | M7 |
+| [U-18 · One place for what needs doing](U-ux-review.md#u-18--one-place-for-what-needs-doing) | L | P-05, P-11 |
+| [U-19 · The phone's tabs](U-ux-review.md#u-19--the-phones-tabs) | M | P-13 |
+| [U-20 · One word for each thing](U-ux-review.md#u-20--one-word-for-each-thing) | S | P-11, P-05 |
+| [U-21 · Admin an owner can find their way around](U-ux-review.md#u-21--admin-an-owner-can-find-their-way-around) | M | P-10, P-13, P-14 |
+| [U-22 · Every sheet and dialog works the same way](U-ux-review.md#u-22--every-sheet-and-dialog-works-the-same-way) | M | none |
