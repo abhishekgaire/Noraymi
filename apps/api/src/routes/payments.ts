@@ -34,6 +34,8 @@ import {
   takeDownQuestion,
 } from "../tabs/saved-card.js";
 import { takeOutsideCard } from "../payments/outside-card.js";
+import { changeTip, checkTips } from "../payments/tip-change.js";
+import { driveClose } from "../tabs/close.js";
 
 /**
  * Payments (M4-05; spec 08 · Payments; Payment flows · What staff see):
@@ -50,6 +52,8 @@ import { takeOutsideCard } from "../payments/outside-card.js";
  * instead (202 approval_pending).
  *   POST /v1/venues/{v}/tabs/{t}/settle        { method: cash | tap | saved_card, amount_cents, … }: a manager
  *                                              settles a capture_failed tab (M6-17), which then closes
+ *   GET  /v1/venues/{v}/checks/{c}/tips          a check's payments for Change tip (P-06): each tip, and why not
+ *   POST /v1/venues/{v}/payments/{p}/tip         { tip_cents }: change a tip after paying (P-06)
  */
 const tapBody = z
   .object({
@@ -92,6 +96,8 @@ const onFileBody = z
   .strict();
 const approvalBody = z.object({ reason: z.string().trim().min(1).max(500) }).strict();
 const changeBody = z.object({ tendered_cents: z.number().int().positive() }).strict();
+/** Change tip (P-06): the tip the payment should carry now. */
+const tipChangeBody = z.object({ tip_cents: z.number().int().min(0).max(99_999) }).strict();
 const retapBody = z.object({ reader_id: z.string().uuid() }).strict();
 const uuid = z.string().uuid();
 
@@ -760,6 +766,60 @@ export function paymentRoutes(
         }),
       );
       return reply.code(202).send(pending);
+    },
+  );
+
+  // Change a tip after paying (P-06): an outside machine's record fixed to match, or a held card's slip
+  // tip typed again; a captured Stripe card is refused with the reason. 202 approval_pending past the limits.
+  app.get<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/tips",
+    { config: read },
+    async (request) => {
+      const checkId = request.params.checkId;
+      if (!uuid.safeParse(checkId).success) throw new ApiError("not_found", "no such check");
+      const venueId = request.venueId!;
+      return request.inVenue(async (c) => {
+        const found = await c.query("select 1 from checks where venue_id = $1 and id = $2", [
+          venueId,
+          checkId,
+        ]);
+        if (!found.rowCount) throw new ApiError("not_found", "no such check");
+        return checkTips(c, venueId, checkId);
+      });
+    },
+  );
+  app.post<{ Params: { venueId: string; paymentId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/payments/:paymentId/tip",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        action: "payments.take",
+        idempotency: "required",
+      }),
+    },
+    async (request, reply) => {
+      const paymentId = paymentParam(request);
+      const parsed = tipChangeBody.safeParse(request.body);
+      if (!parsed.success) throw new ApiError("invalid_request", "send { tip_cents }");
+      const p = request.principal;
+      if (p.kind !== "user") throw new ApiError("forbidden", "changing a tip is a person's work");
+      const venueId = request.venueId!;
+      const changed = await request.inVenue((c) =>
+        changeTip(c, venueId, paymentId, {
+          tipCents: parsed.data.tip_cents,
+          userId: p.userId,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          now: options.clock.now(),
+        }),
+      );
+      if (changed.kind === "approval") return reply.code(202).send(changed.pending);
+      if (changed.kind === "held") {
+        if (changed.entered.kind === "approval")
+          return reply.code(202).send(changed.entered.pending);
+        await driveClose(deps(), venueId, changed.entered.paymentId);
+      }
+      return paymentView(await current(request, paymentId));
     },
   );
 

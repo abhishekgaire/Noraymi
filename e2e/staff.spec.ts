@@ -4498,6 +4498,87 @@ test("P-02 · Discount the check: $5.00 off Room 9 with a reason, counted in the
   }
 });
 
+/**
+ * P-06 · change a tip after paying: a tab paid on the outside card machine with a $5.00 tip; the
+ * machine's tip was adjusted, so Maya fixes the record to $6.00 from Closed tonight, and the tip
+ * ledger follows to the cent.
+ */
+test("P-06 · Change tip: an outside machine's $5.00 tip fixed to $6.00 from Closed tonight", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+
+    // Jess P.'s tab, closed on the outside machine with a $5.00 tip.
+    const tab = (
+      await db.query<{ name: string; check_id: string }>(
+        "select name, check_id from tabs where venue_id = $1 and name = 'Jess P.'",
+        [venueId],
+      )
+    ).rows[0]!;
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await panel.getByRole("button", { name: "Close tab" }).click();
+    await panel.getByRole("button", { name: "Outside card machine" }).click();
+    const machine = panel.getByRole("form", { name: "Outside card machine" });
+    await machine.getByLabel("Tip, $").fill("5.00");
+    await machine.getByRole("button", { name: "Record payment" }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await db.query<{ status: string }>("select status from checks where id = $1", [
+              tab.check_id,
+            ])
+          ).rows[0]?.status,
+      )
+      .toBe("paid");
+    await page.reload();
+
+    const nav = page.getByRole("navigation");
+    await nav.getByText(/^Closed tonight · \d+$/).click();
+    const row = nav.locator("li.closed-tab", { hasText: tab.name });
+    await row.getByRole("button", { name: "Change tip" }).click();
+    const sheet = page.getByRole("dialog", { name: "Change tip" });
+    const outside = sheet.locator("form", { hasText: "Outside card machine" });
+    await expect(outside).toContainText("tip $5.00");
+    await outside.getByLabel("New tip, $").fill("6.00");
+    await outside.getByRole("button", { name: "Save tip" }).click();
+    await expect(sheet.getByRole("status")).toHaveText("Tip changed to $6.00");
+    await expect(outside).toContainText("tip $6.00");
+    expect(await clippedText(page)).toEqual([]);
+    const ledger = (
+      await db.query<{ tip: number; ledger: number }>(
+        `select p.tip_cents::int as tip,
+                (select coalesce(sum(amount_cents), 0)::int from tip_ledger where payment_id = p.id) as ledger
+           from payments p join payment_allocations a on a.payment_id = p.id
+          where a.check_id = $1 and p.method = 'outside_card'`,
+        [tab.check_id],
+      )
+    ).rows[0]!;
+    expect(ledger).toEqual({ tip: 600, ledger: 600 });
+    await sheet.getByRole("button", { name: "Close" }).click();
+  } finally {
+    await db.end();
+  }
+});
+
 /** The alcohol window on DeskRoom (M3-20): at 4:00 AM alcohol is greyed with the reason in words. */
 test("at 4:00 AM DeskRoom greys alcohol with the reason; a Red Bull still adds", async ({
   page,

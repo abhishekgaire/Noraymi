@@ -126,7 +126,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-06 · Change a tip after paying
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** F-10, M4 (tips)
 - **Spec:** [Payment flows](../spec/07-payment-flows.md) · Tips
@@ -135,8 +135,15 @@ Definition of done: see CLAUDE.md.
   - A Stripe card payment already captured: refused with the reason (a captured charge can't be raised).
   - The usual tip checks ask for the manager (over 25%, over $50, over 2 hours late); after the night is closed the change posts to tonight pointing back, as late tips do. Tip ledger, Z, reports and the money audit follow. Audited.
 - **Acceptance:**
-  - [ ] An outside-machine tip changes and the tip ledger and close-out totals match to the cent.
-  - [ ] A captured Stripe payment is refused with the reason; EN and ES; tests.
+  - [x] An outside-machine tip changes and the tip ledger and close-out totals match to the cent.
+  - [x] A captured Stripe payment is refused with the reason; EN and ES; tests.
+- **Notes:**
+  - Migration 0163: `tip_changes` (from, to, posting date, `adjusts_business_date`, `credited_to`, who, when, approval; insert-only, audited, RLS forced, restore wall, closed-night guard); approval kind `tip_change`; `tip_ledger_from_payment` re-created so a change with a `tip_changes` row writes the difference on the change's date, pointing back, credited to whoever the tip was. The tip itself changes through `set_tip()` (app_rw never updates `payments.tip_cents`).
+  - API (`apps/api/src/payments/tip-change.ts`): `POST /payments/{p}/tip { tip_cents }` and `GET /checks/{c}/tips`. Outside machine: the record changes; refused while `outside_card` is off (`404 module_off`). Held card waiting on its slip: typed again through Tips to enter's path (`enterSlipTip`), a pending tip review expired and replaced. Captured Stripe card: `400 captured_card`. The tip checks (`pay.tipReview`) answer `202` per the approval setting.
+  - Follow-through: the reconcile (and so the money audit) takes changes posted to a later night out of the closed night's tips; tonight's Z lists the late difference under adjustments as `outside_card_tip`, and the night journal clears it through `outside_card_clearing` (rules `nightJournal`). The closed night's stored Z never changes (D88).
+  - Screens: **Change tip** on each Closed tonight row in the bar POS and on a paid room check (`TipChangeSheet`); the approver sees **Tip change** with its reasons. EN and ES. Spec 07 (Outside card machine · Change tip), 04 (`tip_changes`), 08, the glossary and manual-test 30.2 updated.
+  - Cautious defaults: "late" is measured from when the check was paid (payments keep no simulated time of their own), and 0 when the check isn't paid; the 25% limit is of the payment's amount; a cash tip, a payment with a refund, and an outside payment while the switch is off are refused; one pending change per payment; no new money-cases group (the tip limits are the seed's `tip_review` cases, reused).
+  - Tests: `tip-change.int.test.ts` (5: list, change with ledger + X report + reconcile to the cent, unchanged / over $50 waits / waiting, captured card refused, after close posts to Sep 26 pointing back with the closed night still reconciling and the journal on the outside clearing account); rules journal unit test; e2e "P-06 · Change tip …" (isolated). The held-card path is covered by tab-slip's tests of `enterSlipTip`, not by its own test.
 
 ### P-07 · Monthly sales report
 

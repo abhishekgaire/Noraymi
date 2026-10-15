@@ -123,9 +123,14 @@ export async function reconcileNight(
          (select coalesce(sum(amount_cents), 0) from tip_ledger
            where venue_id = $1 and business_date = $2::date and adjusts_business_date is null
              and source in ('card_tip', 'cash_tip') and payment_id is not null)::text as ledger,
-         (select coalesce(sum(p.tip_cents), 0) from live_payments p
+         ((select coalesce(sum(p.tip_cents), 0) from live_payments p
            where p.venue_id = $1 and p.business_date = $2::date and p.adjusts_business_date is null
-             and p.status in ('captured', 'partly_refunded', 'refunded'))::text as payments`,
+             and p.status in ('captured', 'partly_refunded', 'refunded'))
+         -- A tip changed after its night (P-06) posted to a later night: out of this night's tips.
+         - (select coalesce(sum(x.to_cents - x.from_cents), 0) from tip_changes x
+             join live_payments p on p.venue_id = x.venue_id and p.id = x.payment_id
+            where x.venue_id = $1 and x.adjusts_business_date = $2::date)
+         )::text as payments`,
       [venueId, date],
     )
   ).rows[0]!;

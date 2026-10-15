@@ -17,6 +17,7 @@ import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
 import { ReceiptStep } from "./ReceiptStep.js";
 import { RefundSheet } from "./RefundSheet.js";
+import { TipChangeSheet } from "./TipChangeSheet.js";
 import { CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { SplitPanel, type Share, type Split } from "./SplitPanel.js";
 import { CutOffRoom } from "./CutOff.js";
@@ -148,6 +149,7 @@ export function RoomScreen() {
   // A card kept behind the bar (O-08): close-out ends with "Give the card back".
   const [held, setHeld] = useState<HeldCard | null>(null);
   const [refunding, setRefunding] = useState(false);
+  const [tipChanging, setTipChanging] = useState(false);
   const paidWords = useRef("");
   paidWords.current = t("pay.paid");
   const [share, setShare] = useState<Share | null>(null);
@@ -392,6 +394,19 @@ export function RoomScreen() {
       )}
       {paidCheck && refunding && (
         <RefundSheet venueId={venueId} checkId={paidCheck} onClose={() => setRefunding(false)} />
+      )}
+      {/* Change tip (P-06): an outside machine's tip fixed to match the machine. */}
+      {paidCheck && signedIn?.membership.permissions.includes("payments.take") && (
+        <button type="button" className="secondary" onClick={() => setTipChanging(true)}>
+          {t("tipChange.button")}
+        </button>
+      )}
+      {paidCheck && tipChanging && (
+        <TipChangeSheet
+          venueId={venueId}
+          checkId={paidCheck}
+          onClose={() => setTipChanging(false)}
+        />
       )}
       {sheet === "move" && s && (
         <MoveSheet

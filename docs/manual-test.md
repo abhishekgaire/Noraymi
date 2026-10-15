@@ -1785,6 +1785,16 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 6. With a cash discount on (Admin → Card fee, or Sing Sing's 3.38%), the bill shows **Cash price** under the total and under Left to pay.
 7. The bill prints in the venue's first staff language: with Spanish first, CUENTA, Por pagar and "Esto no es un recibo".
 
+### 30.2 Change a tip after paying (P-06)
+
+1. Turn on **Paid on outside card machine** (Admin → Features, or the Sing Sing demo). At the bar (Maya, PIN 4071), open **Jess P.**'s tab, press **Close tab**, then **Outside card machine**; keep the amount, type **Tip, $** `5.00` and press **Record payment**.
+2. Open **Closed tonight**, and on Jess P.'s row press **Change tip**. The sheet lists the payment as **Outside card machine** · $32.66 · tip $5.00. Type **New tip, $** `6.00` and press **Save tip**: "Tip changed to $6.00". My tips and tonight's tip pool show $1.00 more; Close the night's **Outside machine tips** reads $6.00.
+3. Type a tip over $50 (or over 25% of the payment): it waits for the manager ("Waiting for Andy"), who sees **Tip change** with the reason on their phone; the tip changes only when they approve.
+4. On Room 9 after paying it, **Change tip** lists the $120.00 deposit card: "This card was already charged. A charged card's tip can't be raised." A cash payment says "A cash tip is counted in the drawer."
+5. After **Close the night**, change the tip again: the difference shows on the next night's X report under adjustments, "for Fri Sep 25"; the closed night's Z is unchanged.
+6. On a tab waiting for its slip (Dev S.), **Change tip** shows **Held card · tip from the slip**: a tip typed here goes in as in Tips to enter (the slip's photo first), replacing one still waiting for approval.
+7. In Spanish: **Cambiar propina**, **Guardar propina**.
+
 ### 30.7 The month (P-07)
 
 1. Sign in as Andy and open **Reports**. The **Month** card shows September 2026 (the picker reads 2026-09) and "This month isn't over yet: only the nights already closed are counted." Before any close it says "No closed nights in this month."

@@ -48,6 +48,7 @@ export const approvalKinds = [
   "card_on_file",
   "over_hold",
   "discount",
+  "tip_change",
 ] as const;
 
 export function kindKey(kind: string) {
