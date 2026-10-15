@@ -182,6 +182,19 @@
 .checkin-sheet .chip-input {
   width: 88px;
 }
+/* The room chips (U-09): the room's name over its size, or why it can't take the party. */
+.checkin-sheet .room-chip {
+  display: inline-grid;
+  justify-items: start;
+  gap: 0;
+  padding: 4px 12px;
+  text-align: left;
+  line-height: 1.2;
+}
+.checkin-sheet .room-chip .small {
+  font-size: var(--w4-text-xs);
+  font-weight: 400;
+}
 .checkin-sheet .ids-count {
   min-width: 64px;
   text-align: center;

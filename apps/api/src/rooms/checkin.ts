@@ -33,7 +33,8 @@ import { noShowMoney } from "../bookings/cancel.js";
 import { queueText, venueTexts } from "../texts/queue.js";
 import type { VenueTextSettings } from "../texts/venue.js";
 import { sealRoomCode } from "./room-code.js";
-import { venueClock } from "./assignment.js";
+import { availability, venueClock } from "./assignment.js";
+import { pickOfferRoom } from "./waitlist.js";
 import { emailRoomQr, printRoomQr } from "./room-qr.js";
 import type { EmailSettings } from "../email/settings.js";
 import { AlcoholRefused, logRefused } from "../orders/alcohol.js";
@@ -105,23 +106,99 @@ export function noShowFrom(
   return Temporal.Instant.compare(late, grace) > 0 ? late : grace;
 }
 
+/** Why a room can't take the party right now (U-09): the sheet greys its chip with this. */
+export type RoomChoiceWhy = "too_small" | "in_use" | "cleaning" | "held" | "out_of_service";
+
+/** One room chip on the check-in sheet (U-09): its size, and whether it can take the party now. */
+export interface RoomChoice {
+  readonly room_id: string;
+  readonly name: string;
+  readonly capacity_min: number;
+  readonly capacity_max: number;
+  readonly ok: boolean;
+  readonly why: RoomChoiceWhy | null;
+  /** Free until the next block's start (null: free all night, or not free). */
+  readonly until: string | null;
+}
+
+/**
+ * Every room for the check-in sheet's picker (U-09; spec 10 · Check in): the board's own
+ * availability (free now, in use, held, being cleaned, out of service) and the seat rule (a party
+ * bigger than the room's capacity is refused), so the screen decides nothing itself. A booking's
+ * own room, held for it, counts as free for that booking.
+ */
+async function roomChoices(
+  c: Queryable,
+  venueId: string,
+  party: number,
+  now: Temporal.Instant,
+  bookingId: string | null,
+): Promise<RoomChoice[]> {
+  const avail = await availability(c, venueId, now);
+  const rooms = await listRooms(c, venueId);
+  const out: RoomChoice[] = [];
+  for (const a of avail.rooms) {
+    const room = rooms.find((r) => r.id === a.room_id);
+    if (!room) continue;
+    const own =
+      bookingId !== null && a.current?.kind === "booking" && a.current.ref_id === bookingId;
+    const why: RoomChoiceWhy | null =
+      room.state === "out_of_service" || a.current?.kind === "out_of_service"
+        ? "out_of_service"
+        : !(a.free_now || own)
+          ? a.current?.kind === "session"
+            ? "in_use"
+            : a.current?.kind === "cleaning" || a.state === "cleaning"
+              ? "cleaning"
+              : a.current
+                ? "held"
+                : "in_use"
+          : party > room.capacity_max
+            ? "too_small"
+            : null;
+    out.push({
+      room_id: room.id,
+      name: room.name,
+      capacity_min: room.capacity_min,
+      capacity_max: room.capacity_max,
+      ok: why === null,
+      why,
+      until: why === null && !a.all_night ? a.until : null,
+    });
+  }
+  return out;
+}
+
 /** What the sheet shows before anyone presses Check in. */
 export async function checkInPreview(
   c: Queryable,
   venueId: string,
-  input: { bookingId?: string; roomId?: string; partySize?: number },
+  input: { bookingId?: string; roomId?: string; partySize?: number; walkIn?: boolean },
   now: Temporal.Instant,
   opts: { guestAppUrl?: string | null } = {},
 ) {
   const booking = input.bookingId ? await bookingById(c, venueId, input.bookingId) : null;
   if (input.bookingId && !booking) throw new ApiError("not_found", "no such booking");
   const rooms = await listRooms(c, venueId);
-  const roomId = input.roomId ?? booking?.room_id;
-  const room = rooms.find((r) => r.id === roomId);
+  // + Walk-in from the board's header (U-09): no room yet, so the smallest free room that fits
+  // the party, exactly as the waitlist's Offer picks one. The party starts at the smallest
+  // room's usual party until staff tap theirs.
+  const chooseRoom = !booking && !input.roomId && input.walkIn === true;
+  const live = rooms.filter((r) => r.state !== "out_of_service");
+  const usual = Math.min(...(live.length ? live : rooms).map((r) => r.capacity_min));
+  const suggested = chooseRoom
+    ? await pickOfferRoom(c, venueId, input.partySize ?? usual, now)
+    : null;
+  const roomId = chooseRoom ? (suggested?.id ?? null) : (input.roomId ?? booking?.room_id);
+  const found = rooms.find((r) => r.id === roomId);
+  if (!found && !chooseRoom) throw new ApiError("not_found", "no such room");
+  // Nothing free fits: the sheet says so; the rate lines read from the biggest room meanwhile.
+  const room = found ?? [...rooms].sort((a, b) => b.capacity_max - a.capacity_max)[0];
   if (!room) throw new ApiError("not_found", "no such room");
-  const party = input.partySize ?? booking?.party_size ?? room.capacity_min;
+  const party = input.partySize ?? booking?.party_size ?? (chooseRoom ? usual : room.capacity_min);
   const ctx = await priceContext(c, venueId, now);
   const rate = rateAt(now, party, room as RoomForRate, ctx.prices, ctx.venue);
+  const choices = await roomChoices(c, venueId, party, now, booking?.id ?? null);
   const friSat = ctx.date.dayOfWeek === 5 || ctx.date.dayOfWeek === 6;
   // What seating sends (D128), so the sheet's last line says what will happen: the room code text
   // (when the host gives a phone) and the room's QR slip and email (while Ordering from the room is on).
@@ -158,9 +235,13 @@ export async function checkInPreview(
     /** A booking's guest has a phone on file (the code text goes to it); null for a walk-in. */
     host_phone: booking ? booking.guest_phone !== null : null,
     hourly_cents: rate.hourlyCents,
-    room_id: room.id,
-    room_name: room.name,
-    room_fits: party <= room.capacity_max,
+    room_id: found ? room.id : null,
+    room_name: found ? room.name : null,
+    room_fits: found ? party <= room.capacity_max : false,
+    /** Every room as a chip (U-09): its size, and why it can't take the party now. */
+    rooms: choices,
+    /** + Walk-in's pick (U-09): the smallest free room that fits, as the waitlist's Offer; else null. */
+    suggested_room_id: suggested?.id ?? null,
     deposit_cents: paid && paid.n > 0 ? Number(paid.cents) : (booking?.deposit_cents ?? 0),
     booked_start: booking?.starts_at ?? null,
     booked_end: booking?.ends_at ?? null,

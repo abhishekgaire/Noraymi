@@ -15,7 +15,8 @@ import {
 
 /**
  * Check-in (M2-11; spec 08 · Bookings, Board and sessions):
- *   GET  /v1/venues/{v}/check-in/preview?booking=&room=&party=   what the sheet shows
+ *   GET  /v1/venues/{v}/check-in/preview?booking=&room=&party=&walk_in=1   what the sheet shows;
+ *        walk_in=1 without a room picks the smallest free room that fits (U-09)
  *   POST /v1/venues/{v}/bookings/{b}/check-in   { party_size, ids_checked, room_id?, start_at?: "now" | "booked" }
  *   POST /v1/venues/{v}/bookings/{b}/no-show    after the grace (or a running-late hold, if later)
  *   POST /v1/venues/{v}/rooms/{r}/sessions      a walk-in: the check-in body plus minutes and the guest,
@@ -83,13 +84,14 @@ export function checkInRoutes(
 
   app.get<{
     Params: { venueId: string };
-    Querystring: { booking?: string; room?: string; party?: string };
+    Querystring: { booking?: string; room?: string; party?: string; walk_in?: string };
   }>("/v1/venues/:venueId/check-in/preview", { config: read }, async (request) => {
     const party = request.query.party ? Number(request.query.party) : undefined;
     if (party !== undefined && (!Number.isInteger(party) || party < 1))
       throw new ApiError("invalid_request", "party is a whole number");
-    if (!request.query.booking && !request.query.room)
-      throw new ApiError("invalid_request", "send booking or room");
+    const walkIn = request.query.walk_in === "1";
+    if (!request.query.booking && !request.query.room && !walkIn)
+      throw new ApiError("invalid_request", "send booking, room or walk_in=1");
     return request.inVenue((c) =>
       checkInPreview(
         c,
@@ -98,6 +100,7 @@ export function checkInRoutes(
           ...(request.query.booking ? { bookingId: request.query.booking } : {}),
           ...(request.query.room ? { roomId: request.query.room } : {}),
           ...(party ? { partySize: party } : {}),
+          ...(walkIn ? { walkIn: true } : {}),
         },
         options.clock.now(),
         { guestAppUrl: options.settings.guestAppUrl },

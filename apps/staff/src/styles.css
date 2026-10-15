@@ -2256,6 +2256,15 @@ a.song-count {
 .board-arriving {
   order: 1;
 }
+/* Arriving's name search (U-09). */
+.board-arriving .arriving-find {
+  width: 100%;
+  min-height: 44px;
+  margin: 4px 0 8px;
+}
+.board-arriving > .link {
+  min-height: 44px;
+}
 .board-rooms-label,
 .room-clocks.board {
   order: 2;
@@ -2739,23 +2748,6 @@ a.song-count {
 .board-screen.phone .room-panel-note,
 .board-screen.phone .room-panel-form input {
   background: var(--w4-bg-row);
-}
-.walk-in-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(57px + env(safe-area-inset-bottom));
-  z-index: 20;
-  padding: 10px 14px;
-  background: linear-gradient(180deg, rgba(11, 10, 13, 0), rgba(11, 10, 13, 0.95) 40%);
-}
-.walk-in-bar button {
-  width: 100%;
-  justify-content: center;
-  min-height: 52px;
-  border-radius: var(--w4-radius-pill);
-  font-size: var(--w4-text-lg);
-  font-weight: 700;
 }
 
 /* The timeline: a row a room, 4 PM to 4 AM, 65 px an hour, the now line in pink. */

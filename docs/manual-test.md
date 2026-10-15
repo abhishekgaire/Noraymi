@@ -1914,3 +1914,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 5. With Spanish chosen: **Necesita el PIN de un gerente**, **Aprobar**, **Rechazar**, **Más tarde**.
 6. Back in Admin, pick **On the manager's phone**: the next void over the limit reads "Waiting for Andy C." on the strip as before, with no dialog, and Andy approves on his phone.
 
+### 31.9 A booked party's room offers Check in; Walk-in from anywhere (U-09)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Sign in as Andy on the front-desk computer (Rooms).
+2. Room 3's tile reads **Arriving · Jae & co. 11:00** (Rooms 2, 7 and 8 show theirs too). Tap Room 3: Priya R. is still in it, and the panel offers **Check in Jae & co.** Tap it: the sheet shows Room 3 greyed "in use" and **Check in** waits until she leaves (or tap another free room). Cancel.
+3. Tap Room 8 (open, the Nguyens at 11:00): **Check in The Nguyens** is the main button and **+ Walk-in** sits beside it, second.
+4. Under **Arriving**, type "nguy" in **Find a booking**: only the Nguyens. A name nobody booked reads "No booking by that name". Bookings more than 90 minutes away sit behind **Later tonight · N**.
+5. Tap **+ Walk-in** in the header (no room picked). Tap **6** guests: the title reads **Walk-in · Room 11** and Room 11's chip is chosen ("fits 12–20"), the room the waitlist's Offer would take. Tap **More** and type 13: Room 8's chip greys, "too small · fits 6–12". Back to 6, then **Seat them**: "Room 11 · room code … · check #…".
+6. On a phone (390 wide) **+ Walk-in** is in the header too; with no room free it opens the waitlist.
+7. Spanish: **Por llegar · …**, **Registrar llegada de …**, **Buscar una reserva**, **para 6–12**.
+

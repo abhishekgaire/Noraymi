@@ -129,6 +129,7 @@ interface Arrival {
   readonly id: string;
   readonly guest_name: string;
   readonly party_size: number;
+  readonly room_id: string;
   readonly room_name: string;
   readonly starts_at: string;
   readonly ends_at: string;
@@ -136,6 +137,11 @@ interface Arrival {
   readonly no_show_from: string;
   readonly running_late_until: string | null;
 }
+
+/** A booking due within the hour shows on its room's tile and panel (U-09). */
+const DUE_MS = 60 * 60_000;
+/** Arriving shows the next 90 minutes first (U-09). */
+const SOON_MS = 90 * 60_000;
 
 /** The phone layout (V-08): below the shell's desktop breakpoint, as the bottom tabs are. */
 const PHONE = "(max-width: 1023px)";
@@ -219,6 +225,9 @@ export function Tonight() {
     {},
   );
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
+  // Arriving (U-09): a name search, and the next 90 minutes first with the rest a tap away.
+  const [find, setFind] = useState("");
+  const [later, setLater] = useState(false);
   const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -453,7 +462,6 @@ export function Tonight() {
   const modules = signedIn?.membership.modules;
   const runsOn = can("runs.carry") && modules?.bar_screen !== "off";
   const tipsOn = can("pos.use") && modules?.bar_tabs !== "off";
-  const sheetOpen = sheet !== null || damage !== null || moving !== null || faultSheet !== null;
   const showList = !phone || view === "list";
   const open = boardRooms.find((r) => r.room_id === selected) ?? null;
 
@@ -508,9 +516,53 @@ export function Tonight() {
         .catch(() => setFailed(true)),
   };
 
+  /**
+   * + Walk-in (U-09): from the header on every layout, with no room chosen; the sheet asks the
+   * party and the server picks the smallest free room that fits, as the waitlist's Offer does.
+   * With no room free at all, the waitlist opens instead.
+   */
   const walkIn = () => {
-    if (free[0]) setSheet({ kind: "walk_in", roomId: free[0].room_id, roomName: free[0].name });
-    else if (waitlistOn) setView("waitlist");
+    if (free.length > 0) setSheet({ kind: "walk_in", roomId: null, roomName: null });
+    else if (waitlistOn) {
+      if (phone) setView("waitlist");
+      else setDrawer(true);
+    } else setSheet({ kind: "walk_in", roomId: null, roomName: null });
+  };
+
+  /** A booking due on a room within the hour, or late and not yet a no-show (U-09). */
+  const dueIn = (roomId: string): Arrival | null => {
+    if (!now) return null;
+    const soon = now.epochMilliseconds + DUE_MS;
+    return (
+      arriving
+        .filter(
+          (b) =>
+            b.room_id === roomId && Temporal.Instant.from(b.starts_at).epochMilliseconds <= soon,
+        )
+        .sort((a, b) => a.starts_at.localeCompare(b.starts_at))[0] ?? null
+    );
+  };
+  /** Check in and, after the grace, Mark no-show for the booking due on a room (U-09). */
+  const dueButtons = (b: Arrival, main: boolean) => {
+    const noShowOk =
+      now !== null &&
+      now.epochMilliseconds >= Temporal.Instant.from(b.no_show_from).epochMilliseconds;
+    return (
+      <>
+        <button
+          type="button"
+          className={main ? "primary" : "secondary"}
+          onClick={() => setSheet({ kind: "booking", bookingId: b.id, name: b.guest_name })}
+        >
+          {t("board.checkInName", { name: b.guest_name })}
+        </button>
+        {noShowOk && (
+          <button type="button" className="secondary" onClick={() => alertActions.noShow(b.id)}>
+            {t("checkIn.noShow")}
+          </button>
+        )}
+      </>
+    );
   };
 
   const addNote = async (e: FormEvent, roomId: string) => {
@@ -531,6 +583,7 @@ export function Tonight() {
     const minutes = s ? minutesSince(s.started_at) : null;
     const words = wordsText(ticking(r.words, s?.booked_end_at));
     const calls = alerts.filter((a) => a.kind === "call" && a.room_name === r.name);
+    const due = dueIn(r.room_id);
     return (
       <section
         ref={panelRef}
@@ -610,6 +663,8 @@ export function Tonight() {
                   {t("wrapUp.text", { name: s.guest_name })}
                 </button>
               )}
+              {/* The next party due in this room (U-09): Check in is right here. */}
+              {due && dueButtons(due, false)}
               {reportButton({ roomId: s.room_id, roomName: s.room_name, hasSession: true })}
               {s.check_id && (
                 <button
@@ -721,14 +776,23 @@ export function Tonight() {
         ) : (
           <>
             <div className="room-panel-note">{words}</div>
-            {r.free_now && (
-              <button
-                type="button"
-                className="primary"
-                onClick={() => setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })}
-              >
-                {t("checkIn.walkIn")}
-              </button>
+            {/* A booking due here (U-09): Check in is the main button and Walk-in steps back, so a
+                booked party is never seated as a walk-in and loses its deposit. */}
+            {(due || r.free_now) && (
+              <div className="actions room-panel-actions">
+                {due && dueButtons(due, true)}
+                {r.free_now && (
+                  <button
+                    type="button"
+                    className={due ? "secondary" : "primary"}
+                    onClick={() =>
+                      setSheet({ kind: "walk_in", roomId: r.room_id, roomName: r.name })
+                    }
+                  >
+                    {t("checkIn.walkIn")}
+                  </button>
+                )}
+              </div>
             )}
             {faultList(r.room_id)}
             {reportButton({ roomId: r.room_id, roomName: r.name, hasSession: false })}
@@ -757,6 +821,7 @@ export function Tonight() {
   const tile = (r: BoardRoom) => {
     const s = sessions?.find((x) => x.room_id === r.room_id);
     const minutes = s ? minutesSince(s.started_at) : null;
+    const due = dueIn(r.room_id);
     return (
       <li
         key={r.room_id}
@@ -791,6 +856,11 @@ export function Tonight() {
                 name: r.session.held_card.name.toUpperCase(),
                 last4: r.session.held_card.last4,
               })}
+            </span>
+          )}
+          {due && (
+            <span className="tile-chip tile-arriving">
+              {t("board.arrivingChip", { name: due.guest_name, time: shortTime(due.starts_at) })}
             </span>
           )}
           {(minutes !== null || r.session) && (
@@ -874,6 +944,20 @@ export function Tonight() {
       })
     : "";
 
+  // Arriving (U-09): a name search finds anyone due tonight; otherwise the next 90 minutes (and
+  // anyone late) first, the rest behind "Later tonight · N".
+  const query = find.trim().toLowerCase();
+  const soonEnd = now ? now.epochMilliseconds + SOON_MS : Number.POSITIVE_INFINITY;
+  const soonList = arriving.filter(
+    (b) => Temporal.Instant.from(b.starts_at).epochMilliseconds <= soonEnd,
+  );
+  const shownArrivals = query
+    ? arriving.filter((b) => b.guest_name.toLowerCase().includes(query))
+    : later
+      ? arriving
+      : soonList;
+  const laterCount = query || later ? 0 : arriving.length - soonList.length;
+
   return (
     <section className={phone ? "screen board-screen phone" : "screen board-screen"}>
       <div className="screen-head">
@@ -898,6 +982,11 @@ export function Tonight() {
               {t("board.managerNeeded", { count: managerNeeded })}
             </span>
           ))}
+        {can("guests.checkin") && (
+          <button type="button" className="primary" onClick={walkIn}>
+            {t("checkIn.walkIn")}
+          </button>
+        )}
         {waitlistOn && (
           <button
             type="button"
@@ -1001,14 +1090,10 @@ export function Tonight() {
             venueId={venueId}
             timeZone={timeZone}
             onWalkIn={
-              free[0]
+              free.length > 0
                 ? () => {
                     setDrawer(false);
-                    setSheet({
-                      kind: "walk_in",
-                      roomId: free[0]!.room_id,
-                      roomName: free[0]!.name,
-                    });
+                    setSheet({ kind: "walk_in", roomId: null, roomName: null });
                   }
                 : undefined
             }
@@ -1033,7 +1118,6 @@ export function Tonight() {
               venueId={venueId}
               timeZone={timeZone}
               target={sheet}
-              freeRooms={free}
               onClose={() => setSheet(null)}
               onDone={(line) => {
                 setSheet(null);
@@ -1165,7 +1249,7 @@ export function Tonight() {
           <WaitlistList
             venueId={venueId}
             timeZone={timeZone}
-            onWalkIn={free[0] ? walkIn : undefined}
+            onWalkIn={free.length > 0 ? walkIn : undefined}
           />
         </section>
       )}
@@ -1196,11 +1280,24 @@ export function Tonight() {
             <>
               <div className="board-arriving">
                 <h2 className="board-label">{t("checkIn.arriving")}</h2>
+                {arriving.length > 0 && (
+                  <input
+                    type="search"
+                    className="arriving-find"
+                    aria-label={t("checkIn.search")}
+                    placeholder={t("checkIn.search")}
+                    autoComplete="off"
+                    value={find}
+                    onChange={(e) => setFind(e.target.value)}
+                  />
+                )}
                 {arriving.length === 0 ? (
                   <p className="empty">{t("checkIn.noneArriving")}</p>
+                ) : shownArrivals.length === 0 && find.trim() ? (
+                  <p className="empty">{t("checkIn.noMatch")}</p>
                 ) : (
                   <ul className="room-clocks arriving">
-                    {arriving.map((b) => {
+                    {shownArrivals.map((b) => {
                       const noShowOk =
                         now !== null &&
                         now.epochMilliseconds >=
@@ -1263,6 +1360,11 @@ export function Tonight() {
                     })}
                   </ul>
                 )}
+                {laterCount > 0 && (
+                  <button type="button" className="link" onClick={() => setLater(true)}>
+                    {t("checkIn.later", { count: laterCount })}
+                  </button>
+                )}
               </div>
               <div className="board-lost">
                 <LostAndFound venueId={venueId} rooms={rooms} />
@@ -1271,13 +1373,6 @@ export function Tonight() {
           )}
         </div>
       </div>
-      {phone && can("guests.checkin") && !(open && !sheetOpen) && !sheet && (
-        <div className="walk-in-bar">
-          <button type="button" className="primary" onClick={walkIn}>
-            {t("checkIn.walkIn")}
-          </button>
-        </div>
-      )}
       {/* "Online · synced 4 s ago", never "works offline" (M8-01; screens Board note 14). */}
       <SyncFooter />
     </section>

@@ -164,7 +164,6 @@ export function PhoneTonight() {
             venueId={venueId}
             timeZone={timeZone}
             target={sheet}
-            freeRooms={[]}
             onClose={() => setSheet(null)}
             onDone={(line) => {
               setSheet(null);

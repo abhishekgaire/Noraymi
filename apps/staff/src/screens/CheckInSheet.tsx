@@ -23,9 +23,14 @@ interface Preview {
   readonly party_size: number;
   readonly min_guests: number;
   readonly min_day: "friday" | "saturday" | "weeknight";
-  readonly room_id: string;
-  readonly room_name: string;
+  /** Null only for + Walk-in when no free room fits the party (U-09). */
+  readonly room_id: string | null;
+  readonly room_name: string | null;
   readonly room_fits: boolean;
+  /** Every room as a chip (U-09): its size, and the server's reason it can't take the party now. */
+  readonly rooms: readonly RoomChoice[];
+  /** + Walk-in's pick (U-09): the smallest free room that fits, as the waitlist's Offer. */
+  readonly suggested_room_id: string | null;
   readonly deposit_cents: number;
   readonly booked_start: string | null;
   /** What a walk-in's step 5 takes (D112); null for a booking. */
@@ -38,9 +43,14 @@ interface Preview {
   readonly host_phone: boolean | null;
 }
 
-interface Room {
+interface RoomChoice {
   readonly room_id: string;
   readonly name: string;
+  readonly capacity_min: number;
+  readonly capacity_max: number;
+  readonly ok: boolean;
+  readonly why: "too_small" | "in_use" | "cleaning" | "held" | "out_of_service" | null;
+  readonly until: string | null;
 }
 
 interface Seated {
@@ -77,27 +87,27 @@ export function usE164(typed: string): string | null {
 
 export type SheetTarget =
   | { readonly kind: "booking"; readonly bookingId: string; readonly name: string }
-  | { readonly kind: "walk_in"; readonly roomId: string; readonly roomName: string };
+  /** A walk-in on a room tile's panel; with no room (+ Walk-in in the header, U-09) the server picks one. */
+  | { readonly kind: "walk_in"; readonly roomId: string | null; readonly roomName: string | null };
 
 export function CheckInSheet({
   venueId,
   timeZone,
   target,
-  freeRooms,
   onDone,
   onClose,
 }: {
   venueId: string;
   timeZone: string;
   target: SheetTarget;
-  freeRooms: readonly Room[];
   onDone: (line: string) => void;
   onClose: () => void;
 }) {
   const { t, money, time } = useT();
   const [party, setParty] = useState<number | null>(null);
   const [ids, setIds] = useState(0);
-  const [roomId, setRoomId] = useState<string | null>(null);
+  // The room staff tapped (U-09); until then the booking's room, the tile's, or the server's pick.
+  const [picked, setPicked] = useState<string | null>(null);
   const [startBooked, setStartBooked] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [name, setName] = useState("");
@@ -117,15 +127,21 @@ export function CheckInSheet({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Card on the tab (D112): once seated, the sheet asks for the card before it's done.
-  const [cardFor, setCardFor] = useState<{ checkId: string; line: string } | null>(null);
+  const [cardFor, setCardFor] = useState<{ checkId: string; line: string; room: string } | null>(
+    null,
+  );
   // Keep the card behind the bar (O-08): the name on the card and its last 4, once seated.
-  const [heldFor, setHeldFor] = useState<{ checkId: string; line: string } | null>(null);
+  const [heldFor, setHeldFor] = useState<{ checkId: string; line: string; room: string } | null>(
+    null,
+  );
 
+  const fixedRoom = picked ?? (target.kind === "walk_in" ? target.roomId : null);
   const load = useCallback(async () => {
     const q = new URLSearchParams();
     if (target.kind === "booking") q.set("booking", target.bookingId);
-    if (roomId ?? (target.kind === "walk_in" ? target.roomId : null))
-      q.set("room", (roomId ?? (target as { roomId: string }).roomId)!);
+    if (fixedRoom) q.set("room", fixedRoom);
+    // + Walk-in with no room yet (U-09): the server picks the smallest free room that fits.
+    else if (target.kind === "walk_in") q.set("walk_in", "1");
     if (party !== null) q.set("party", String(party));
     const p = await api<Preview>("GET", `/v1/venues/${venueId}/check-in/preview?${q.toString()}`);
     setPreview(p);
@@ -134,8 +150,9 @@ export function CheckInSheet({
       setIds(p.party_size);
       if (p.party_size > PARTY_CHIPS[PARTY_CHIPS.length - 1]!) setMoreParty(true);
     }
-    if (roomId === null) setRoomId(p.room_id);
-  }, [venueId, target, party, roomId]);
+  }, [venueId, target, party, fixedRoom]);
+  const roomId = picked ?? preview?.room_id ?? null;
+  const roomName = preview?.room_name ?? null;
 
   useEffect(() => {
     load().catch(() => setError(t("shell.error.cantReach")));
@@ -155,12 +172,13 @@ export function CheckInSheet({
   }, [venueId, walkInTarget, packagesOn]);
   const pkg = packages.find((p) => p.id === packageId) ?? null;
 
-  const rooms: Room[] = preview
-    ? [
-        { room_id: preview.room_id, name: preview.room_name },
-        ...freeRooms.filter((r) => r.room_id !== preview.room_id),
-      ]
+  // The room chips (U-09): every free room, the ones too small greyed with the reason, plus the
+  // chosen one whatever its state (a booking whose room is still in use says so). Rooms in use,
+  // held or being wiped are no choice for this party, so they stay off the sheet.
+  const rooms: readonly RoomChoice[] = preview
+    ? preview.rooms.filter((r) => r.ok || r.why === "too_small" || r.room_id === roomId)
     : [];
+  const chosen = preview?.rooms.find((r) => r.room_id === roomId) ?? null;
 
   // A new party size: IDs stay "all checked" when they were, and never more than the guests.
   const changeParty = (n: number) => {
@@ -221,9 +239,9 @@ export function CheckInSheet({
           number: checkNumberLabel(seated.check_number, seated.training === true),
         }) + (seated.text === "not_sent" ? ` · ${t("checkIn.textNotSent")}` : "");
       if (target.kind === "walk_in" && preview.walk_in === "cardOnTab")
-        setCardFor({ checkId: seated.check_id, line });
+        setCardFor({ checkId: seated.check_id, line, room: seated.room_name });
       else if (target.kind === "walk_in" && preview.walk_in === "cardBehindBar")
-        setHeldFor({ checkId: seated.check_id, line });
+        setHeldFor({ checkId: seated.check_id, line, room: seated.room_name });
       else onDone(line);
     } catch (err) {
       setError(
@@ -239,7 +257,9 @@ export function CheckInSheet({
   const title =
     target.kind === "booking"
       ? t("checkIn.title", { name: target.name })
-      : t("checkIn.walkInTitle", { room: target.roomName });
+      : (roomName ?? target.roomName)
+        ? t("checkIn.walkInTitle", { room: (roomName ?? target.roomName)! })
+        : t("checkIn.walkInPicking");
   const dlg = useSheetDialog(title);
 
   if (heldFor)
@@ -247,7 +267,7 @@ export function CheckInSheet({
       <HeldCardTake
         venueId={venueId}
         checkId={heldFor.checkId}
-        roomName={target.kind === "walk_in" ? target.roomName : ""}
+        roomName={heldFor.room}
         seatedLine={heldFor.line}
         onDone={onDone}
       />
@@ -257,7 +277,7 @@ export function CheckInSheet({
       <RoomCardTap
         venueId={venueId}
         checkId={cardFor.checkId}
-        roomName={target.kind === "walk_in" ? target.roomName : ""}
+        roomName={cardFor.room}
         seatedLine={cardFor.line}
         onDone={onDone}
       />
@@ -385,19 +405,50 @@ export function CheckInSheet({
                 </div>
                 {ids < party && <span className="small">{t("checkIn.runnerChecks")}</span>}
               </fieldset>
-              <label>
-                <span>{t("checkIn.step", { n: 3, label: t("checkIn.room") })}</span>
-                <select value={roomId ?? ""} onChange={(e) => setRoomId(e.target.value)}>
+              {/* The room as chips (U-09): each room's size; one too small is greyed with the
+                  reason. The fit and the free state are the server's (the seat rule and the board). */}
+              <fieldset className="checkin-field">
+                <legend>{t("checkIn.step", { n: 3, label: t("checkIn.room") })}</legend>
+                <div className="chips room-chips">
                   {rooms.map((r) => (
-                    <option key={r.room_id} value={r.room_id}>
-                      {r.name}
-                    </option>
+                    <button
+                      key={r.room_id}
+                      type="button"
+                      className="chip room-chip"
+                      aria-pressed={r.room_id === roomId}
+                      disabled={!r.ok}
+                      onClick={() => setPicked(r.room_id)}
+                    >
+                      <b>{r.name}</b>
+                      <span className="small">
+                        {r.ok
+                          ? r.until
+                            ? `${t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })} · ${t("checkIn.roomUntil", { time: time(r.until, timeZone) })}`
+                            : t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })
+                          : `${t(`move.why.${r.why ?? "in_use"}` as MessageKey)} · ${t("checkIn.roomFits", { min: r.capacity_min, max: r.capacity_max })}`}
+                      </span>
+                    </button>
                   ))}
-                </select>
-                {!preview.room_fits && (
-                  <span className="small error">{t("checkIn.roomTooSmall")}</span>
+                </div>
+                {roomId === null ? (
+                  <span className="small error" role="status">
+                    {t("checkIn.noRoomFits", { party })}
+                  </span>
+                ) : chosen && !chosen.ok ? (
+                  <span className="small error">
+                    {chosen.why === "too_small"
+                      ? t("checkIn.roomTooSmall")
+                      : t("checkIn.roomNotOk", {
+                          room: chosen.name,
+                          why: t(`move.why.${chosen.why ?? "in_use"}` as MessageKey),
+                        })}
+                  </span>
+                ) : (
+                  !preview.room_fits && (
+                    <span className="small error">{t("checkIn.roomTooSmall")}</span>
+                  )
                 )}
-              </label>
+              </fieldset>
               <label>
                 <span>{t("checkIn.note")}</span>
                 <input
@@ -546,7 +597,11 @@ export function CheckInSheet({
             <span className="muted">{t("checkIn.step", { n: 6, label: sends.join(" · ") })}</span>
           </p>
           <div className="row">
-            <button type="submit" className="primary" disabled={busy || !preview.room_fits}>
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || roomId === null || !preview.room_fits || chosen?.ok === false}
+            >
               {target.kind === "booking" ? t("checkIn.confirm") : t("checkIn.confirmWalkIn")}
             </button>
             <button type="button" className="secondary" onClick={onClose}>

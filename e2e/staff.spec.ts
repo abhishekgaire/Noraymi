@@ -12153,3 +12153,89 @@ test("U-03 · a cash share at Sing Sing's cash discount shows Card · Cash, Exac
     await db.end();
   }
 });
+
+/**
+ * U-09: a booked party's room offers Check in, and + Walk-in is in the header on every layout.
+ * From a fresh seed at 10:41 PM on a 1280 board: Room 3's tile says "Arriving · Jae & co. 11:00"
+ * and its panel offers Check in Jae & co. (Priya R. is still in the room, so the sheet says Room 3
+ * is in use); Room 8's panel makes Check in The Nguyens the main button with + Walk-in beside it.
+ * Arriving finds a booking by name. + Walk-in in the header for 6 picks Room 11, the smallest free
+ * room that fits (the waitlist Offer's pick), shows each room's size as a chip, greys Room 8 as too
+ * small for 13, and Seat them seats the 6 in Room 11. On a phone, + Walk-in is in the header too.
+ */
+test("U-09 · Room 3 offers Check in Jae & co., and + Walk-in for 6 takes the smallest free room that fits", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+
+    // Room 3: the next party is due within the hour.
+    const room3Tile = page.getByRole("listitem", { name: "Room 3", exact: true });
+    await expect(room3Tile).toContainText("Arriving · Jae & co. 11:00");
+    const room3 = await openRoom(page, "Room 3");
+    await room3.getByRole("button", { name: "Check in Jae & co." }).click();
+    const jae = page.getByRole("dialog", { name: "Check in Jae & co." });
+    await expect(jae).toContainText("Room 3 · in use");
+    await expect(jae.getByRole("button", { name: "Check in", exact: true })).toBeDisabled();
+    await jae.getByRole("button", { name: "Cancel" }).click();
+    await expect(jae).toHaveCount(0);
+
+    // Room 8 is open with the Nguyens due at 11:00: Check in is the main button, Walk-in beside it.
+    const room8 = await openRoom(page, "Room 8");
+    const checkIn = room8.getByRole("button", { name: "Check in The Nguyens" });
+    await expect(checkIn).toHaveClass(/primary/);
+    await expect(room8.getByRole("button", { name: "+ Walk-in" })).toHaveClass(/secondary/);
+    await room8.getByRole("button", { name: "Close" }).click();
+
+    // Arriving: a name search.
+    const arriving = page.locator(".board-arriving");
+    await arriving.getByRole("searchbox", { name: "Find a booking" }).fill("nguy");
+    await expect(arriving.getByRole("listitem")).toHaveCount(1);
+    await expect(arriving.getByRole("listitem", { name: "The Nguyens" })).toBeVisible();
+    await arriving.getByRole("searchbox", { name: "Find a booking" }).fill("zzz");
+    await expect(arriving).toContainText("No booking by that name");
+    await arriving.getByRole("searchbox", { name: "Find a booking" }).fill("");
+
+    // + Walk-in in the header: the server picks the smallest free room that fits the party.
+    await page.locator(".screen-head").getByRole("button", { name: "+ Walk-in" }).click();
+    const walkIn = page.getByRole("dialog");
+    const guests = walkIn.getByRole("group", { name: "1 · Guests" });
+    const rooms = walkIn.getByRole("group", { name: "3 · Room" });
+    await guests.getByRole("button", { name: "More" }).click();
+    await walkIn.getByLabel("Number of guests").fill("13");
+    await expect(rooms.getByRole("button", { name: /^Room 8/ })).toBeDisabled();
+    await expect(rooms.getByRole("button", { name: /^Room 8/ })).toContainText("too small");
+    await guests.getByRole("button", { name: "6", exact: true }).click();
+    await expect(walkIn).toHaveAccessibleName("Walk-in · Room 11");
+    await expect(rooms.getByRole("button", { name: /^Room 11/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(rooms.getByRole("button", { name: /^Room 11/ })).toContainText("fits 12–20");
+    await expect(rooms.getByRole("button", { name: /^Room 8/ })).toBeEnabled();
+    for (const chip of await rooms.getByRole("button").all()) {
+      const box = await chip.boundingBox();
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
+    await walkIn.getByRole("button", { name: "Seat them" }).click();
+    await expect(page.getByText(/^Room 11 · room code [A-Z2-9]{5} · check #\d{4}$/)).toBeVisible();
+    const seated = await db.query<{ party_size: number }>(
+      `select s.party_size from room_sessions s join rooms r on r.id = s.room_id
+        where r.name = 'Room 11' and s.ended_at is null`,
+    );
+    expect(seated.rows).toEqual([{ party_size: 6 }]);
+
+    // On a phone, + Walk-in is in the header too.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(
+      page.locator(".screen-head").getByRole("button", { name: "+ Walk-in" }),
+    ).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});

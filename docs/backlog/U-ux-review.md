@@ -136,7 +136,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-09 · A booked party's room offers Check in; Walk-in from anywhere
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2
 - **Spec:** [Bar POS and staff screens](../spec/10-staff-screens-bar-pos.md) · the board (N10)
@@ -145,9 +145,9 @@ Definition of done: see CLAUDE.md.
   - **+ Walk-in** in the board header on every layout (today only on a phone, Tonight.tsx:1270). It picks the smallest free room that fits the party, as the waitlist's Offer does, and the room picker is chips showing each room's size, rooms too small greyed with the reason (CheckInSheet.tsx about 390).
   - Arriving gets a name search and shows the next 90 minutes first.
 - **Acceptance:**
-  - [ ] Tapping Room 3 at 10:41 PM offers Check in Jae & co.; Walk-in still possible.
-  - [ ] + Walk-in for 6 seats the party in the smallest free room that fits.
-- **Notes:**
+  - [x] Tapping Room 3 at 10:41 PM offers Check in Jae & co.; Walk-in still possible.
+  - [x] + Walk-in for 6 seats the party in the smallest free room that fits.
+- **Notes:** Oct 15, 2026. `GET /check-in/preview` now answers `rooms` (every room with its size, `ok`, and `why`: in use, held, needs a wipe, out of service or too small, read from the board's own availability and the seat rule) and `suggested_room_id`; `walk_in=1` without a room asks for the pick, which is `pickOfferRoom`, the waitlist Offer's own (smallest free room that fits and is free for an hour, a bigger one only when no booking tonight needs it). No new route and no migration. The board's tile chip and the panel's Check in come from tonight's bookings list (now read with its `room_id`). Tests: `checkin-rooms.int.test.ts` (as app_rw) and the e2e "U-09 · Room 3 offers Check in Jae & co. …". Cautious defaults: "due" is a booking starting within 60 minutes, or late and not yet a no-show; Room 3 is in use at 10:41, so its panel keeps Open room as the main button and adds Check in Jae & co. beside it, the sheet greys Room 3 "in use" and Check in waits (the server would refuse a seat there anyway), and Walk-in stays possible from the header; the chips list the free rooms (too-small ones greyed) plus the sheet's own room, not rooms that are in use, held or being wiped; a free room with a booking later (Room 8) stays choosable with "free until 11:00 PM", as before; + Walk-in with no free room at all opens the waitlist (the drawer on a desktop); the phone's bottom + Walk-in bar is gone, since the header has it; the name in the chip and the button is the booking's full name ("Jae & co."), not a first name.
 
 ### U-10 · Ending a room in fewer taps
 
