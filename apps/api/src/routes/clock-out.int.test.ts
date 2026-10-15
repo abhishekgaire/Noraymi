@@ -277,3 +277,85 @@ describe("editing a punch", () => {
     expect(mine.statusCode).toBe(403);
   });
 });
+
+describe("clocking out in one call (U-14; D133)", () => {
+  const myShift = async (slug: string) =>
+    (
+      await owner.query<{ cents: number | null; declared: boolean; open: boolean }>(
+        `select s.cash_tips_declared_cents::int as cents, s.cash_tips_declared_at is not null as declared,
+                s.ended_at is null as open
+           from shifts s join memberships m on m.id = s.membership_id
+          where m.user_id = $1 order by s.started_at desc, s.ended_at desc nulls first limit 1`,
+        [ids[slug]],
+      )
+    ).rows[0]!;
+  const cashTips = async (slug: string) =>
+    (
+      await owner.query<{ amount: number }>(
+        "select amount_cents::int as amount from tip_ledger where user_id = $1 and source = 'cash_tip' order by amount_cents",
+        [ids[slug]],
+      )
+    ).rows.map((r) => r.amount);
+
+  it("refuses a malformed amount: a float, a negative or a string is never money", async () => {
+    as("diego", "front_desk", "pin", "dev_front_computer");
+    for (const bad of [12.5, -100, "1500"]) {
+      const r = await post("/shifts/clock-out", { cash_tips_cents: bad });
+      expect(r.statusCode, r.body).toBe(400);
+    }
+  });
+
+  it("declares and clocks Maya out in one call when tips are the only line left, $0.00 included", async () => {
+    as("maya", "bartender", "pin", "dev_bar_computer");
+    clock.advance(Temporal.Duration.from({ minutes: 5 }));
+    expect((await post("/shifts/clock-in", { duty: "bar" })).statusCode).toBe(201);
+    expect((await checklist()).map((i) => i.kind)).toEqual(["declare_tips"]);
+    // Without an amount the checklist still refuses: the declaration is never skipped.
+    const bare = await post("/shifts/clock-out");
+    expect(bare.statusCode).toBe(409);
+    expect(bare.json().error.code).toBe("checklist_open");
+    const done = await post("/shifts/clock-out", { cash_tips_cents: 0 });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(await myShift("maya")).toEqual({ cents: 0, declared: true, open: false });
+    expect(await cashTips("maya")).toEqual([1500]);
+    // Off the clock, her last duty comes back so Clock in has it picked.
+    const me = (await get("/shifts")).json().me;
+    expect(me).toMatchObject({ shift: null, last_duty: "bar" });
+  });
+
+  it("keeps nothing when another line is open: the declaration rolls back with the refusal", async () => {
+    as("maya", "bartender", "pin", "dev_bar_computer");
+    clock.advance(Temporal.Duration.from({ minutes: 5 }));
+    expect((await post("/shifts/clock-in", { duty: "bar" })).statusCode).toBe(201);
+    // Diego hands Hana K.'s tab back to Maya.
+    as("diego", "front_desk", "pin", "dev_front_computer");
+    const hana = await tabOf("Hana K.");
+    expect((await post(`/tabs/${hana}/hand-over`, { to: ids["maya"] })).statusCode).toBe(200);
+    as("maya", "bartender", "pin", "dev_bar_computer");
+    const refused = await post("/shifts/clock-out", { cash_tips_cents: 1200 });
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.code).toBe("checklist_open");
+    // What's left besides the tips she typed: the tab.
+    const items = refused.json().error.details.items as Item[];
+    expect(items.map((i) => i.kind)).toEqual(["open_tab"]);
+    expect(await myShift("maya")).toEqual({ cents: null, declared: false, open: true });
+    expect(await cashTips("maya")).toEqual([1500]);
+    // The tab goes to Diego; the same tap then finishes, $12.00 on her shift.
+    expect((await post(`/tabs/${hana}/hand-over`, { to: ids["diego"] })).statusCode).toBe(200);
+    const done = await post("/shifts/clock-out", { cash_tips_cents: 1200 });
+    expect(done.statusCode, done.body).toBe(200);
+    expect(await myShift("maya")).toEqual({ cents: 1200, declared: true, open: false });
+    expect(await cashTips("maya")).toEqual([1200, 1500]);
+  });
+
+  it("won't change a declaration already made: another amount is refused, the same one goes on to the checklist", async () => {
+    as("diego", "front_desk", "pin", "dev_front_computer");
+    const other = await post("/shifts/clock-out", { cash_tips_cents: 500 });
+    expect(other.statusCode).toBe(409);
+    expect(other.json().error.code).toBe("version_conflict");
+    const same = await post("/shifts/clock-out", { cash_tips_cents: 0 });
+    expect(same.statusCode).toBe(409);
+    expect(same.json().error.code).toBe("checklist_open");
+    expect(await myShift("diego")).toMatchObject({ cents: 0, declared: true, open: true });
+  });
+});

@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import { shiftMinutes, type Duty, type Punch } from "@west4/rules";
 import { parseDollars, type Cents, type Temporal } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useClock } from "../clock.js";
+import { useConnection } from "../connection.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
+import { DrawerPanel } from "./DrawerPanel.js";
 
 /**
  * The time clock (M7-01; screens Pin note 2, N24): clock in with a duty
@@ -30,6 +33,8 @@ export interface ClockAnswer {
     readonly membership_id: string;
     readonly duties: readonly Duty[];
     readonly shift: ShiftView | null;
+    /** The duty of their last shift, picked for them at Clock in (U-14). */
+    readonly last_duty?: Duty | null;
   };
   readonly team: readonly {
     readonly membership_id: string;
@@ -81,6 +86,8 @@ export function ClockPanel({
   const { state } = useSession();
   const clock = useClock();
   const { subscribe } = useEvents();
+  // Clocking in and out is the server's: offline, the buttons wait and the panel says why.
+  const offline = useConnection().kind === "offline";
   const signedIn = state.status === "signedIn" ? state : null;
   const venueId = signedIn?.membership.venue_id ?? "";
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
@@ -89,8 +96,24 @@ export function ClockPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  // The clock-out checklist (M7-11): what's left, shown when clock-out is refused.
+  // The clock-out checklist (M7-11), shown before the first tap (U-14).
   const [checklist, setChecklist] = useState<readonly ChecklistItem[] | null>(null);
+  // The cash tips typed on it: Clock out declares them in the same call (U-14).
+  const [tips, setTips] = useState("");
+  // Just clocked out here: the panel says so and doesn't ask for a duty again (U-14).
+  const [clockedOut, setClockedOut] = useState(false);
+
+  const loadChecklist = useCallback(async () => {
+    if (!venueId) return;
+    try {
+      setChecklist(
+        (await api<{ items: ChecklistItem[] }>("GET", `/v1/venues/${venueId}/shifts/checklist`))
+          .items,
+      );
+    } catch {
+      // Clock out still asks the server, which answers with the list.
+    }
+  }, [venueId]);
 
   const load = useCallback(async () => {
     if (!venueId) return;
@@ -99,36 +122,55 @@ export function ClockPanel({
       setAnswer(a);
       clock.sync(a.server_time);
       setError(null);
+      // One duty is picked for them; otherwise the one they used last (U-14).
+      setDuty((d) => d ?? (a.me.duties.length === 1 ? a.me.duties[0]! : (a.me.last_duty ?? null)));
+      if (a.me.shift) await loadChecklist();
+      else setChecklist(null);
     } catch {
       setError(t("shell.error.cantReach"));
     }
     // The clock's sync is stable; t changes only with the language.
-  }, [venueId, t]);
+  }, [venueId, t, loadChecklist]);
   useEffect(() => void load(), [load]);
   useEffect(
     () =>
       subscribe((events) => {
         if (events.length === 0 || events.some((e) => e.type === "shift.updated")) void load();
+        else if (events.some((e) => e.type === "drawer.updated" || e.type.startsWith("tab.")))
+          void loadChecklist();
       }),
-    [subscribe, load],
+    [subscribe, load, loadChecklist],
   );
 
-  const punch = async (path: string, body?: unknown) => {
+  const punch = async (path: "clock-in" | "clock-out" | "break", body?: unknown) => {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
       await api("POST", `/v1/venues/${venueId}/shifts/${path}`, body);
+      if (path === "clock-in" && onDone) {
+        // Clock in goes straight to their home screen (U-14).
+        onDone(true);
+        return;
+      }
       if (path === "clock-out") {
         setNotice(t("clock.clockedOut"));
+        setClockedOut(true);
         setChecklist(null);
+        setTips("");
       }
-      setDuty(null);
       await load();
     } catch (e) {
-      if (e instanceof ApiCallError && e.code === "checklist_open")
-        setChecklist(e.details["items"] as ChecklistItem[]);
-      else
+      if (e instanceof ApiCallError && e.code === "checklist_open") {
+        // The declaration rolled back with the refusal: the tips box stays, with what was typed.
+        const items = e.details["items"] as ChecklistItem[];
+        const sentTips = path === "clock-out" && body !== undefined;
+        setChecklist(
+          sentTips && !items.some((i) => i.kind === "declare_tips")
+            ? [...items, { kind: "declare_tips" }]
+            : items,
+        );
+      } else
         setError(
           e instanceof ApiCallError && e.status === 409
             ? t("clock.refused")
@@ -142,10 +184,22 @@ export function ClockPanel({
 
   const now = clock.now ?? answer?.server_time ?? null;
   const shift = answer?.me.shift ?? null;
+  const owesTips = checklist?.some((i) => i.kind === "declare_tips") ?? false;
+  const tipCents = parseDollars(tips, 6);
+  const clockOut = () =>
+    void punch(
+      "clock-out",
+      owesTips && tipCents !== null ? { cash_tips_cents: tipCents } : undefined,
+    );
 
   return (
     <section className="time-clock" aria-label={t("clock.title")}>
       {answer === null && !error && <p role="status">{t("shell.loading")}</p>}
+      {offline && (
+        <p className="notice" role="status">
+          {t("clock.offline")}
+        </p>
+      )}
       {error && (
         <p className="error" role="alert">
           {error}
@@ -167,14 +221,18 @@ export function ClockPanel({
                 })}
           </p>
           <p className="muted small">{t("clock.duty", { duty: t(`clock.duty.${shift.duty}`) })}</p>
-          {checklist && (
+          {checklist && checklist.length > 0 && (
             <Checklist
               venueId={venueId}
               items={checklist}
               onTheClock={answer.team.filter(
                 (p) => p.shift !== null && p.membership_id !== answer.me.membership_id,
               )}
-              onChanged={setChecklist}
+              manager={answer.me.duties.includes("manager")}
+              tips={tips}
+              onTips={setTips}
+              disabled={busy || offline}
+              onChanged={() => void loadChecklist()}
             />
           )}
           <div className="actions">
@@ -182,7 +240,7 @@ export function ClockPanel({
               <button
                 type="button"
                 className="primary"
-                disabled={busy}
+                disabled={busy || offline}
                 onClick={() => void punch("break", { action: "end" })}
               >
                 {t("clock.endBreak")}
@@ -191,7 +249,7 @@ export function ClockPanel({
               <button
                 type="button"
                 className="secondary"
-                disabled={busy}
+                disabled={busy || offline}
                 onClick={() => void punch("break", { action: "start" })}
               >
                 {t("clock.startBreak")}
@@ -199,16 +257,16 @@ export function ClockPanel({
             )}
             <button
               type="button"
-              className="secondary"
-              disabled={busy}
-              onClick={() => void punch("clock-out")}
+              className={owesTips ? "primary" : "secondary"}
+              disabled={busy || offline || (owesTips && tipCents === null)}
+              onClick={clockOut}
             >
               {t("clock.clockOut")}
             </button>
           </div>
         </>
       )}
-      {answer && !shift && (
+      {answer && !shift && !clockedOut && (
         <>
           <p className="clock-status" role="status">
             {t("clock.notOnShift")}
@@ -226,7 +284,7 @@ export function ClockPanel({
           <button
             type="button"
             className="primary"
-            disabled={busy || duty === null}
+            disabled={busy || offline || duty === null}
             onClick={() => void punch("clock-in", { duty })}
           >
             {t("clock.clockIn")}
@@ -235,7 +293,7 @@ export function ClockPanel({
       )}
       {onDone && answer && (
         <button type="button" className="secondary" onClick={() => onDone(shift !== null)}>
-          {t(doneLabel ?? "clock.done")}
+          {t(clockedOut ? "clock.done" : (doneLabel ?? "clock.done"))}
         </button>
       )}
       <p className="muted small">{t("clock.rule")}</p>
@@ -300,121 +358,197 @@ type ChecklistItem =
   | { readonly kind: "drawer_handover" };
 
 /**
- * The clock-out checklist (M7-11; screens N24): each line with its fix. Open
- * tabs go to someone still on the clock here; cash tips are declared here
- * (any amount, $0.00 included); unsent drinks go with their tab; a staff bank
- * is dropped, and an own drawer counted or pulled, at the drawer's screen;
- * the manager on duty hands the drawers over first.
+ * The clock-out checklist (M7-11; screens N24), shown before the first tap
+ * (U-14), each line with its action: open tabs all go to one person still
+ * on the clock in one tap ("Close these tabs" at the bar POS when nobody
+ * else is on); unsent drinks go with their tab; Drop my cash drops the staff
+ * bank into this screen's drawer; Count and the drawer handover open the
+ * drawers here. Cash tips are typed here, or $0 tapped, and Clock out
+ * declares them in the same call.
  */
 function Checklist({
   venueId,
   items,
   onTheClock,
+  manager,
+  tips,
+  onTips,
+  disabled,
   onChanged,
 }: {
   venueId: string;
   items: readonly ChecklistItem[];
   onTheClock: readonly { readonly user_id: string; readonly name: string }[];
-  onChanged: (items: readonly ChecklistItem[]) => void;
+  manager: boolean;
+  tips: string;
+  onTips: (text: string) => void;
+  disabled: boolean;
+  onChanged: () => void;
 }) {
   const { t, money } = useT();
-  const [to, setTo] = useState<Record<string, string>>({});
-  const [tips, setTips] = useState("");
+  const [to, setTo] = useState<string>("");
   const [failed, setFailed] = useState(false);
-  const refresh = async () =>
-    onChanged(
-      (await api<{ items: ChecklistItem[] }>("GET", `/v1/venues/${venueId}/shifts/checklist`))
-        .items,
-    );
+  const [drawers, setDrawers] = useState(false);
+  const [working, setWorking] = useState(false);
   const run = async (call: () => Promise<unknown>) => {
     setFailed(false);
+    setWorking(true);
     try {
       await call();
-      await refresh();
     } catch {
       setFailed(true);
+    } finally {
+      setWorking(false);
+      onChanged();
     }
   };
-  const tipCents = parseDollars(tips, 6);
+  const tabs = items.filter(
+    (i): i is Extract<ChecklistItem, { kind: "open_tab" }> => i.kind === "open_tab",
+  );
+  // The person the tabs go to: the one picked, else the first still on the clock.
+  const taker = onTheClock.find((p) => p.user_id === to) ?? onTheClock[0] ?? null;
+  const handAll = () =>
+    run(async () => {
+      for (const tab of tabs)
+        await api("POST", `/v1/venues/${venueId}/tabs/${tab.tab_id}/hand-over`, {
+          to: taker!.user_id,
+        });
+    });
+  // Drop my cash: into this screen's open drawer; with none here, the drawers open below.
+  const dropHere = () =>
+    run(async () => {
+      const r = await api<{
+        drawers: readonly {
+          here: boolean;
+          sessions: readonly { id: string; state: string }[];
+        }[];
+      }>("GET", `/v1/venues/${venueId}/drawers`);
+      const session = r.drawers
+        .find((d) => d.here && d.sessions.some((s) => s.state === "open"))
+        ?.sessions.find((s) => s.state === "open");
+      if (!session) {
+        setDrawers(true);
+        return;
+      }
+      await api("POST", `/v1/venues/${venueId}/drawer-sessions/${session.id}/drop`, undefined, {
+        idempotencyKey: `drop-${session.id}-${Date.now()}`,
+      });
+    });
+  const off = disabled || working;
   return (
     <section className="checklist" aria-label={t("checklist.title")}>
-      <h3>{items.length === 0 ? t("checklist.clear") : t("checklist.title")}</h3>
+      <h3>{t("checklist.title")}</h3>
       <ul>
-        {items.map((item, i) => (
-          <li key={i}>
-            {item.kind === "open_tab" && (
-              <>
-                <span>{t("checklist.openTab", { name: item.name })}</span>
-                <select
-                  aria-label={t("checklist.handTo", { name: item.name })}
-                  value={to[item.tab_id] ?? ""}
-                  onChange={(e) => setTo({ ...to, [item.tab_id]: e.target.value })}
-                >
-                  <option value="">{t("drawer.pick")}</option>
-                  {onTheClock.map((p) => (
-                    <option key={p.user_id} value={p.user_id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={!to[item.tab_id]}
-                  onClick={() =>
-                    void run(() =>
-                      api("POST", `/v1/venues/${venueId}/tabs/${item.tab_id}/hand-over`, {
-                        to: to[item.tab_id],
-                      }),
-                    )
-                  }
-                >
-                  {t("checklist.handOver")}
+        {tabs.length > 0 && (
+          <li className="checklist-tabs">
+            <ul>
+              {tabs.map((tab) => (
+                <li key={tab.tab_id}>{t("checklist.openTab", { name: tab.name })}</li>
+              ))}
+            </ul>
+            {taker ? (
+              <div className="actions">
+                {onTheClock.length > 1 && (
+                  <select
+                    aria-label={t("checklist.handAllTo")}
+                    value={taker.user_id}
+                    onChange={(e) => setTo(e.target.value)}
+                  >
+                    {onTheClock.map((p) => (
+                      <option key={p.user_id} value={p.user_id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button type="button" disabled={off} onClick={() => void handAll()}>
+                  {t("checklist.handAll", { name: taker.name })}
                 </button>
-              </>
+              </div>
+            ) : (
+              <Link className="button" to="/bar">
+                {t("checklist.closeTabs")}
+              </Link>
             )}
+          </li>
+        )}
+        {items.map((item, i) => (
+          <Fragment key={i}>
             {item.kind === "unsent" && (
-              <span>
-                {item.tab_name
-                  ? t("checklist.unsentTab", { count: item.drinks, name: item.tab_name })
-                  : t("checklist.unsent", { count: item.drinks })}
-              </span>
+              <li>
+                {item.tab_name ? (
+                  <span>
+                    {t("checklist.unsentTab", { count: item.drinks, name: item.tab_name })}
+                  </span>
+                ) : (
+                  <>
+                    <span>{t("checklist.unsent", { count: item.drinks })}</span>
+                    <Link className="button" to="/bar">
+                      {t("checklist.toBar")}
+                    </Link>
+                  </>
+                )}
+              </li>
             )}
             {item.kind === "staff_bank" && (
-              <span>{t("checklist.bank", { amount: money(item.cash_cents as Cents) })}</span>
+              <li>
+                <span>{t("checklist.bank", { amount: money(item.cash_cents as Cents) })}</span>
+                <button type="button" disabled={off} onClick={() => void dropHere()}>
+                  {t("checklist.dropMine")}
+                </button>
+              </li>
             )}
             {item.kind === "own_drawer" && (
-              <span>{t("checklist.ownDrawer", { drawer: item.drawer })}</span>
+              <li>
+                <span>{t("checklist.ownDrawer", { drawer: item.drawer })}</span>
+                <button type="button" disabled={off} onClick={() => setDrawers(true)}>
+                  {t("checklist.count")}
+                </button>
+              </li>
             )}
-            {item.kind === "drawer_handover" && <span>{t("checklist.handover")}</span>}
+            {item.kind === "drawer_handover" && (
+              <li>
+                <span>{t("checklist.handover")}</span>
+                <button type="button" disabled={off} onClick={() => setDrawers(true)}>
+                  {t("checklist.handoverIt")}
+                </button>
+              </li>
+            )}
             {item.kind === "declare_tips" && (
-              <>
+              <li className="tips-box">
                 <label>
                   <span>{t("checklist.declare")}</span>
                   <input
                     inputMode="decimal"
                     aria-label={t("checklist.declare")}
                     value={tips}
-                    onChange={(e) => setTips(e.target.value)}
+                    onChange={(e) => onTips(e.target.value)}
                   />
                 </label>
-                <button
-                  type="button"
-                  disabled={tipCents === null}
-                  onClick={() =>
-                    void run(() =>
-                      api("POST", `/v1/venues/${venueId}/shifts/declare-tips`, {
-                        cash_tips_cents: tipCents,
-                      }),
-                    )
-                  }
-                >
-                  {t("checklist.declareIt")}
-                </button>
-              </>
+                <div className="chips">
+                  <button
+                    type="button"
+                    aria-pressed={tips === "0"}
+                    disabled={disabled}
+                    onClick={() => onTips("0")}
+                  >
+                    {t("checklist.zero")}
+                  </button>
+                </div>
+                <p className="muted small">{t("checklist.tipsHint")}</p>
+              </li>
             )}
-          </li>
+          </Fragment>
         ))}
       </ul>
+      {drawers && (
+        <>
+          <DrawerPanel venueId={venueId} canHandOver={manager} />
+          <button type="button" className="link" onClick={() => setDrawers(false)}>
+            {t("checklist.hideDrawers")}
+          </button>
+        </>
+      )}
       {failed && (
         <p role="alert" className="error">
           {t("drawer.moveFailed")}

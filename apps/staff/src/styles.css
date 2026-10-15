@@ -1921,6 +1921,36 @@ a.song-count {
 .time-clock .chips button[aria-pressed="true"] {
   outline: 2px solid currentColor;
 }
+/* The clock-out checklist (U-14): each line with its action, the cash tips box with its $0 chip. */
+.time-clock .checklist ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.time-clock .checklist li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.time-clock .checklist .checklist-tabs {
+  display: grid;
+}
+.time-clock .checklist .button,
+.time-clock .checklist select {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+.time-clock .checklist .tips-box input {
+  width: 8em;
+}
+.time-clock .checklist .tips-box p {
+  flex-basis: 100%;
+  margin: 0;
+}
 .chip.training {
   display: inline-block;
   padding: 2px 8px;

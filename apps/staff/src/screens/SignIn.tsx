@@ -141,11 +141,14 @@ export function SignIn() {
   const finish = async () => {
     await refresh();
     // The time clock after a badge or name and PIN: when asked for, or when the person isn't on the clock yet.
+    // An owner or manager off the clock (they sign in to approve or look) goes straight on (U-14);
+    // they clock in from Time clock on the sign-in screen.
     const venueId = device?.venueId ?? null;
     if (venueId) {
       try {
         const answer = await api<ClockAnswer>("GET", `/v1/venues/${venueId}/shifts`);
-        if (clockMode || answer.me.shift === null) {
+        const managing = answer.me.duties.includes("manager");
+        if (clockMode || (answer.me.shift === null && !managing)) {
           setChosen(null);
           setPin("");
           setClockPanel(clockMode ? "asked" : "offShift");
