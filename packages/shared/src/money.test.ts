@@ -3,7 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { cents, divideByWeights, divideEvenly, percentOf, usd } from "./money.js";
+import {
+  cents,
+  divideByWeights,
+  divideEvenly,
+  dollarsText,
+  parseDollars,
+  percentOf,
+  usd,
+} from "./money.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const moneyCases = JSON.parse(
@@ -196,5 +204,39 @@ describe("divideByWeights", () => {
     expect(() => divideByWeights(cents(100), [0, 0])).toThrow(/weights/);
     expect(() => divideByWeights(cents(100), [1, -1])).toThrow(/weights/);
     expect(() => divideByWeights(cents(-100), [1])).toThrow(/negative/);
+  });
+});
+
+describe("parseDollars (U-06)", () => {
+  it("reads typed dollars as cents without a float", () => {
+    expect(parseDollars("12")).toBe(1200);
+    expect(parseDollars("0.1")).toBe(10);
+    expect(parseDollars("$4.50")).toBe(450);
+    expect(parseDollars(" 1.05 ")).toBe(105);
+    // 1.005 × 100 is 100.49999… in floats; a third decimal is refused, never rounded.
+    expect(parseDollars("1.005")).toBeNull();
+    expect(parseDollars("")).toBeNull();
+    expect(parseDollars("-1")).toBeNull();
+    expect(parseDollars("1e3")).toBeNull();
+    expect(parseDollars("1.")).toBeNull();
+    expect(parseDollars("abc")).toBeNull();
+  });
+  it("caps the whole dollars", () => {
+    expect(parseDollars("9999", 4)).toBe(999900);
+    expect(parseDollars("10000", 4)).toBeNull();
+    expect(() => parseDollars("1", 0)).toThrow(RangeError);
+  });
+  it("is exact for every cent amount", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 0, max: 99_999_999 }), (c) => {
+        expect(parseDollars(dollarsText(c))).toBe(c);
+      }),
+    );
+  });
+  it("writes cents as field text", () => {
+    expect(dollarsText(1050)).toBe("10.50");
+    expect(dollarsText(5)).toBe("0.05");
+    expect(dollarsText(-250)).toBe("-2.50");
+    expect(() => dollarsText(1.5)).toThrow(/integer/);
   });
 });

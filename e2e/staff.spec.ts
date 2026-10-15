@@ -12239,3 +12239,57 @@ test("U-09 · Room 3 offers Check in Jae & co., and + Walk-in for 6 takes the sm
     await db.end();
   }
 });
+
+/**
+ * The tip asked once, in cents (U-06; spec 05 · Money rules 1 and 9): a quick sale's tap asks the tip
+ * on the bar reader, so its panel has no tip field; Room 9's check carries the gratuity, so the reader
+ * skips its tip screen and the panel offers "Additional tip (optional)", read through the shared
+ * parser: "1.005" isn't an amount (Send stays off), "0.1" is 10¢ on top of $498.60.
+ */
+test("U-06 · the quick sale has no tip field (the reader asks); Room 9's additional tip reads 0.1 as 10¢ and refuses 1.005", async ({
+  page,
+  browser,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    stripeSeed();
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    await page.getByRole("tab", { name: "Beer" }).click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const saleTap = panel.getByRole("region", { name: "Tap at the reader" });
+    await expect(saleTap.getByRole("button", { name: /^Send \$.* to the reader$/ })).toBeEnabled();
+    await expect(saleTap.getByLabel("Additional tip (optional)")).toHaveCount(0);
+
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'guest' where id = (select row_id from seed_ids where slug = 'order_o1')",
+    );
+    // Andy on the front desk: a browser of his own, since the bar screen stays paired to Maya.
+    const desk = await (await browser.newContext()).newPage();
+    await desk.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(desk, request, db);
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await desk.goto(`/room/${room9}`);
+    await desk
+      .getByRole("region", { name: "Present the check" })
+      .getByRole("button", { name: "Present the check" })
+      .click();
+    const tap = desk.getByRole("region", { name: "Tap at the reader" });
+    const tip = tap.getByLabel("Additional tip (optional)");
+    await tip.fill("1.005");
+    await expect(tip).toHaveAttribute("aria-invalid", "true");
+    await expect(tap.getByRole("button", { name: "Send $498.60 to the reader" })).toBeDisabled();
+    await tip.fill("0.1");
+    await expect(tip).toHaveAttribute("aria-invalid", "false");
+    await expect(tap.getByRole("button", { name: "Send $498.70 to the reader" })).toBeEnabled();
+    await desk.context().close();
+  } finally {
+    await db.end();
+  }
+});

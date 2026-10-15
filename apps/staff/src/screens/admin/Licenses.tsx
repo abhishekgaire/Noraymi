@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import type { MessageKey } from "@west4/shared";
+import { dollarsText, type MessageKey } from "@west4/shared";
 import { api } from "../../api.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
@@ -59,8 +59,7 @@ interface Draft {
 }
 
 const kindKey = (k: Kind) => `licenses.kind.${k}` as MessageKey;
-const centsText = (cents: number) =>
-  `${Math.floor(cents / 100)}.${String(cents % 100).padStart(2, "0")}`;
+const centsText = dollarsText;
 
 function draftOf(l: License | null, kind: Kind = "ascap"): Draft {
   return {

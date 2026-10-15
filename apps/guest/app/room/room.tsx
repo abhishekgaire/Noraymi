@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AllergyNotice } from "../allergy-notice";
-import { EventClient, guestOrderWords, newTraceparent, t, type MessageKey } from "@west4/shared";
+import {
+  dollarsText,
+  EventClient,
+  guestOrderWords,
+  newTraceparent,
+  t,
+  type MessageKey,
+} from "@west4/shared";
 import { reporter } from "../telemetry";
 import { YourBill, type GuestBill, type ShareAnswer } from "../bill/your-bill";
 import { eventsOrigin } from "../live";
@@ -131,7 +138,7 @@ const REFRESH_MS = 10_000;
 /** The room tablet refetches the menu every third refresh: every 30 seconds. */
 const MENU_REFRESH_TICKS = 3;
 
-const money = (c: number) => `$${Math.floor(c / 100)}.${String(c % 100).padStart(2, "0")}`;
+const money = (c: number) => `$${dollarsText(c)}`;
 const newOrderId = () => `room-${crypto.randomUUID()}`;
 /**
  * When the sheet opens: a choice the bar can't guess (required, with no default) for this size, or

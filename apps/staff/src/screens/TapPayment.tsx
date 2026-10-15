@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cents, type MessageKey } from "@west4/shared";
+import { cents, parseDollars, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { useReaders, type ReaderList } from "../useReaders.js";
@@ -39,6 +39,7 @@ export function TapPayment({
   shareId,
   payUrl,
   readerList,
+  readerSkipsTip = false,
   onDone,
 }: {
   venueId: string;
@@ -53,6 +54,12 @@ export function TapPayment({
   payUrl?: string;
   /** The venue's readers, when the screen already read them (U-01). */
   readerList?: ReaderList;
+  /**
+   * The reader won't show its tip screen for this check (a room check carries the gratuity, so the
+   * server sends skip_tipping), so a Tip field is offered here. Everywhere else the reader asks the
+   * guest, and the tip is asked once (U-06): no field.
+   */
+  readerSkipsTip?: boolean;
   onDone: () => void;
 }) {
   const { t, money } = useT();
@@ -87,7 +94,10 @@ export function TapPayment({
   );
   useEffect(() => () => clearInterval(timer.current), []);
 
-  const tipCents = Math.round(Number(tip || "0") * 100);
+  // Typed dollars as cents through the shared parser, never a float (U-06); a blank field is no tip.
+  const tipShown = readerSkipsTip && !payUrl;
+  const typedTip = tipShown && tip.trim() !== "" ? parseDollars(tip, 4) : 0;
+  const tipCents = typedTip ?? 0;
   const run = async (call: () => Promise<unknown>) => {
     setBusy(true);
     setProblem(null);
@@ -172,13 +182,14 @@ export function TapPayment({
               </label>
             ))}
           </fieldset>
-          {!pending && !payUrl && (
+          {!pending && tipShown && (
             <label>
               <span>{t("pay.tip")}</span>
               <input
                 inputMode="decimal"
                 aria-label={t("pay.tip")}
                 value={tip}
+                aria-invalid={typedTip === null}
                 onChange={(e) => setTip(e.target.value)}
               />
             </label>
@@ -187,7 +198,7 @@ export function TapPayment({
           <button
             type="button"
             className="primary"
-            disabled={busy || !picked || (!pending && dueCents <= 0)}
+            disabled={busy || !picked || (!pending && (dueCents <= 0 || typedTip === null))}
             onClick={() => void (pending ? again() : start())}
           >
             {pending

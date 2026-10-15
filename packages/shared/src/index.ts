@@ -1,5 +1,13 @@
 export { Temporal } from "./temporal.js";
-export { cents, usd, percentOf, divideEvenly, divideByWeights } from "./money.js";
+export {
+  cents,
+  usd,
+  percentOf,
+  divideEvenly,
+  divideByWeights,
+  parseDollars,
+  dollarsText,
+} from "./money.js";
 export type { Cents, Money } from "./money.js";
 export {
   locales,

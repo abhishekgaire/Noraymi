@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { parseDollars } from "@west4/shared";
 import { api, stepUpToken, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 
@@ -25,12 +26,8 @@ interface RefundState {
   readonly failure_reason: string | null;
 }
 
-/** "12.34" → 1234, without a float; null if it isn't an amount. */
-function toCents(raw: string): number | null {
-  const m = /^\s*\$?(\d{1,6})(?:\.(\d{1,2}))?\s*$/.exec(raw);
-  if (!m) return null;
-  return Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0"));
-}
+/** Typed dollars as cents through the shared parser, never a float (U-06). */
+const toCents = (text: string): number | null => parseDollars(text, 6);
 
 export function RefundSheet({
   venueId,
