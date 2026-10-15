@@ -122,7 +122,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-08 · The manager's PIN where the approval is asked
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** approvals (Oct 13 setting), P-10
 - **Spec:** [Tenancy and access](../spec/02-tenancy-access.md) · Approvals
@@ -131,8 +131,8 @@ Definition of done: see CLAUDE.md.
   - Decided requests clear themselves after a few seconds; a refused one says why in the staff's language (no raw server text).
   - Phone approvals stay as they are, with the strip.
 - **Acceptance:**
-  - [ ] A void over the limit at Sing Sing: VOID, the dialog opens, Andy's PIN, done; audited as before.
-- **Notes:**
+  - [x] A void over the limit at Sing Sing: VOID, the dialog opens, Andy's PIN, done; audited as before.
+- **Notes:** Built Oct 15, 2026. The staff app's `api()` (apps/staff/src/api.ts) sees any write that answers `approval_pending` with `decided_with: "pin"` (at the top of the answer or one level down, as a fault's pause and comp) and opens **Needs a manager's PIN** (approvals/PinApproval.tsx, `ManagerPinDialog`, mounted once in App.tsx beside Your PIN again, the same sheet look). The dialog reads the approvers from `GET /approvals`, which now marks each `on_clock` (an open shift): the one it was routed to if on the clock, else anyone on it, else the first. The PIN goes to `POST /approvals/{id}/pin` as before, so the server checks it with the lockouts, decides and audits it; nothing about approvals moved to the screen. Approved: the screen gets the answer as with no approval (`status: approved`, nobody to wait for) and says it's done (FixPanel "Voided: …", DiscountPanel "Discount on · … off"; FaultSheet no longer reads a non-pending pause as waiting). Declined or no longer needed: the call is refused with the decision in words. Refusals in the dialog are the staff's words (wrong PIN, locked, can't approve, offline, couldn't record), never server text; one decided meanwhile on the phone says what was decided. **Later** (cautious default: the bartender is never stuck on a dialog) leaves it pending; the waiting strip then reads "Needs a manager's PIN" (no name) and its **Manager's PIN** opens the same dialog; a shared screen gets no per-person events, so the dialog tells the strip to read the list again (`west4:approvals-changed`). Decided requests on the strip clear themselves after 8 s in both modes (Dismiss still works); phone approvals are otherwise unchanged. Left as they were: the persistent per-line and tab-row badges ("Waiting for Andy" from the check and tab views) and the other screens' own waiting words (refund, tip change, drawer, tips to enter, room orders), since Andy's phone can still decide a PIN-mode request; the strip and the dialog are where the PIN is offered. No migration. Tests: `manager-pin.test.ts` (unit), `approvals/modes.int.test.ts` (`on_clock`), e2e "U-08: a void over the limit asks for Andy's PIN right there…"; manual test 31.8. Spec 02 · Approvals, spec 10 principle 6, screens N18 and the glossary updated (D133).
 
 ### U-09 · A booked party's room offers Check in; Walk-in from anywhere
 

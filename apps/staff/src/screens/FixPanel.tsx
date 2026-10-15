@@ -133,15 +133,22 @@ export function FixPanel(props: {
     if (!open || !reason.trim()) return;
     setError(null);
     try {
-      const answer = await api<{ status: string; waiting_for?: { name: string } }>(
-        "POST",
-        `/v1/venues/${props.venueId}/checks/${props.checkId}/lines/${open.id}/${kind}`,
-        { reason: reason.trim(), made, ...(open.qty > 1 ? { qty } : {}) },
-      );
+      const answer = await api<{
+        status: string;
+        waiting_for?: { name: string } | null;
+        decided_with?: string;
+      }>("POST", `/v1/venues/${props.venueId}/checks/${props.checkId}/lines/${open.id}/${kind}`, {
+        reason: reason.trim(),
+        made,
+        ...(open.qty > 1 ? { qty } : {}),
+      });
+      // Approved by a manager's PIN right here (U-08), or with no approval: done, as within the limit.
       setMessage(
-        answer.status === "added"
+        answer.status === "added" || answer.status === "approved"
           ? t(kind === "void" ? "fix.voided" : "fix.comped", { line: open.description })
-          : t("fix.waiting", { name: answer.waiting_for?.name ?? "" }),
+          : answer.decided_with === "pin"
+            ? t("approvals.pin.needs")
+            : t("fix.waiting", { name: answer.waiting_for?.name ?? "" }),
       );
       setOpen(null);
       setReason("");

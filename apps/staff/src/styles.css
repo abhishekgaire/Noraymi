@@ -3243,6 +3243,21 @@ a.song-count {
   gap: 8px;
 }
 
+/* Needs a manager's PIN (U-08): who's approving, one 44 px row each. */
+.pin-approval fieldset {
+  display: grid;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.pin-approval label.check {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Admin → Activity log and About (P-14). */
 .activity-filters {
   display: flex;

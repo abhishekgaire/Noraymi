@@ -18,9 +18,10 @@ export interface FaultTarget {
 interface Pending {
   readonly status: "approval_pending";
   readonly waiting_for: { readonly name: string };
+  readonly decided_with?: string;
 }
 interface Answer {
-  readonly pause?: Pending;
+  readonly pause?: Pending | { readonly status: "approved" | "declined" | "expired" };
   readonly comp?: Pending | { readonly status: "added"; readonly amount_cents: number };
 }
 
@@ -60,9 +61,19 @@ export function FaultSheet({
         },
       );
       const words = [t("fault.logged", { room: target.roomName })];
+      // A pause or comp approved by a manager's PIN right here (U-08) isn't waiting any more.
       const waiting =
-        answer.pause ?? (answer.comp?.status === "approval_pending" ? answer.comp : null);
-      if (waiting) words.push(t("approvals.waitingFor", { name: waiting.waiting_for.name }));
+        answer.pause?.status === "approval_pending"
+          ? answer.pause
+          : answer.comp?.status === "approval_pending"
+            ? answer.comp
+            : null;
+      if (waiting)
+        words.push(
+          waiting.decided_with === "pin"
+            ? t("approvals.pin.needs")
+            : t("approvals.waitingFor", { name: waiting.waiting_for.name }),
+        );
       if (answer.comp?.status === "added")
         words.push(t("fault.compAdded", { amount: money(answer.comp.amount_cents as never) }));
       onLogged(words.join(" · "));

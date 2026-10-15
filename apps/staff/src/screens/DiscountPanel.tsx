@@ -78,6 +78,7 @@ export function DiscountPanel(props: {
         status: string;
         discount_cents?: number;
         waiting_for?: { name: string } | null;
+        decided_with?: string;
       }>("POST", `/v1/venues/${props.venueId}/checks/${props.checkId}/discount`, {
         ...(mode === "pct" ? { mode, pct } : { mode, amount_cents: amount }),
         reason: reason.trim(),
@@ -85,9 +86,16 @@ export function DiscountPanel(props: {
       setMessage(
         answer.status === "added"
           ? t("discount.given", { amount: money((answer.discount_cents ?? 0) as never) })
-          : answer.waiting_for
-            ? t("fix.waiting", { name: answer.waiting_for.name })
-            : t("discount.given", { amount: "" }),
+          : answer.status === "approved"
+            ? // Approved by a manager's PIN right here (U-08), or with no approval: what was asked.
+              t("discount.given", {
+                amount: mode === "pct" ? `${value}%` : money((amount ?? 0) as never),
+              })
+            : answer.decided_with === "pin"
+              ? t("approvals.pin.needs")
+              : answer.waiting_for
+                ? t("fix.waiting", { name: answer.waiting_for.name })
+                : t("discount.given", { amount: "" }),
       );
       setEditing(false);
       setValue("");

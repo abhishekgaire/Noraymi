@@ -109,10 +109,20 @@ export function approvalRoutes(
       const status = request.query.status ?? null;
       if (status && !["pending", "approved", "declined", "expired"].includes(status))
         throw new ApiError("invalid_request", "unknown status");
-      const { list, mode, people } = await request.inVenue(async (c) => ({
+      const { list, mode, people, onClock } = await request.inVenue(async (c) => ({
         list: await approvalsFor(c, request.venueId!, userId, status),
         mode: await approvalsMode(c, request.venueId!),
         people: await approvalPeople(c, request.venueId!),
+        // U-08: who is on the clock now, so the register's dialog picks the manager who's here.
+        onClock: new Set(
+          (
+            await c.query<{ user_id: string }>(
+              `select m.user_id from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
+                where s.venue_id = $1 and s.ended_at is null`,
+              [request.venueId!],
+            )
+          ).rows.map((r) => r.user_id),
+        ),
       }));
       return {
         waiting_for_me: list.filter((a) => a.routed_to === userId),
@@ -123,7 +133,7 @@ export function approvalRoutes(
           mode === "pin"
             ? people
                 .filter((p) => (p.role === "owner" || p.role === "manager") && p.id !== userId)
-                .map((p) => ({ user_id: p.id, name: p.name }))
+                .map((p) => ({ user_id: p.id, name: p.name, on_clock: onClock.has(p.id) }))
             : [],
       };
     },

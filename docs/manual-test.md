@@ -1881,3 +1881,12 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 5. With Spanish chosen: **Terminal de tarjetas externa** and **Otras formas de pago**.
 6. Back at West 4 (readers registered by the demo), on the bar computer as Maya: ring a drink and **Pay for 1**. The reader panel comes first with **Bar S710** already picked, so **Send $… to the reader** works in one tap; on the front desk, Room 9's close-out has **Front desk S710** picked. With Paid on outside card machine switched on in Admin → Features, **Outside card machine** shows below Cash.
 7. With the switch off, the server refuses an outside-machine payment on a quick sale (`quick-sale.int.test.ts` checks it).
+
+### 31.8 The manager's PIN where the approval is asked (U-08)
+
+1. As Abhishek (owner), open **Admin → Features → Choices** and pick **Manager's PIN at the register** under how approvals are decided.
+2. On the bar computer, sign in as Maya (`4071`), open **Room 9** and tap **Fix · Large bucket · 10 beers**, **Not made**, **Rang it wrong**, **VOID · take the sale back** ($70.00, over the $25 limit). A dialog opens right there: **Needs a manager's PIN**, "Void · Large bucket · 10 beers · $70.00", **Andy C.** picked (he's on the clock; Abhishek isn't), the PIN field ready to type. Nothing reads "Waiting for Andy".
+3. Type `000000` and **Approve**: "That PIN isn't right. Try again." (it counts toward the lockout). Type Andy's PIN (`730915`) and **Approve**: the dialog closes, the panel reads "Voided: Large bucket · 10 beers" and the tab shows the void line. Reports → Staff actions lists it approved by Andy C.
+4. Void **Jäger Bomb** the same way, but tap **Later**: the panel reads "Needs a manager's PIN", and the strip at the top reads "Void Needs a manager's PIN" with **Manager's PIN**. Tap it: the same dialog. Andy's PIN and **Decline**: the strip reads "Declined by Andy C." and clears itself after about 8 seconds (or tap **Dismiss**); the Jäger Bomb stays on the tab.
+5. With Spanish chosen: **Necesita el PIN de un gerente**, **Aprobar**, **Rechazar**, **Más tarde**.
+6. Back in Admin, pick **On the manager's phone**: the next void over the limit reads "Waiting for Andy C." on the strip as before, with no dialog, and Andy approves on his phone.
