@@ -63,6 +63,10 @@ export function Calendar() {
   const [hours, setHours] = useState("2");
   const [roomId, setRoomId] = useState("");
   const [free, setFree] = useState<readonly FreeRoom[]>([]);
+  // P-08: the Month view, a month grid of business dates with each one's booking count.
+  const [view, setView] = useState<"days" | "month">("days");
+  const [month, setMonth] = useState("");
+  const [monthDays, setMonthDays] = useState<readonly Day[] | null>(null);
 
   const loadDays = useCallback(async () => {
     try {
@@ -90,20 +94,42 @@ export function Calendar() {
       setFailed(true);
     }
   }, [venueId, day]);
+  const loadMonth = useCallback(async () => {
+    if (!month || view !== "month") return;
+    const first = Temporal.PlainYearMonth.from(month);
+    try {
+      const r = await api<{ days: Day[] }>(
+        "GET",
+        `/v1/venues/${venueId}/bookings/days?from=${first.toPlainDate({ day: 1 }).toString()}&days=${first.daysInMonth}`,
+      );
+      setMonthDays(r.days);
+      setFailed(false);
+    } catch {
+      setFailed(true);
+    }
+  }, [venueId, month, view]);
   useEffect(() => {
     if (venueId) void loadDays();
   }, [venueId, loadDays]);
   useEffect(() => void loadDay(), [loadDay]);
+  useEffect(() => {
+    if (tonight) setMonth((m) => m || tonight.slice(0, 7));
+  }, [tonight]);
+  useEffect(() => void loadMonth(), [loadMonth]);
   useEffect(
     () =>
       subscribe((events) => {
         if (events.length === 0 || events.some((e) => e.type === "booking.updated")) {
           void loadDays();
           void loadDay();
+          void loadMonth();
         }
       }),
-    [subscribe, loadDays, loadDay],
+    [subscribe, loadDays, loadDay, loadMonth],
   );
+  /** A business date before tonight: it can't take a new booking (P-08) or be blocked. */
+  const isPast = (d: string) =>
+    tonight !== "" && Temporal.PlainDate.compare(Temporal.PlainDate.from(d), tonight) < 0;
 
   /** The instant a wall-clock time on the selected business date means (after the cutover is the next day). */
   const instantOf = (date: string, hhmm: string) => {
@@ -164,7 +190,7 @@ export function Calendar() {
       setParty("");
       setAt("");
       setRoomId("");
-      await Promise.all([loadDays(), loadDay()]);
+      await Promise.all([loadDays(), loadDay(), loadMonth()]);
     } catch (err) {
       const reason = err instanceof ApiCallError ? err.details["reason"] : undefined;
       setError(
@@ -194,7 +220,7 @@ export function Calendar() {
             })
           : t("calendar.blockedDone", { date: dayLabel(day) }),
       );
-      await loadDays();
+      await Promise.all([loadDays(), loadMonth()]);
     } catch {
       setError(t("calendar.failed"));
     }
@@ -219,11 +245,129 @@ export function Calendar() {
     }
   };
 
-  const current = days?.find((d) => d.business_date === day);
+  const current = [...(days ?? []), ...(monthDays ?? [])].find((d) => d.business_date === day);
+  const past = day !== "" && isPast(day);
+  const pick = (d: string) => {
+    setDay(d);
+    setBlocking(false);
+    if (isPast(d)) setAdding(false);
+  };
+  const shiftMonth = (by: number) => {
+    setMonthDays(null);
+    setMonth((m) => Temporal.PlainYearMonth.from(m).add({ months: by }).toString());
+  };
+  const dayCount = (d: Day) =>
+    d.closure === "closed" ? t("calendar.closed") : t("calendar.count", { count: d.bookings });
+
+  /** The month grid: weeks from Sunday, each business date with its booking count, tonight marked. */
+  const monthGrid = () => {
+    if (!month) return null;
+    const ym = Temporal.PlainYearMonth.from(month);
+    const first = ym.toPlainDate({ day: 1 });
+    const lead = first.dayOfWeek % 7;
+    // 2026-09-27 is a Sunday: the weekday names in the screen's language, Sunday first.
+    const sunday = Temporal.PlainDate.from("2026-09-27");
+    return (
+      <div className="month-view">
+        <div className="month-nav">
+          <button
+            type="button"
+            className="secondary"
+            aria-label={t("calendar.prevMonth")}
+            onClick={() => shiftMonth(-1)}
+          >
+            ‹
+          </button>
+          <h2 aria-live="polite">
+            {first.toLocaleString(locale, { month: "long", year: "numeric" })}
+          </h2>
+          <button
+            type="button"
+            className="secondary"
+            aria-label={t("calendar.nextMonth")}
+            onClick={() => shiftMonth(1)}
+          >
+            ›
+          </button>
+        </div>
+        {monthDays === null && !failed && <p role="status">{t("shell.loading")}</p>}
+        <div className="month-grid" role="group" aria-label={t("calendar.monthGrid")}>
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={`w${i}`} className="month-weekday" aria-hidden="true">
+              {sunday.add({ days: i }).toLocaleString(locale, { weekday: "short" })}
+            </span>
+          ))}
+          {Array.from({ length: lead }, (_, i) => (
+            <span key={`l${i}`} aria-hidden="true" />
+          ))}
+          {Array.from({ length: ym.daysInMonth }, (_, i) => {
+            const date = first.add({ days: i });
+            const d = date.toString();
+            const info = monthDays?.find((x) => x.business_date === d);
+            const words = date.toLocaleString(locale, {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            });
+            return (
+              <button
+                key={d}
+                type="button"
+                className={[
+                  "month-day",
+                  d === tonight ? "today" : "",
+                  isPast(d) ? "past" : "",
+                  info?.closure === "closed"
+                    ? "day-blocked"
+                    : (info?.bookings ?? 0) > 0
+                      ? "day-busy"
+                      : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                aria-pressed={d === day}
+                aria-current={d === tonight ? "date" : undefined}
+                aria-label={
+                  info
+                    ? `${d === tonight ? t("calendar.tonightDay", { date: words }) : words} · ${dayCount(info)}`
+                    : words
+                }
+                onClick={() => pick(d)}
+              >
+                <span className="month-num">{date.day}</span>
+                {info && info.closure !== "closed" && info.bookings > 0 && (
+                  <span className="month-count">{info.bookings}</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <section className="screen calendar desk">
       <div className="desk-head">
         <h1>{t("menu.calendar")}</h1>
+        <div className="actions" role="group" aria-label={t("calendar.view")}>
+          <button
+            type="button"
+            className={view === "days" ? "primary" : "secondary"}
+            aria-pressed={view === "days"}
+            onClick={() => setView("days")}
+          >
+            {t("calendar.viewDays")}
+          </button>
+          <button
+            type="button"
+            className={view === "month" ? "primary" : "secondary"}
+            aria-pressed={view === "month"}
+            onClick={() => setView("month")}
+          >
+            {t("calendar.viewMonth")}
+          </button>
+        </div>
       </div>
       {failed && (
         <p className="error" role="alert">
@@ -237,45 +381,42 @@ export function Calendar() {
       )}
       {days === null && !failed && <p role="status">{t("shell.loading")}</p>}
       <div className="desk-cols two">
-        <ol className="days" aria-label={t("calendar.days")}>
-          {days?.map((d) => (
-            <li key={d.business_date}>
-              <button
-                type="button"
-                className={[
-                  "conversation",
-                  d.business_date === day ? "current" : "",
-                  d.closure === "closed" ? "day-blocked" : d.bookings > 0 ? "day-busy" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-pressed={d.business_date === day}
-                onClick={() => {
-                  setDay(d.business_date);
-                  setBlocking(false);
-                }}
-              >
-                <span>{dayLabel(d.business_date)}</span>
-                <span className="small day-count">
-                  {d.closure === "closed"
-                    ? t("calendar.closed")
-                    : t("calendar.count", { count: d.bookings })}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ol>
+        {view === "month" ? (
+          monthGrid()
+        ) : (
+          <ol className="days" aria-label={t("calendar.days")}>
+            {days?.map((d) => (
+              <li key={d.business_date}>
+                <button
+                  type="button"
+                  className={[
+                    "conversation",
+                    d.business_date === day ? "current" : "",
+                    d.closure === "closed" ? "day-blocked" : d.bookings > 0 ? "day-busy" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                  aria-pressed={d.business_date === day}
+                  onClick={() => pick(d.business_date)}
+                >
+                  <span>{dayLabel(d.business_date)}</span>
+                  <span className="small day-count">{dayCount(d)}</span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        )}
         {day && (
           <div className="desk-card day-side">
             <h2>{dayLabel(day)}</h2>
-            <p className="small muted">{t("calendar.holds")}</p>
+            <p className="small muted">{past ? t("calendar.pastDay") : t("calendar.holds")}</p>
             <div className="actions">
-              {canBook && current?.closure !== "closed" && (
+              {canBook && !past && current?.closure !== "closed" && (
                 <button type="button" className="primary" onClick={() => setAdding(true)}>
                   {t("calendar.new")}
                 </button>
               )}
-              {canBlock && current?.closure !== "closed" && (
+              {canBlock && !past && current?.closure !== "closed" && (
                 <button type="button" className="secondary" onClick={() => setBlocking(true)}>
                   {t("calendar.block")}
                 </button>
@@ -286,7 +427,7 @@ export function Calendar() {
                 {error}
               </p>
             )}
-            {blocking && (
+            {blocking && !past && (
               <div className="sheet" role="dialog" aria-label={t("calendar.block")}>
                 <h2>{t("calendar.blockTitle", { date: dayLabel(day) })}</h2>
                 <p>{t("calendar.affects", { count: bookings?.length ?? 0 })}</p>
@@ -323,7 +464,7 @@ export function Calendar() {
                 </div>
               </div>
             )}
-            {adding && (
+            {adding && !past && (
               <form className="sheet" aria-label={t("calendar.new")} onSubmit={(e) => void book(e)}>
                 <h2>{t("calendar.new")}</h2>
                 <label>

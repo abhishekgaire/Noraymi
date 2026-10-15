@@ -86,6 +86,35 @@ describe("the Calendar", () => {
     expect(past.json()).toMatchObject({ error: { details: { reason: "past" } } });
   });
 
+  it("P-08 · the Month view: September's counts match each day's list, and a past day can't take a booking", async () => {
+    const month = (await req("GET", "/bookings/days?from=2026-09-01&days=30")).json<{
+      tonight: string;
+      days: { business_date: string; bookings: number }[];
+    }>();
+    expect(month.tonight).toBe("2026-09-25");
+    expect(month.days).toHaveLength(30);
+    expect(month.days[0]!.business_date).toBe("2026-09-01");
+    expect(month.days[29]!.business_date).toBe("2026-09-30");
+    for (const d of month.days) {
+      const list = (await req("GET", `/bookings?business_date=${d.business_date}`)).json<{
+        bookings: { status: string }[];
+      }>().bookings;
+      const live = list.filter((b) => b.status !== "cancelled" && b.status !== "no_show");
+      expect(live.length, d.business_date).toBe(d.bookings);
+    }
+    expect(month.days.find((d) => d.business_date === "2026-09-25")!.bookings).toBe(11);
+    const past = await req("POST", "/bookings", {
+      guest: { name: "Test Party" },
+      party_size: 4,
+      business_date: "2026-09-20",
+      time: "21:00",
+      hours: 2,
+    });
+    expect(past.json()).toMatchObject({ error: { details: { reason: "past" } } });
+    for (const bad of ["2026-13-01", "Sept", "2026-02-30"])
+      expect((await req("GET", `/bookings/days?from=${bad}`)).statusCode, bad).toBe(400);
+  });
+
   it("blocking Sat Sep 26 shows it closed, and the day's bookings are the ones it affects", async () => {
     const sat = (await req("GET", "/bookings?business_date=2026-09-26")).json<{
       bookings: unknown[];

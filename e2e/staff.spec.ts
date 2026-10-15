@@ -9930,6 +9930,81 @@ test("P-07 · the month: its closed nights' totals, in progress, and an empty mo
 });
 
 /**
+ * P-08 · the Calendar's Month view: September 2026 with tonight (Fri Sep 25) marked and its 11
+ * bookings; a day's count matches its list; a past day offers no New booking; the arrows move
+ * months; in Spanish the view reads Mes.
+ */
+test("P-08 · the Month view: counts, tonight marked, past days closed to new bookings, ES", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    await page.setViewportSize({ width: 390, height: 844 });
+    await signInAndy(page, request, db);
+    await page.goto("/calendar");
+    await page.getByRole("button", { name: "Month", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "September 2026" })).toBeVisible();
+    const grid = page.getByRole("group", { name: "Bookings by day" });
+    const tonight = grid.locator("[aria-current='date']");
+    await expect(tonight).toHaveAccessibleName("Tonight · Friday, September 25 · 11 bookings");
+    await expect(tonight).toContainText("11");
+    await tonight.click();
+    await expect(page.getByRole("list", { name: "Bookings" }).getByRole("listitem")).toHaveCount(
+      11,
+    );
+    await expect(page.getByRole("button", { name: "New booking" })).toBeVisible();
+
+    // Sat Sep 26: the count in its square is the number in its list.
+    const saturday = (
+      await db.query<{ n: number }>(
+        "select count(*)::int as n from bookings where business_date = '2026-09-26' and status in ('pending', 'confirmed', 'checked_in', 'completed')",
+      )
+    ).rows[0]!.n;
+    await grid.getByRole("button", { name: /^Saturday, September 26/ }).click();
+    await expect(
+      grid.getByRole("button", { name: /^Saturday, September 26/ }),
+    ).toHaveAccessibleName(`Saturday, September 26 · ${saturday} bookings`);
+    if (saturday === 0) await expect(page.getByText("No bookings")).toBeVisible();
+    else
+      await expect(page.getByRole("list", { name: "Bookings" }).getByRole("listitem")).toHaveCount(
+        saturday,
+      );
+
+    // A past day: no New booking, and the reason.
+    await grid.getByRole("button", { name: /^Sunday, September 20/ }).click();
+    await expect(page.getByText("This day has passed: it can't take a new booking.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "New booking" })).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Next month" }).click();
+    await expect(page.getByRole("heading", { name: "October 2026" })).toBeVisible();
+    await expect(grid.locator("[aria-current='date']")).toHaveCount(0);
+    await page.getByRole("button", { name: "Previous month" }).click();
+    await expect(page.getByRole("heading", { name: "September 2026" })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await db.query(
+      "update memberships set locale = 'es' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await page.reload();
+    await page.getByRole("button", { name: "Mes", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Mes anterior" })).toBeVisible();
+    await expect(page.getByRole("group", { name: "Reservas por día" })).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "Reservas por día" }).locator("[aria-current='date']"),
+    ).toHaveAccessibleName(/^Esta noche · viernes, 25 de septiembre · 11 reservas$/);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
  * The outage and vendor banners (M8-01; spec 09 · Outages, screens N29). The
  * vendor-health job runs here as the worker runs it, on the venue's 10:41 PM,
  * after our own error rate on Stripe or Twilio is forced over its threshold.

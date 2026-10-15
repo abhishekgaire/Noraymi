@@ -164,13 +164,26 @@ export function bookingsRoutes(
       })),
   );
 
-  /** The days ahead with their bookings (M2-33: the Calendar), from tonight on the venue's clock. */
-  app.get<{ Params: VenueParams; Querystring: { days?: string } }>(
+  /**
+   * The days ahead with their bookings (M2-33: the Calendar), from tonight on the venue's clock;
+   * `from` (P-08: the Month view) starts at another business date, past or ahead.
+   */
+  app.get<{ Params: VenueParams; Querystring: { days?: string; from?: string } }>(
     "/v1/venues/:venueId/bookings/days",
     { config: read },
     async (request) =>
       request.inVenue(async (c) => {
-        const from = await today(c, request.venueId!);
+        const tonight = await today(c, request.venueId!);
+        const asked = request.query.from;
+        let from = tonight;
+        if (asked !== undefined) {
+          try {
+            if (!date.safeParse(asked).success) throw new RangeError(asked);
+            from = Temporal.PlainDate.from(asked, { overflow: "reject" });
+          } catch {
+            throw new ApiError("invalid_request", "from is YYYY-MM-DD");
+          }
+        }
         const days = Math.min(90, Math.max(1, Number(request.query.days ?? 14) || 14));
         const counts = await c.query<{ business_date: string; bookings: number }>(
           `select business_date::text, count(*)::int as bookings from bookings
@@ -184,7 +197,7 @@ export function bookingsRoutes(
           [request.venueId, from.toString(), days],
         );
         return {
-          tonight: from.toString(),
+          tonight: tonight.toString(),
           days: Array.from({ length: days }, (_, i) => {
             const d = from.add({ days: i }).toString();
             return {

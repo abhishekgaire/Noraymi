@@ -1793,3 +1793,12 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. Press **‹** for August: "No closed nights in this month.", and no in-progress note. **›** comes back.
 5. **Download the month (CSV)** asks for your passkey again, then saves `west4-month-2026-09.csv`: one row per closed night with its Z number, then the month's total ("(in progress)" while the month isn't over); amounts in dollars, room time in minutes.
 6. With Spanish chosen, the card reads **Mes**, "Cada noche" and "Descargar el mes (CSV)". With Reports & accounting off (Admin → Features), the month isn't there and its address answers module_off.
+
+### 30.8 Reservations by month (P-08)
+
+1. Sign in as Andy and open **Calendar**, then press **Month** at the top. September 2026 shows as a grid from Sunday; Fri 25 is outlined as tonight and shows **11**.
+2. Tap **25**: tonight's 11 bookings are listed beside the grid. Tap any other day: its number in the grid is the number of bookings in its list (an empty day shows no number and "No bookings").
+3. Tap **Sun 20** (past): "This day has passed: it can't take a new booking." and no **New booking** or **Block this date**.
+4. Tap **Sat 26** and press **New booking**: the booking is made for Saturday, and Saturday's number in the grid goes up by one.
+5. **›** shows October 2026 (no day outlined), **‹** comes back. **Days** returns to the list of days ahead.
+6. With Spanish chosen, the switch reads **Días · Mes**, the month "septiembre de 2026", and a past day "Este día ya pasó: no admite reservas nuevas."
