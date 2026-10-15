@@ -2927,6 +2927,11 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drawer.count": "Contar el cajón",
   "drawer.countHint":
     "Cuenta primero. Lo que debería haber en el cajón aparece cuando escribes el conteo.",
+  "drawer.countRules.never": "¿La diferencia pasa de {limit}? Añadirás una nota.",
+  "drawer.countRules.whenOff":
+    "¿La diferencia pasa de {limit}? Añadirás una nota y otra persona cuenta también.",
+  "drawer.countRules.always":
+    "Otra persona cuenta también, siempre. ¿La diferencia pasa de {limit}? Añadirás una nota.",
   "drawer.amount": "Lo que contaste, $",
   "drawer.pin": "Tu PIN otra vez",
   "drawer.save": "Guardar el conteo",
@@ -2988,6 +2993,9 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "drawer.receipt": "Foto del recibo",
   "drawer.amountOut": "Importe, $",
   "drawer.paidTo": "Pagado a",
+  "drawer.tipShareHint": "Toca un nombre para pagarle su parte de las propinas de esta noche.",
+  "drawer.payShare": "{name} · {amount}",
+  "drawer.otherAmount": "O elige a alguien y escribe otro importe:",
   "drawer.openIt": "Abrir el cajón",
   "drawer.moveFailed": "No se pudo hacer. Inténtalo de nuevo.",
   "cash.notYourDrawer":

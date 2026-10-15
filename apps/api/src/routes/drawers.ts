@@ -32,6 +32,7 @@ import { ApiError } from "../http/errors.js";
 import { declineHandlers, executors, managerOnDutyAt } from "../approvals/service.js";
 import { enqueuePush } from "../push/send-push.js";
 import { venueClock } from "../rooms/assignment.js";
+import { nightTips } from "../tips/pool.js";
 
 /**
  * Cash drawers (M4-13; Money rules 15; spec 08 · Drawer):
@@ -344,6 +345,57 @@ function panelSession(s: DrawerPanelRow, waitingFor: string | null) {
   };
 }
 
+/**
+ * Each person's share of the night's tip pool (the server's own figures, M7-09),
+ * what's been paid them in cash from a drawer tonight, and what's left: a
+ * tip-out's pre-filled amount (U-17; D133). Late tips recorded in tonight's pool
+ * count with it. Integer cents throughout.
+ */
+async function tipSharesOf(
+  c: Queryable,
+  venueId: string,
+  date: string,
+  now: Temporal.Instant,
+): Promise<
+  {
+    user_id: string;
+    name: string;
+    share_cents: number;
+    paid_out_cents: number;
+    left_cents: number;
+  }[]
+> {
+  const tips = await nightTips(c, venueId, date, now);
+  const paid = new Map(
+    (
+      await c.query<{ user_id: string; cents: number }>(
+        `select m.paid_to as user_id, sum(m.amount_cents)::int as cents
+           from drawer_moves m
+           join drawer_sessions s on s.venue_id = m.venue_id and s.id = m.drawer_session_id
+          where m.venue_id = $1 and s.business_date = $2::date and m.kind = 'tip_out'
+          group by m.paid_to`,
+        [venueId, date],
+      )
+    ).rows.map((r) => [r.user_id, r.cents]),
+  );
+  const people = new Map<string, { name: string; share: number }>();
+  for (const s of tips.shares) {
+    const p = people.get(s.user_id) ?? { name: s.name, share: 0 };
+    p.share += s.total_cents;
+    people.set(s.user_id, p);
+  }
+  return [...people].map(([userId, p]) => {
+    const out = paid.get(userId) ?? 0;
+    return {
+      user_id: userId,
+      name: p.name,
+      share_cents: p.share,
+      paid_out_cents: out,
+      left_cents: Math.max(0, p.share - out),
+    };
+  });
+}
+
 export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): void {
   app.get<{ Params: { venueId: string } }>(
     "/v1/venues/:venueId/drawers",
@@ -388,6 +440,11 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
               )
             : null;
         const perPerson = await modelNow(c, venueId, options.clock.now());
+        // What a count off by too much asks for, said before the count (U-17): the limit and
+        // the second-counter rule, never what a drawer should hold.
+        const cash = (await readSetting(c, venueId, "drawer", Temporal.PlainDate.from(date)))
+          ?.value as CashSettings | undefined;
+        const manager = role === "owner" || role === "manager";
         return {
           business_date: date,
           // The model in force tonight (M7-07), and whether this person counts in a drawer of their own.
@@ -464,6 +521,14 @@ export function drawerRoutes(app: FastifyInstance, options: { clock: Clock }): v
                   : view;
               }),
           })),
+          count_rules: {
+            note_over_cents: cash?.noteOverCents ?? 0,
+            second_counter: cash?.secondCounter ?? "whenOff",
+          },
+          // Each person's share for a tip-out's pre-filled amount (U-17), to a manager only.
+          ...(manager
+            ? { tip_shares: await tipSharesOf(c, venueId, date, options.clock.now()) }
+            : {}),
         };
       });
     },

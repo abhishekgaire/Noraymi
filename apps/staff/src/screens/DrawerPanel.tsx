@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { parseDollars, type Cents } from "@west4/shared";
+import { dollarsText, parseDollars, type Cents } from "@west4/shared";
 import { api, ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
@@ -81,6 +81,20 @@ interface Drawers {
     readonly role: string | null;
   };
   readonly handover: { readonly waiting_for: { readonly name: string } } | null;
+  /** What a count off by too much asks for (U-17): never what a drawer should hold. */
+  readonly count_rules?: {
+    readonly note_over_cents: number;
+    readonly second_counter: "never" | "whenOff" | "always";
+  };
+  /** Each person's share of tonight's tips, less tip-outs paid them (U-17; managers only). */
+  readonly tip_shares?: readonly TipShare[];
+}
+interface TipShare {
+  readonly user_id: string;
+  readonly name: string;
+  readonly share_cents: number;
+  readonly paid_out_cents: number;
+  readonly left_cents: number;
 }
 interface Answer {
   readonly expected_cents: number;
@@ -385,7 +399,7 @@ function MoveForm({
   drawer: Drawer;
   onDone: (message?: string) => void;
 }) {
-  const { t } = useT();
+  const { t, money } = useT();
   const session = drawer.sessions.find((s) => s.state === "open")!;
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -405,8 +419,17 @@ function MoveForm({
     kind === "no_sale"
       ? (data.me.no_sale_pin ?? data.me.pin_again)
       : data.me.pin_again && kind !== "paid_out";
-  const submit = async () => {
-    if (!ready) return;
+  // A tip-out's one tap (U-17): each person's share left to pay tonight, as the server
+  // works it out from the night's pool; the screen never computes it.
+  const shares = (data.tip_shares ?? []).filter((s) => s.left_cents > 0);
+  const pick = (userId: string) => {
+    setPaidTo(userId);
+    const share = shares.find((s) => s.user_id === userId);
+    if (share) setAmount(dollarsText(share.left_cents));
+  };
+  const submit = async (share?: TipShare) => {
+    if (!share && !ready) return;
+    if (share && pinAsked && pin === "") return;
     setBusy(true);
     setError(null);
     try {
@@ -420,7 +443,11 @@ function MoveForm({
             }
           : kind === "no_sale"
             ? { reason: reason.trim(), ...(pinAsked ? { pin } : {}) }
-            : { paid_to: paidTo, amount_cents: cents, ...(pinAsked ? { pin } : {}) };
+            : {
+                paid_to: share?.user_id ?? paidTo,
+                amount_cents: share?.left_cents ?? cents,
+                ...(pinAsked ? { pin } : {}),
+              };
       const r = await api<{ status?: string; waiting_for?: { name: string } }>("POST", path, body, {
         idempotencyKey: `${kind}-${session.id}-${Date.now()}`,
       });
@@ -439,6 +466,19 @@ function MoveForm({
       setBusy(false);
     }
   };
+  const pinField = (
+    <label>
+      <span>{t("drawer.pin")}</span>
+      <input
+        type="password"
+        inputMode="numeric"
+        autoComplete="off"
+        aria-label={t("drawer.pin")}
+        value={pin}
+        onChange={(e) => setPin(e.target.value)}
+      />
+    </label>
+  );
   const title =
     kind === "paid_out"
       ? t("drawer.paidOut")
@@ -455,16 +495,38 @@ function MoveForm({
       }}
     >
       <h4>{title}</h4>
+      {kind === "tip_out" && pinAsked && pinField}
+      {kind === "tip_out" && shares.length > 0 && (
+        <>
+          <p className="small muted">{t("drawer.tipShareHint")}</p>
+          <div className="actions tip-shares">
+            {shares.map((s) => (
+              <button
+                key={s.user_id}
+                type="button"
+                disabled={busy || (pinAsked && pin === "")}
+                onClick={() => void submit(s)}
+              >
+                {t("drawer.payShare", { name: s.name, amount: money(s.left_cents as Cents) })}
+              </button>
+            ))}
+          </div>
+          <p className="small muted">{t("drawer.otherAmount")}</p>
+        </>
+      )}
       {kind === "tip_out" && (
         <label>
           <span>{t("drawer.paidTo")}</span>
           <select
             aria-label={t("drawer.paidTo")}
             value={paidTo}
-            onChange={(e) => setPaidTo(e.target.value)}
+            onChange={(e) => pick(e.target.value)}
           >
             <option value="">{t("drawer.pick")}</option>
-            {data.people.map((p) => (
+            {[
+              ...data.people,
+              ...shares.filter((s) => !data.people.some((p) => p.user_id === s.user_id)),
+            ].map((p) => (
               <option key={p.user_id} value={p.user_id}>
                 {p.name}
               </option>
@@ -505,19 +567,7 @@ function MoveForm({
           />
         </label>
       )}
-      {pinAsked && (
-        <label>
-          <span>{t("drawer.pin")}</span>
-          <input
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            aria-label={t("drawer.pin")}
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-          />
-        </label>
-      )}
+      {kind !== "tip_out" && pinAsked && pinField}
       {error && (
         <p role="alert" className="error">
           {error}
@@ -657,6 +707,32 @@ function Fields({
   );
 }
 
+/**
+ * Said before the count (U-17): what a count off by more than the venue's limit
+ * will ask for. The limit is the venue's setting, never what the drawer should hold.
+ */
+function CountRules({ data }: { data: Drawers }) {
+  const { t, money } = useT();
+  const rules = data.count_rules;
+  if (!rules) return null;
+  const limit = money(rules.note_over_cents as Cents);
+  return (
+    <p className="small muted count-rules">
+      {rules.second_counter === "whenOff"
+        ? t("drawer.countRules.whenOff", { limit })
+        : rules.second_counter === "always"
+          ? t("drawer.countRules.always", { limit })
+          : t("drawer.countRules.never", { limit })}
+    </p>
+  );
+}
+
+/** A second person counts every time: their fields show from the start, not after a refusal. */
+const firstNeeds = (data: Drawers) => ({
+  note: false,
+  witness: data.count_rules?.second_counter === "always",
+});
+
 /** What a refusal asked for: after it, the screen shows what the drawer should hold. */
 function readRefusal(e: unknown): { reason: "note" | "witness"; answer: Answer } | null {
   if (!(e instanceof ApiCallError) || e.code !== "invalid_request") return null;
@@ -678,7 +754,7 @@ function CountForm({
 }) {
   const { t, money } = useT();
   const f = useCountFields();
-  const [needs, setNeeds] = useState({ note: false, witness: false });
+  const [needs, setNeeds] = useState(() => firstNeeds(data));
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -712,6 +788,7 @@ function CountForm({
     >
       <h4>{title}</h4>
       <p className="small muted">{t("drawer.countHint")}</p>
+      {!path.endsWith("/open") && <CountRules data={data} />}
       <Fields
         f={f}
         data={data}
@@ -760,7 +837,7 @@ function Handover({
   const [incoming, setIncoming] = useState("");
   const [index, setIndex] = useState(0);
   const f = useCountFields();
-  const [needs, setNeeds] = useState({ note: false, witness: false });
+  const [needs, setNeeds] = useState(() => firstNeeds(data));
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -788,7 +865,7 @@ function Handover({
         f.setNote("");
         f.setWitness("");
         f.setWitnessPin("");
-        setNeeds({ note: false, witness: false });
+        setNeeds(firstNeeds(data));
         setAnswer(null);
       }
     } catch (e) {
@@ -814,6 +891,7 @@ function Handover({
       }}
     >
       <p className="small muted">{t("drawer.handoverHint")}</p>
+      <CountRules data={data} />
       <label>
         <span>{t("drawer.incoming")}</span>
         <select

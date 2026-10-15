@@ -261,17 +261,22 @@ Definition of done: see CLAUDE.md.
 
 ### U-17 · Drawer counts, tip-outs and paid-outs
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7
-- **Spec:** spec 05 · drawers; spec 06 · tips
+- **Spec:** [Money rules](../spec/05-money-rules.md) · rule 15 (drawers); [API · Drawer](../spec/08-api.md); the tip pool is M7-09 (the ticket first named a "spec 06 · tips" that doesn't exist)
 - **Build:**
   - The count's hint says up front that a big difference will ask for a note and a second counter (DrawerPanel.tsx 690–704).
   - The tip-out amount is pre-filled with the person's share (DrawerPanel.tsx:394).
   - A paid-out's receipt photo: check the spec. If the spec allows, add "No receipt" with a required note, or "Add the photo later from a phone"; if it doesn't, leave it and say so in Notes.
 - **Acceptance:**
-  - [ ] A tip-out is one tap on the pre-filled amount.
+  - [x] A tip-out is one tap on the pre-filled amount.
 - **Notes:**
+  - Server: `GET /drawers` answers `count_rules` `{ note_over_cents, second_counter }` (tonight's `drawer` setting; absent reads as $0.00 and "whenOff", as the count itself does) and, to an owner or manager only, `tip_shares` `[{ user_id, name, share_cents, paid_out_cents, left_cents }]`: each person's share from `nightTips` (the same figures as Close the night's Tips panel and `GET /nights/{date}/tips`, late tips recorded in tonight's pool included), less the tip-outs paid them from any drawer on tonight's business date. Integer cents; the screen never computes a share. No new route and no migration (0166 not used). Tests: three new cases in `drawer-moves.int.test.ts` (the shares match the pool to the cent and drop by Andy's $20.00 tip-out to Maya; a bartender never gets `tip_shares`; `count_rules` is there and an open session still has no expected amount), and the e2e "U-17: a tip-out is one tap on Maya's pre-filled share, and the count says what a big difference asks for".
+  - Screen (DrawerPanel.tsx): Tip-out lists everyone with a share left as **{name} · {amount}**; one tap pays exactly that amount (`POST /tip-out` as before). Picking someone under Paid to fills the amount with their share, editable, for another amount. Every count (the count, a swap, a pulled tray, the handover; not the count-in of a bank) says before the number is typed "Off by more than $20.00? You'll add a note, and a second person counts too." (or the "never" / "always" wording); with **Always**, the second counter's fields show from the start, saving the refused first try. The expected amount still shows only after a count is saved.
+  - Paid-out's receipt photo: the spec requires it (spec 08 · Drawer: `/paid-out { amount_cents, reason, photo_file_id }` with no `?`, and M7-06 built it so: "reason and a `paid_out_photo` upload required"), so it stays required; "No receipt" and "Add the photo later" were not added. Changing that needs the founder (and the accountant, since it is the expense's evidence).
+  - Cautious defaults: (1) The share is the person's whole share of the live pool (gratuity, card tips and declared cash tips), less tonight's tip-outs to them, floored at $0.00; nobody with nothing left gets a one-tap button. Whether declared cash tips should be left out (the person may already hold them) is the venue's practice ([D106](../decisions.md)); the amount stays editable. (2) The pool is live until the close, so a share can grow later in the night; the button always shows what's left now. (3) Only owners and managers see the shares (the tip-out is theirs); bartenders never get them. (4) With nothing in tonight's pool yet (the seed at 10:41 PM), nobody has a button and Tip-out reads as before; the e2e puts Room 9's $96.00 gratuity in the ledger first. (5) In a PIN or badge session the PIN again is still asked (spec 02 · Badges): the buttons wait until it's typed, then one tap pays. (6) Showing the note limit doesn't break the blind count: it is the venue's setting, not what the drawer should hold.
+  - Spec 05 rule 15 and spec 08 · Drawer updated (D133). Manual test 31.17.
 
 ### U-18 · One place for what needs doing
 

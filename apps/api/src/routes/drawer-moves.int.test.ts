@@ -344,3 +344,61 @@ describe("drops, paid-outs, no-sales and tip-outs", () => {
     await expect(again).rejects.toMatchObject({ code: "W4K01" });
   });
 });
+
+/**
+ * U-17 (D133): the panel carries what the screen needs to pre-fill a tip-out
+ * and to say up front what a count off by too much will ask for. The shares
+ * are the server's own tip figures (the night's pool), never worked out in the
+ * screen, and the count rules never reveal what a drawer should hold.
+ */
+describe("the tip-out's pre-filled share and the count's rules (U-17)", () => {
+  interface TipShare {
+    user_id: string;
+    name: string;
+    share_cents: number;
+    paid_out_cents: number;
+    left_cents: number;
+  }
+  interface Rules {
+    count_rules: { note_over_cents: number; second_counter: string };
+    tip_shares?: TipShare[];
+  }
+
+  it("gives a manager each person's share from the night's pool, less the tip-outs paid them tonight", async () => {
+    as("andy", "manager", "passkey", "dev_phone_andy");
+    const date = ((await get("/drawers")).json() as { business_date: string }).business_date;
+    const tips = (await get(`/nights/${date}/tips`)).json() as {
+      shares: { user_id: string; total_cents: number }[];
+    };
+    const owed = new Map<string, number>();
+    for (const s of tips.shares) owed.set(s.user_id, (owed.get(s.user_id) ?? 0) + s.total_cents);
+    const shares = ((await get("/drawers")).json() as Rules).tip_shares!;
+    expect(shares.length).toBeGreaterThan(0);
+    for (const s of shares) {
+      expect(Number.isInteger(s.share_cents) && Number.isInteger(s.left_cents)).toBe(true);
+      expect(s.share_cents).toBe(owed.get(s.user_id) ?? 0);
+      expect(s.left_cents).toBe(Math.max(0, s.share_cents - s.paid_out_cents));
+    }
+    // Andy's $20.00 tip-out to Maya earlier tonight comes off what's left to pay her.
+    const maya = shares.find((s) => s.user_id === ids["maya"])!;
+    expect(maya).toMatchObject({ name: "Maya S.", paid_out_cents: 2000 });
+    expect(maya.left_cents).toBe(Math.max(0, maya.share_cents - 2000));
+  });
+
+  it("never shows a bartender anyone's tip share", async () => {
+    as("maya", "bartender", "pin", "dev_bar_computer");
+    const body = (await get("/drawers")).json() as Rules;
+    expect(body.tip_shares).toBeUndefined();
+  });
+
+  it("says what a count off by too much asks for, without what the drawer should hold", async () => {
+    as("maya", "bartender", "pin", "dev_bar_computer");
+    const body = (await get("/drawers")).json() as Rules & {
+      drawers: { sessions: { state: string; expected_cents?: number }[] }[];
+    };
+    expect(body.count_rules).toEqual({ note_over_cents: 2000, second_counter: "whenOff" });
+    for (const d of body.drawers)
+      for (const s of d.sessions.filter((x) => x.state === "open"))
+        expect(s.expected_cents).toBeUndefined();
+  });
+});

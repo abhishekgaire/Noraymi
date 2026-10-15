@@ -13343,3 +13343,73 @@ test("U-15: with Diego still clocked in, Andy closes the night without leaving t
     await db.end();
   }
 });
+
+/**
+ * U-17 (D133): at the bar drawer's own screen, Andy (signed in by PIN) opens Tip-out, types his PIN
+ * again and pays Maya her share of tonight's tips in one tap on the pre-filled amount, the server's
+ * own figure; then the count says up front what a big difference asks for, still blind.
+ */
+test("U-17: a tip-out is one tap on Maya's pre-filled share, and the count says what a big difference asks for", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Andy C\./ }).click();
+    await typePin(page, "730915");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Rooms");
+    // The screen just paired is the bar drawer's own screen.
+    await db.query(
+      `update devices set cash_drawer_id = (select id from cash_drawers where venue_id = (select id from venues where slug = 'west4karaoke') and name = 'Bar drawer')
+        where id = (select id from devices where venue_id = (select id from venues where slug = 'west4karaoke') and kind = 'bar_computer' order by created_at desc limit 1)`,
+    );
+    // Tonight's pool so far: Room 9's $96.00 gratuity, as if its check were paid.
+    await db.query(
+      `insert into tip_ledger (venue_id, business_date, source, amount_cents)
+         select id, '2026-09-25', 'gratuity', 9600 from venues where slug = 'west4karaoke'`,
+    );
+    await page.goto("/close-the-night");
+    const bar = page.getByRole("article", { name: "Bar drawer" });
+
+    await bar.getByRole("button", { name: "Tip-out" }).click();
+    const form = bar.getByRole("form", { name: "Tip-out" });
+    await expect(form).toContainText("Tap a name to pay their share of tonight's tips.");
+    const maya = form.getByRole("button", { name: /^Maya S\. · \$\d+\.\d{2}$/ });
+    await expect(maya).toBeDisabled();
+    await form.getByLabel("Your PIN again").fill("730915");
+    const label = (await maya.textContent())!;
+    const amount = label.replace("Maya S. · ", "");
+    const shown = Number(amount.replace(/[$,.]/g, ""));
+    expect(shown).toBeGreaterThan(0);
+    await maya.click();
+    await expect(form).toHaveCount(0);
+    await expect(bar).toContainText(`Tip-out · ${amount}`);
+    const paid = await db.query<{ cents: number; name: string }>(
+      `select m.amount_cents::int as cents, u.name from drawer_moves m join users u on u.id = m.paid_to
+        where m.kind = 'tip_out'`,
+    );
+    expect(paid.rows).toEqual([{ cents: shown, name: "Maya S." }]);
+    // Paid in full: Maya's share is gone from the one-tap list.
+    await bar.getByRole("button", { name: "Tip-out" }).click();
+    await expect(form.getByRole("button", { name: /^Maya S\. · / })).toHaveCount(0);
+    await form.getByRole("button", { name: "Cancel" }).click();
+
+    await bar.getByRole("button", { name: "Count the drawer" }).click();
+    await expect(bar).toContainText(
+      "Off by more than $20.00? You'll add a note, and a second person counts too.",
+    );
+    await expect(bar).not.toContainText("Should be in the drawer");
+  } finally {
+    await db.end();
+  }
+});

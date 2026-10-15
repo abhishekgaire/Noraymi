@@ -2033,3 +2033,14 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. Turn the Wi-Fi off: the page says closing the night needs the connection and its buttons wait.
 9. Spanish: **Marcar salida de Diego R.**, **Vaciar la lista de espera**, **Marcar todas las salas limpias**, **Todos los cajones contados**.
 
+
+### 31.17 Drawer counts, tip-outs and paid-outs (U-17)
+
+1. Start the demo (`scripts/demo-start.sh`). In Admin → Devices, give the bar computer the **Bar drawer** (its own screen). On the bar computer, tap Andy and his PIN, then open **Close the night**.
+2. On the Bar drawer, tap **Count the drawer**. Before you type anything it says "Off by more than $20.00? You'll add a note, and a second person counts too." Nothing shows what the drawer should hold until a count is saved. Cancel.
+3. In Admin → Cash drawers, set **Second counter** to **Always** and publish. Count the drawer again: the hint reads "A second person counts too, every time…", and **Second counter** and **Their PIN** show from the start. Set it back to **When a count is off by more than the note limit**.
+4. At 10:41 PM nobody has a share yet (no tips are in tonight's pool, so Tip-out shows only Paid to and the amount). Take Room 9's $498.60 first (its $96.00 gratuity goes into the pool), then tap **Tip-out**. Type **Your PIN again**: under "Tap a name to pay their share of tonight's tips." each person in the pool shows with their share left to pay (Maya S. · $…, Diego R. · $…), the same figures as the Tips panel on Close the night. Tap **Maya S.**: the drawer opens and the log reads "Tip-out · $… · to Maya S. · Andy C.".
+5. Tap **Tip-out** again: Maya is gone from the one-tap list (paid in full). Pick **Diego R.** under Paid to: the amount fills with his share; change it to $10.00 and tap **Open the drawer**. Open Tip-out again: Diego's button now shows his share less $10.00.
+6. As Maya (a bartender) the drawer panel never shows anyone's tip share, and she has no Tip-out.
+7. Tap **Paid-out**: the receipt's photo is still required (the API requires it, spec 08 · Drawer); **Open the drawer** stays grey until the amount, a reason and the photo are in.
+8. Spanish: "¿La diferencia pasa de $20.00? Añadirás una nota y otra persona cuenta también." and "Toca un nombre para pagarle su parte de las propinas de esta noche."

@@ -2863,6 +2863,11 @@ export const en = {
   "drawer.closed": "Handed over",
   "drawer.count": "Count the drawer",
   "drawer.countHint": "Count first. What the drawer should hold shows after you enter the count.",
+  "drawer.countRules.never": "Off by more than {limit}? You'll add a note.",
+  "drawer.countRules.whenOff":
+    "Off by more than {limit}? You'll add a note, and a second person counts too.",
+  "drawer.countRules.always":
+    "A second person counts too, every time. Off by more than {limit}? You'll add a note.",
   "drawer.amount": "What you counted, $",
   "drawer.pin": "Your PIN again",
   "drawer.save": "Save the count",
@@ -2922,6 +2927,9 @@ export const en = {
   "drawer.receipt": "Photo of the receipt",
   "drawer.amountOut": "Amount, $",
   "drawer.paidTo": "Paid to",
+  "drawer.tipShareHint": "Tap a name to pay their share of tonight's tips.",
+  "drawer.payShare": "{name} · {amount}",
+  "drawer.otherAmount": "Or pick someone and type another amount:",
   "drawer.openIt": "Open the drawer",
   "drawer.moveFailed": "That didn't go through. Try again.",
   "cash.notYourDrawer": "This is {owner}'s drawer. Hand the cash to {owner}, or swap trays.",
