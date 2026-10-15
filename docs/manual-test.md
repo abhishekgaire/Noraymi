@@ -1998,6 +1998,17 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. Offline: **Move to a new room**, the rooms and **Undo** are greyed, "Nothing moves while the bar computer is offline."
 9. Spanish: **Mover a una sala nueva**, **Sentarlos y mover la cuenta**, **Deshacer**, **De vuelta en la cuenta de Luis M.**
 
+### 31.13 Booking from the calendar like checking in (U-13)
+
+1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. Sign in as Andy (or Diego at the front desk) and open **Calendar** from the side menu.
+2. Tap **Sat, Sep 26** (tomorrow), then **New booking**. The time already reads **11:00 PM** (the next half hour), **2 h** is chosen, and the rooms say "Tap the party to see the rooms that fit".
+3. Change the time to **9:00 PM** and tap **6**. The rooms appear as chips with their size ("Room 2 · fits 3–6"), smallest first, and only the ones that fit 6 and are free 9 to 11 PM; the first is chosen. Tap **More** and type **13**: only the large rooms and the VIP room stay. Tap **6** again.
+4. Tap another room if you like (one tap), type the guest's name, and tap **Book it**: "Booked …", and the booking is in Saturday's list in that room, 9:00 PM for 2 hours, for 6.
+5. A phone that isn't one: type "555-12" in **Guest's phone (optional)** and tap **Book it**: "Phone: 10 digits, or leave it empty", and nothing is booked until it's fixed or emptied.
+6. No room: on **Tonight**, tap **More**, type **22** with 11:00 PM: "No room is free for 22 then · try another time or length", and **Book it** stays greyed. A time already past tonight (9:00 PM): "That time has passed". A length that runs past 4 AM: "A booking must end by the night's close".
+7. Offline (unplug the network): "No new bookings while offline." and **Book it** is greyed.
+8. Spanish: **Nueva reserva**, **Personas**, **Más**, "Toca el grupo para ver las salas en que caben", **Reservar**.
+
 ### 31.14 Clock out in one step (U-14)
 
 1. Start the demo (`scripts/demo-start.sh`); it's 10:41 PM. On the bar computer, tap **Time clock**, then Diego, then his PIN. The clock panel shows **Before you clock out** at once, before any tap: Tariq A.'s and Seat 6 · blue jacket's tabs, his 1 unsent Red Bull ("they go with the tab"), and the cash tips box with a **$0** chip. **Clock out** stays greyed until an amount is typed or $0 tapped.

@@ -3398,17 +3398,19 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     };
     await readTonight(page);
 
+    // U-13: the form lists only the rooms that fit and says why there's none; Book it waits.
     const tryBooking = async (time: string, expected: string) => {
       await page.getByRole("button", { name: "New booking" }).click();
       const form = page.getByRole("form", { name: "New booking" });
-      await form.getByLabel("Name").fill("Test Party");
-      await form.getByLabel("Guests").fill("22");
+      await form.getByLabel("Guest's name").fill("Test Party");
+      await form.getByRole("button", { name: "More", exact: true }).click();
+      await form.getByLabel("Number of guests").fill("22");
       await form.getByLabel("Time").fill(time);
-      await form.getByRole("button", { name: "Book it" }).click();
-      await expect(page.getByRole("alert")).toHaveText(expected);
+      await expect(form).toContainText(expected);
+      await expect(form.getByRole("button", { name: "Book it" })).toBeDisabled();
       await form.getByRole("button", { name: "Cancel" }).click();
     };
-    await tryBooking("23:00", "That room isn't free then");
+    await tryBooking("23:00", "No room is free for 22 then");
     await tryBooking("21:00", "That time has passed");
 
     await page.getByRole("button", { name: /^Sat, Sep 26/ }).click();
@@ -3426,10 +3428,10 @@ test("the Calendar: tonight's 11 bookings, refused slots, and blocking Sat Sep 2
     await page.getByRole("button", { name: /^Sun, Sep 27/ }).click();
     await page.getByRole("button", { name: "New booking" }).click();
     const sunday = page.getByRole("form", { name: "New booking" });
-    await sunday.getByLabel("Name").fill("Rae V.");
-    await sunday.getByLabel("Guests").fill("5");
+    await sunday.getByLabel("Guest's name").fill("Rae V.");
+    await sunday.getByRole("button", { name: "5", exact: true }).click();
     await sunday.getByLabel("Time").fill("21:00");
-    await sunday.getByLabel("Mobile").fill("(212) 555-0164");
+    await sunday.getByLabel("Guest's phone (optional)").fill("(212) 555-0164");
     await sunday.getByRole("button", { name: "Book it" }).click();
     await expect(page.locator(".notice")).toHaveText("Booked Rae V.");
     // M5-13: her deposit's payment link, texted, with the room held 24 hours.
@@ -13082,6 +13084,123 @@ test("U-14: Maya clocks out in 2 taps ($0, Clock out) and back in with name, PIN
     );
     expect(open.rows).toEqual([{ duty: "bar" }]);
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-13: New booking on the Calendar books like checking in. Tomorrow (Sat Sep 26) for 6 at 9 PM
+ * for 2 hours is: the day, the time (it starts at the next half hour, 11:00 PM), the party chip,
+ * a fitting room (the length is 2 h by default), Book it. Only rooms that fit the party are
+ * listed, and a phone that isn't one says so instead of being dropped.
+ */
+test("U-13 · New booking for 6 tomorrow at 9 PM for 2 h: day, time, chips, a fitting room, Book it", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    expect(
+      (await request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })).ok(),
+    ).toBe(true);
+    // An earlier test blocks Sat Sep 26; this one books it.
+    await db.query("delete from closures where date = '2026-09-26'");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.getByRole("link", { name: "Calendar" }).first().click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Calendar");
+
+    await page.getByRole("button", { name: /^Sat, Sep 26/ }).click();
+    await page.getByRole("button", { name: "New booking" }).click();
+    const form = page.getByRole("form", { name: "New booking" });
+    // The time starts at the next half hour on the venue's clock, the length at 2 h.
+    await expect(form.getByLabel("Time")).toHaveValue("23:00");
+    await expect(form.getByRole("button", { name: "2 h", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(form).toContainText("Tap the party to see the rooms that fit");
+    await form.getByLabel("Time").fill("21:00");
+
+    // A party of 13 sees only the rooms that fit 13 (the 6s and the 12s are gone).
+    const chips = form.locator(".room-chip");
+    await form.getByRole("button", { name: "More", exact: true }).click();
+    await form.getByLabel("Number of guests").fill("13");
+    await expect(chips.first()).toBeVisible();
+    for (const text of await chips.locator(".small").allTextContents()) {
+      expect(Number(/–(\d+)/.exec(text)![1])).toBeGreaterThanOrEqual(13);
+    }
+    await form.getByRole("button", { name: "6", exact: true }).click();
+    await expect(chips.filter({ hasText: "fits 3–6" }).first()).toBeVisible();
+    const names = await chips.locator("b").allTextContents();
+    // Every room listed is free 9 to 11 PM tomorrow (the server's own rule) and fits 6.
+    const busy = await db.query<{ name: string }>(
+      `select distinct r.name from room_blocks b join rooms r on r.id = b.room_id
+        where b.period && tstzrange('2026-09-27T01:00:00Z', '2026-09-27T03:00:00Z')`,
+    );
+    for (const n of busy.rows.map((r) => r.name)) expect(names).not.toContain(n);
+    // The first room (the one the server would pick) is chosen; another is one tap.
+    await expect(chips.first()).toHaveAttribute("aria-pressed", "true");
+    const room = names[1] ?? names[0]!;
+    const chip = chips.filter({ has: page.getByText(room, { exact: true }) });
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    for (const box of await chips.all()) {
+      expect((await box.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+
+    await form.getByLabel("Guest's name").fill("Nia S.");
+    // A phone that isn't one says so; nothing is booked.
+    await form.getByLabel("Guest's phone (optional)").fill("555-12");
+    await form.getByRole("button", { name: "Book it" }).click();
+    await expect(page.getByRole("alert")).toHaveText("Phone: 10 digits, or leave it empty");
+    const none = await db.query(
+      "select 1 from bookings b join guests g on g.id = b.guest_id where g.name = 'Nia S.'",
+    );
+    expect(none.rowCount).toBe(0);
+    await form.getByLabel("Guest's phone (optional)").fill("(347) 555-0191");
+    await form.getByRole("button", { name: "Book it" }).click();
+    await expect(page.locator(".notice")).toHaveText("Booked Nia S.");
+    await expect(
+      page.getByRole("list", { name: "Bookings" }).getByRole("listitem", { name: "Nia S." }),
+    ).toBeVisible();
+
+    const made = await db.query<{
+      party_size: number;
+      starts_at: Date;
+      minutes: number;
+      room: string;
+      phone: string;
+    }>(
+      `select b.party_size, b.starts_at, (extract(epoch from b.ends_at - b.starts_at) / 60)::int as minutes,
+              r.name as room, g.phone_e164 as phone
+         from bookings b join guests g on g.id = b.guest_id join rooms r on r.id = b.room_id
+        where g.name = 'Nia S.'`,
+    );
+    expect(made.rows).toHaveLength(1);
+    expect(made.rows[0]).toMatchObject({
+      party_size: 6,
+      minutes: 120,
+      room,
+      phone: "+13475550191",
+    });
+    expect(made.rows[0]!.starts_at.toISOString()).toBe("2026-09-27T01:00:00.000Z");
+    expect(await clippedText(page)).toEqual([]);
+
+    // In Spanish, the same form.
+    await db.query(
+      "update memberships set locale = 'es' where user_id = (select id from users where lower(email) = $1)",
+      [ANDY],
+    );
+    await page.reload();
+    await page.getByRole("button", { name: /^sáb/i }).first().click();
+    await page.getByRole("button", { name: "Nueva reserva" }).click();
+    const es = page.getByRole("form", { name: "Nueva reserva" });
+    await expect(es).toContainText("Toca el grupo para ver las salas en que caben");
+    await expect(es.getByRole("button", { name: "Más", exact: true })).toBeVisible();
+  } finally {
+    await db.query("update memberships set locale = 'en'");
     await db.end();
   }
 });
