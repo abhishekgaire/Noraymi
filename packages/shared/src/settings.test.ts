@@ -9,6 +9,7 @@ import {
   tabCardRequired,
   walkInTakesOf,
   withLaterPart,
+  zReportAtClose,
 } from "./settings.js";
 
 describe("settings schemas", () => {
@@ -83,6 +84,12 @@ describe("settings schemas", () => {
     const badRun = parseSetting("pos", { ...pos, selfRunOrders: "on" });
     expect(badRun.ok).toBe(false);
     if (!badRun.ok) expect(badRun.reasons[0]).toMatch(/^pos\.selfRunOrders/);
+    // "Print and email the Z report at close" (U-15): absent reads as on; false turns it off.
+    expect(zReportAtClose(pos)).toBe(true);
+    expect(zReportAtClose(null)).toBe(true);
+    expect(zReportAtClose({ ...pos, zReportAtClose: false })).toBe(false);
+    expect(parseSetting("pos", { ...pos, zReportAtClose: false }).ok).toBe(true);
+    expect(parseSetting("pos", { ...pos, zReportAtClose: "on" }).ok).toBe(false);
   });
 
   it("kitchen (K-01): unsentWarnMin defaults to 5 and refuses a value outside 1 to 60; the notice needs both languages", () => {

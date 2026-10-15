@@ -150,6 +150,8 @@ type PosSettings = {                                        // the same shape as
                                                             // room orders always print; managers and the owner change it in Admin → Bar POS
   selfRunOrders?: boolean;                                  // "We run our own orders": absent or false (runners carry room orders); true puts
                                                             // Delivered on Bar orders' Ready cards and sends no run-ready push (U-11, D133)
+  zReportAtClose?: boolean;                                 // "Print and email the Z report at close": absent or true (on by default) prints the
+                                                            // Z report at the close and emails it to the owners; false turns it off (U-15, D133)
   orderAging: { phonesSec: number; amberSec: number; pinkSec: number; callSec: number };
                                                             // 30, 120, 240, 360: the board alerts at amber, the manager on duty is told at pink
   chime: boolean;                                           // true: a backup to the colors

@@ -13204,3 +13204,142 @@ test("U-13 · New booking for 6 tomorrow at 9 PM for 2 h: day, time, chips, a fi
     await db.end();
   }
 });
+
+/**
+ * U-15 · Close the night without getting stuck (D133): at the bar computer, Andy signed in by PIN, with
+ * Diego still on the clock, the waitlist and the cleaning rooms open, closes the night without leaving
+ * the page: Clock out Diego R. at 4:31 AM with a reason and his PIN (a punch edit on Staff actions),
+ * Clear the waitlist, Mark all rooms clean, the clear-out, then Close the night with his PIN, which
+ * prints the Z report at the bar and emails it to the owner.
+ */
+test("U-15: with Diego still clocked in, Andy closes the night without leaving the page", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
+      .rows[0]!.id;
+    // Everything else fixed as its own screen would; Diego, the waitlist and the cleaning rooms stay.
+    await db.query(
+      "update room_sessions set ended_at = now() where venue_id = $1 and ended_at is null",
+      [v],
+    );
+    await db.query(
+      "update tabs set state = 'captured' where venue_id = $1 and state in ('open', 'tipping')",
+      [v],
+    );
+    await db.query(
+      `update shifts set ended_at = now() where venue_id = $1 and ended_at is null and membership_id in
+         (select m.id from memberships m join users u on u.id = m.user_id where u.name = 'Maya S.')`,
+      [v],
+    );
+    await db.query(
+      "update orders set status = 'cancelled', cancel_reason = 'staff' where venue_id = $1 and status in ('ringing', 'held')",
+      [v],
+    );
+    await db.query(
+      "update approvals set status = 'declined' where venue_id = $1 and status = 'pending'",
+      [v],
+    );
+    await db.query("update order_drafts set lines = '[]' where venue_id = $1", [v]);
+    await db.query(
+      "update drawer_sessions set state = 'counted', counted_cents = opening_cents, expected_cents = opening_cents, over_short_cents = 0 where venue_id = $1 and state = 'open'",
+      [v],
+    );
+    // Sat 4:31 AM: the clear-out is due, and Diego never clocked out.
+    await setClock(request, "2026-09-26T08:31:00Z");
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Andy C\./ }).click();
+    await typePin(page, "730915");
+    await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Staff sign-in");
+    await page.goto("/close-the-night");
+    const checks = page.getByRole("region", { name: "Before closing" });
+    await expect(checks).toContainText("Staff still on the clock · 1");
+    await expect(checks).toContainText("Open waitlist entries · 3");
+    await expect(checks.getByRole("button", { name: "Close the night" })).toBeDisabled();
+
+    // 1. Clock out Diego R. at 4:31 AM, with a reason and Andy's PIN.
+    await checks.getByRole("button", { name: "Clock out Diego R." }).click();
+    const form = checks.getByRole("form", { name: "Clock out Diego R." });
+    await expect(form.getByLabel("Clock out at")).toHaveValue("04:31");
+    const doIt = form.getByRole("button", { name: "Clock out Diego R. at 4:31 AM" });
+    await expect(doIt).toBeDisabled();
+    await form.getByRole("button", { name: "Forgot to clock out" }).click();
+    await expect(form.getByLabel("Reason")).toHaveValue("Forgot to clock out");
+    await form.getByLabel("Your PIN again").fill("730915");
+    await doIt.click();
+    await expect(checks).toContainText("Staff still on the clock · 0");
+    const punch = await db.query<{ editor: string; reason: string }>(
+      `select e.name as editor, p.reason from time_punches p
+         join memberships m on m.id = p.membership_id join users u on u.id = m.user_id
+         join users e on e.id = p.edited_by
+        where u.name = 'Diego R.' and p.kind = 'clock_out'`,
+    );
+    expect(punch.rows).toEqual([{ editor: "Andy C.", reason: "Forgot to clock out" }]);
+
+    // 2. Clear the waitlist and Mark all rooms clean, right on their lines.
+    await checks.getByRole("button", { name: "Clear the waitlist" }).click();
+    await checks
+      .getByRole("group", { name: "Clear the waitlist" })
+      .getByRole("button", { name: "Clear the waitlist" })
+      .click();
+    await expect(checks).toContainText("Open waitlist entries · 0");
+    const clean = checks.getByRole("button", { name: "Mark all rooms clean" });
+    if ((await clean.count()) > 0) await clean.click();
+    await expect(checks).toContainText("Rooms still cleaning · 0");
+
+    // Staff actions shows the punch as Andy's punch edit (Reports, in his passkey session elsewhere).
+    const other = await page
+      .context()
+      .browser()!
+      .newContext({ viewport: { width: 1280, height: 800 } });
+    const reports = await other.newPage();
+    try {
+      await signInAndy(reports, request, db);
+      await reports.goto("/reports");
+      const card = reports.getByRole("region", { name: "Staff actions", exact: true });
+      await expect(card.getByRole("heading", { name: "Andy C." })).toBeVisible();
+      const edits = card.getByRole("button", { name: /^Punch edits · 1/ });
+      await edits.click();
+      await expect(card.getByRole("list", { name: /^Punch edits · 1/ })).toContainText(
+        "Forgot to clock out",
+      );
+    } finally {
+      await other.close();
+    }
+
+    // 3. The clear-out, then 4. Close the night with the PIN again.
+    await checks.getByRole("button", { name: "Done", exact: true }).click();
+    await expect(checks).toContainText("Clear-out check · Andy · 4:31 AM");
+    await checks.getByRole("button", { name: "Close the night" }).click();
+    const confirm = checks.getByRole("group", { name: "Close the night" });
+    await confirm.getByLabel("Your PIN again").fill("730915");
+    await confirm.getByRole("button", { name: "Close the night" }).click();
+    await expect(checks).toContainText("Night closed · 4:31 AM");
+    await expect(checks.getByRole("status").filter({ hasText: "Z report" })).toContainText(
+      "Z report sent to the bar printer",
+    );
+    await expect(page).toHaveURL(/\/close-the-night$/);
+    const z = await db.query(
+      "select 1 from print_jobs where venue_id = $1 and kind = 'z_report' and station = 'bar'",
+      [v],
+    );
+    expect(z.rowCount).toBe(1);
+    const mail = await db.query(
+      "select 1 from jobs where venue_id = $1 and kind = 'email.send' and payload->>'template' = 'z_report'",
+      [v],
+    );
+    expect(mail.rowCount).toBeGreaterThan(0);
+  } finally {
+    await db.end();
+  }
+});

@@ -213,6 +213,26 @@ export function waitlistRoutes(
     },
   );
 
+  // Clear the waitlist (U-15; D133), from Close the night: every party still waiting or offered
+  // comes off as left, its room hold released, with no offer passed on and no text sent.
+  app.post<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/waitlist/clear",
+    { config: write },
+    async (request) => {
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      const cleared = await request.inVenue(async (c) => {
+        const live = await c.query<{ id: string }>(
+          "select id from waitlist_entries where venue_id = $1 and status in ('waiting', 'offered') order by joined_at",
+          [venueId],
+        );
+        for (const r of live.rows) await endEntry(c, venueId, r.id, "left", now);
+        return live.rows.length;
+      });
+      return { cleared };
+    },
+  );
+
   app.post<{ Params: { venueId: string; w: string } }>(
     "/v1/venues/:venueId/waitlist/:w/remove",
     { config: write },

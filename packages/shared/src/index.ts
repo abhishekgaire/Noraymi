@@ -74,6 +74,7 @@ export {
   walkInTakes,
   walkInTakesOf,
   tabCardRequired,
+  zReportAtClose,
   roomSoundOn,
   roomSoundVolume,
 } from "./settings.js";

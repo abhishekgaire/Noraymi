@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { tabCardRequired, tabConsentLine, type PosSettings, type TabSettings } from "@west4/shared";
+import {
+  tabCardRequired,
+  tabConsentLine,
+  zReportAtClose,
+  type PosSettings,
+  type TabSettings,
+} from "@west4/shared";
 import { useAdminDraft } from "../../admin/draft.js";
 import { agingSentence } from "../../aging.js";
 import { api } from "../../api.js";
@@ -15,7 +21,8 @@ import { Money } from "./Prices.js";
  * version, and tabs already open keep theirs. There's no "Ring the bar until
  * someone accepts" toggle: the aging times, the chime and Mute replace it.
  * "Open a tab without a card" (P-03) is `tabs.cardRequired`, inverted. "We run our own orders" (U-11)
- * is `pos.selfRunOrders`: a Ready card on Bar orders gets Delivered.
+ * is `pos.selfRunOrders`: a Ready card on Bar orders gets Delivered. "Print and email the Z report at
+ * close" (U-15) is `pos.zReportAtClose`, on unless unticked.
  */
 export function BarPosSettings({ venueId }: { venueId: string }) {
   const { t } = useT();
@@ -135,6 +142,19 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
         </label>
       </div>
       <p className="small muted">{t("barPos.selfRun.hint")}</p>
+
+      <h3>{t("barPos.zReport")}</h3>
+      <div className="invite-fields">
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={zReportAtClose(pos)}
+            onChange={(e) => setPos({ zReportAtClose: e.target.checked })}
+          />
+          <span>{t("barPos.zReport.label")}</span>
+        </label>
+      </div>
+      <p className="small muted">{t("barPos.zReport.hint")}</p>
 
       <h3>{t("barPos.aging")}</h3>
       <div className="invite-fields">

@@ -8,6 +8,8 @@ import { ApiError } from "../http/errors.js";
 import { nightTips } from "../tips/pool.js";
 import { nightChecks } from "../nights/checks.js";
 import { closeNight } from "../nights/close.js";
+import { printedMoney, zReportAtCloseOut } from "../nights/z-at-close.js";
+import type { EmailSettings } from "../email/settings.js";
 import { nightReport, reportPrintLines } from "../nights/report.js";
 import type { PaymentDeps } from "../payments/run.js";
 import type { StripeClient } from "../stripe/client.js";
@@ -73,7 +75,12 @@ async function nightOf(c: Queryable, venueId: string, date: string, now: Tempora
 
 export function nightRoutes(
   app: FastifyInstance,
-  options: { clock: Clock; pool: pg.Pool; stripe: () => StripeClient },
+  options: {
+    clock: Clock;
+    pool: pg.Pool;
+    stripe: () => StripeClient;
+    email?: () => Pick<EmailSettings, "allowList">;
+  },
 ): void {
   const deps = (): PaymentDeps => ({
     pool: options.pool,
@@ -133,13 +140,11 @@ export function nightRoutes(
           )
         ).rows[0];
         if (!printer) throw new ApiError("invalid_request", "there's no front-desk printer paired");
-        const money = (cents: number) =>
-          `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         const job = await insertPrintJob(c, venueId, {
           kind: parsed.data.kind === "z" ? "z_report" : "x_report",
           station: "front_desk",
           deviceId: printer.id,
-          payload: { lines: reportPrintLines(report, money) },
+          payload: { lines: reportPrintLines(report, printedMoney) },
           createdAt: now.toString(),
         });
         return { print_job_id: job, kind: parsed.data.kind };
@@ -221,7 +226,9 @@ export function nightRoutes(
    * Close the night (M7-12): an owner or manager, after one confirmation and their PIN again in a
    * PIN or badge session. Every check runs again in one transaction; then the next Z number and
    * `night_closes` with the Z totals, the tip pool closed, unsent drafts and 86s cleared, the closing
-   * manager clocked out, and `night.closed`. Two managers closing at once: one wins.
+   * manager clocked out, and `night.closed`. Two managers closing at once: one wins. With "Print and
+   * email the Z report at close" on (U-15; D133), the same transaction queues the Z report's print
+   * job and its emails to the owners; the worker sends them after the commit.
    */
   const closeBody = z
     .object({
@@ -261,7 +268,20 @@ export function nightRoutes(
       const now = options.clock.now();
       return request.inVenue(async (c) => {
         const date = (await nightOf(c, venueId, request.params.date, now)).toString();
-        return closeNight(c, { venueId, date, now, by: { kind: "user", userId: p.userId } });
+        const closed = await closeNight(c, {
+          venueId,
+          date,
+          now,
+          by: { kind: "user", userId: p.userId },
+        });
+        const z = await zReportAtCloseOut(c, {
+          venueId,
+          date,
+          now,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          email: options.email?.() ?? { allowList: null },
+        });
+        return { ...closed, z_report: z };
       });
     },
   );

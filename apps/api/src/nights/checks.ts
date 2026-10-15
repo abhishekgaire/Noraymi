@@ -38,6 +38,15 @@ export interface NightCheck {
   /** The clear-out check: when it's due, and who did it when. */
   readonly due_at?: string;
   readonly done?: { readonly by: string; readonly at: string } | null;
+  /**
+   * What the close fixes in place (U-15; D133): who's still on the clock (their membership, and
+   * their last punch, the earliest time they can be clocked out at) and the rooms still cleaning.
+   */
+  readonly items?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly since?: string;
+  }[];
 }
 
 const count = async (c: Queryable, sql: string, args: unknown[]) =>
@@ -75,18 +84,26 @@ export async function nightChecks(
     "/close-the-night",
   );
   const team = (await venueModules(c, venueId)).find((m) => m.module_id === "team");
-  if (team?.state !== "off")
-    add(
-      "on_the_clock",
-      await count(
-        c,
-        `select u.name from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
+  if (team?.state !== "off") {
+    const on = (
+      await c.query<{ id: string; name: string; since: string }>(
+        `select m.id, u.name,
+                to_json((select max(p.at) from time_punches p
+                          where p.venue_id = s.venue_id and p.membership_id = s.membership_id
+                            and p.at >= s.started_at)) #>> '{}' as since
+           from shifts s join memberships m on m.venue_id = s.venue_id and m.id = s.membership_id
            join users u on u.id = m.user_id
           where s.venue_id = $1 and s.ended_at is null and m.user_id is distinct from $2 order by s.started_at`,
         [venueId, exemptUserId],
-      ),
+      )
+    ).rows;
+    add(
+      "on_the_clock",
+      on.map((r) => r.name),
       "/clock",
     );
+    checks[checks.length - 1] = { ...checks[checks.length - 1]!, items: on };
+  }
   add(
     "waitlist",
     await count(
@@ -117,16 +134,19 @@ export async function nightChecks(
     ),
     "/approvals",
   );
-  add(
-    "cleaning",
-    await count(
-      c,
-      `select r.name from room_states s join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+  const cleaning = (
+    await c.query<{ id: string; name: string }>(
+      `select r.id, r.name from room_states s join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
         where s.venue_id = $1 and s.state = 'cleaning' order by r.name`,
       [venueId],
-    ),
+    )
+  ).rows;
+  add(
+    "cleaning",
+    cleaning.map((r) => r.name),
     "/tonight",
   );
+  checks[checks.length - 1] = { ...checks[checks.length - 1]!, items: cleaning };
   add(
     "unsent",
     await count(

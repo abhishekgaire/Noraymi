@@ -100,6 +100,14 @@ export const emailJobPayload = z.discriminatedUnion("template", [
     .strict(),
   z
     .object({
+      template: z.literal("z_report"),
+      to: z.string().email(),
+      locale: localeSchema,
+      data: templateSchemas.z_report,
+    })
+    .strict(),
+  z
+    .object({
       template: z.literal("license_reminder"),
       to: z.string().email(),
       locale: localeSchema,

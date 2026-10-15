@@ -341,6 +341,102 @@ export function shiftRoutes(app: FastifyInstance, options: { clock: Clock }): vo
     return { shift_id: shift.id, cash_tips_cents: cents };
   }
 
+  /**
+   * Clock out someone who forgot (U-15; D133): from Close the night, an owner or manager clocks
+   * another person's open shift out at a time they pick (now, or back to the person's last punch),
+   * with a reason, and their own PIN again in a PIN or badge session. The punch is written as an
+   * edited punch (who and why), so it shows on Staff actions as a punch edit; the clock-out
+   * checklist isn't asked, since the person isn't here to do it. Never their own shift.
+   */
+  const clockOutForBody = z
+    .object({
+      at: z.string().datetime({ offset: true }).optional(),
+      reason: z.string().trim().min(1).max(300),
+      pin: z
+        .string()
+        .regex(/^\d{4,6}$/)
+        .optional(),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; m: string }; Body: unknown }>(
+    "/v1/venues/:venueId/team/:m/clock-out",
+    {
+      config: route({
+        // A manager at the register signs in by PIN: the role is checked below, and the PIN again.
+        principals: ["owner_manager", "staff"],
+        module: "team",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      if (!z.string().uuid().safeParse(request.params.m).success)
+        throw new ApiError("not_found", "no such person");
+      const parsed = clockOutForBody.safeParse(request.body ?? {});
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "send { reason, at? }: clocking someone out needs a reason",
+          {
+            details: { reason: "reason" },
+          },
+        );
+      const mine = me(request);
+      const p = request.principal as Extract<typeof request.principal, { kind: "user" }>;
+      if (mine.role !== "owner" && mine.role !== "manager")
+        throw new ApiError("forbidden", "owners and managers clock someone else out");
+      const venueId = request.venueId!;
+      const now = options.clock.now();
+      const target = await request.inVenue(async (c) => {
+        const row = (
+          await c.query<{ user_id: string; since: string | null }>(
+            `select m.user_id,
+                    to_json((select max(t.at) from time_punches t join shifts s
+                               on s.venue_id = t.venue_id and s.membership_id = t.membership_id
+                              and s.ended_at is null and t.at >= s.started_at
+                             where t.venue_id = m.venue_id and t.membership_id = m.id)) #>> '{}' as since
+               from memberships m where m.venue_id = $1 and m.id = $2`,
+            [venueId, request.params.m],
+          )
+        ).rows[0];
+        if (!row) throw new ApiError("not_found", "no such person");
+        return row;
+      });
+      if (target.user_id === p.userId)
+        throw new ApiError("forbidden", "clock yourself out from the time clock");
+      if (target.since === null)
+        throw new ApiError("version_conflict", "they're not on the clock", {
+          details: { refusal: "not_on" },
+        });
+      const at = parsed.data.at ? Temporal.Instant.from(parsed.data.at) : now;
+      if (
+        Temporal.Instant.compare(at, now) > 0 ||
+        Temporal.Instant.compare(at, Temporal.Instant.from(target.since)) < 0
+      )
+        throw new ApiError("invalid_request", "pick a time between their last punch and now", {
+          details: { reason: "at", since: target.since },
+        });
+      if (p.session === "pin" || p.session === "badge") {
+        if (!parsed.data.pin)
+          throw new ApiError("invalid_request", "clocking someone out asks for your PIN again", {
+            details: { reason: "pin" },
+          });
+        await request.server.checkPinAgain(request, parsed.data.pin);
+      }
+      return request.inVenue(async (c) => {
+        const shift = await recordPunch(c, {
+          venueId,
+          membershipId: request.params.m,
+          kind: "clock_out",
+          at,
+          deviceId: deviceOf(request),
+          venue: await venueClock(c, venueId),
+          editedBy: { userId: p.userId, reason: parsed.data.reason },
+        }).catch(refusal);
+        return { shift: shiftView(shift) };
+      });
+    },
+  );
+
   // Tonight's punches, for Admin → Team's "Time clock · tonight" (owners and managers).
   const managers = route({ principals: ["owner_manager"], module: "team" });
   app.get<{ Params: { venueId: string }; Querystring: { date?: string } }>(

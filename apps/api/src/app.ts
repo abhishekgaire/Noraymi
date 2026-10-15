@@ -430,7 +430,12 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         forms,
         texts: loadVenueTextSettings(config.env),
       });
-      nightRoutes(scope, { clock, pool: gatePoolRef!, stripe });
+      nightRoutes(scope, {
+        clock,
+        pool: gatePoolRef!,
+        stripe,
+        email: () => options.email ?? { allowList: null },
+      });
       unmatchedRoutes(scope, { clock, pool: gatePoolRef! });
       exportRoutes(scope, { clock, email: () => options.email ?? { allowList: null } });
       taxQuarterRoutes(scope, { clock });

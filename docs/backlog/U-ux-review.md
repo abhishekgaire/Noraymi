@@ -229,10 +229,10 @@ Definition of done: see CLAUDE.md.
 
 ### U-15 · Close the night without getting stuck
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M7
-- **Spec:** [Close the night](../spec/05-money-rules.md) · rule 16; spec 06 · punches
+- **Spec:** [Close the night](../spec/05-money-rules.md) · rule 16; [Staff screens · Charging the remaining tabs and Shifts](../spec/10-staff-screens-bar-pos.md), [API · Time clock and Night close](../spec/08-api.md) (the ticket first named a "spec 06 · punches" that doesn't exist)
 - **Build:**
   - A forgotten clock-out no longer strands the manager: the close lists who's still on, with **Clock out {name} at [time]** and a reason, done with the manager's PIN at the register, audited as a punch edit (today Fix goes to /clock, which can't clock anyone else out, and punch edits need a passkey: checks.ts 80–88, shifts.ts 341–360).
   - The page reads as numbered steps (1 tabs, 2 drawers, 3 clear-out, 4 Close); each check's Fix scrolls to its part or opens its form (the drawers' Fix points at the page itself today).
@@ -240,8 +240,11 @@ Definition of done: see CLAUDE.md.
   - A venue setting **Print and email the Z report at close** (on by default, to the owner's email): the close prints it at the station and emails it.
   - Wording: "Both drawers counted" becomes "Every drawer counted" (Sing Sing has one).
 - **Acceptance:**
-  - [ ] With Diego still clocked in at 4 AM, Andy closes the night without leaving the page; the punch shows on Staff actions.
+  - [x] With Diego still clocked in at 4 AM, Andy closes the night without leaving the page; the punch shows on Staff actions.
 - **Notes:**
+  - Server: `POST /team/{m}/clock-out { reason, at?, pin? }` (owners and managers; the role is checked in the route, so a manager signed in by PIN at the register reaches it, with the PIN again in a PIN or badge session; never their own shift; `at` from their last punch to now, default now; `409` when they're not on). It goes through `recordPunch`, which now takes an optional `editedBy`, so the clock-out punch is written with `edited_by` and the reason: the audit trigger logs it and Staff actions counts it as a punch edit. `POST /waitlist/clear` ends every waiting or offered party as left (holds released) with no offer passed on and no text. `GET /nights/{date}` adds `items` on `on_the_clock` (membership, last punch) and `cleaning` (room id); Mark all rooms clean calls the existing `POST /rooms/{r}/clean` per room. The close answers `z_report` and, with `pos.zReportAtClose` on, adds a `z_report` print job and queues a `z_report` email per active owner in the close's own transaction (a job keyed `z-report:{venue}:{date}:{address}`, sent by the worker after the commit, never inside it). New email template `z_report` (English and Spanish). No migration (0166 not used). Tests: `close-unstuck.int.test.ts` (as app_rw: refusals, the punch edit on Staff actions, the waitlist with no text, the rooms, the close in a PIN session with print and email, the email queued once, the setting off), the template and settings unit tests, the wall suite's body for the new route, and the e2e "U-15: with Diego still clocked in, Andy closes the night without leaving the page".
+  - Cautious defaults: (1) the clock-out time defaults to now; the manager may pick an earlier one, never before the person's last punch nor later than now. (2) A reason is required; **Forgot to clock out** fills it in one tap, nothing is prefilled. (3) The person's clock-out checklist is skipped (they've gone); cash tips they never declared stay undeclared, and a break left running ends at the clock-out (only the clock-out punch carries the edit, so it counts once). (4) Clear the waitlist asks one confirmation and texts nobody. (5) The Z report prints on the closing screen's receipt printer: a bar computer's drawer printer at the bar, else the front desk's, else the bar's; with none paired it says so and nothing fails. (6) The email goes to every active owner with an address, in their language, filtered by the staging allow-list; managers aren't emailed. (7) The setting lives in Admin → Bar POS under "Close the night" (`pos.zReportAtClose`, optional, absent reads as on, so the seed key-count tests are unchanged). (8) Our staff's emergency close (M8-11) doesn't print or email it. (9) Offline, the page says closing needs the connection and its buttons wait; nothing is queued.
+  - Also: Close the night in a PIN or badge session now takes the PIN on its confirmation (it sent none before, so a manager signed in by PIN couldn't close). The drawers moved from the three columns into step 2; the report and tips stay beside each other. "Both drawers counted" is "Every drawer counted" (demo-seed.md and manual-test.md too). Spec 03 (setting), spec 05 rule 16 (Staff actions), spec 08 (Time clock, Waitlist, Night close), spec 10 (Charging the remaining tabs, Admin → Bar POS) and screens Night note 13 updated (D133). Manual test 31.15.
 
 ### U-16 · Offline, said plainly; cash sales offline as the owner's choice
 

@@ -55,6 +55,24 @@ describe("email templates", () => {
     },
   );
 
+  it.each(locales)("the Z report at close renders in %s with its lines (U-15)", (locale) => {
+    const mail = render("z_report", locale, {
+      venueName: "West 4 Boho Karaoke",
+      date: "2026-09-25",
+      zNumber: 1,
+      lines: ["Z REPORT 1", "Business date 2026-09-25", "Net sales  $1,060.63"],
+    });
+    for (const part of [mail.subject, mail.text, mail.html]) {
+      expect(part).not.toMatch(/\{\w+\}/);
+      expect(part).toContain("West 4 Boho Karaoke");
+    }
+    expect(mail.subject).toContain("1");
+    expect(mail.text).toContain("Net sales  $1,060.63");
+    expect(mail.html).toContain("<pre");
+    const payload = { template: "z_report", to: "abhishek@example.com", locale, data: {} };
+    expect(emailJobPayload.safeParse(payload).success).toBe(false);
+  });
+
   it.each(locales)(
     "the morning money audit renders in %s, clean and with errors (M9-15)",
     (locale) => {
