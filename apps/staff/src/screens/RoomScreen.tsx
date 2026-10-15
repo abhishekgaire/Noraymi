@@ -5,6 +5,7 @@ import { api } from "../api.js";
 import { useClock } from "../clock.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { AddPackage } from "./AddPackage.js";
@@ -492,40 +493,51 @@ export function RoomScreen() {
         />
       )}
       {sheet === "move" && s && (
-        <MoveSheet
-          venueId={venueId}
-          timeZone={timeZone}
-          sessionId={s.id}
-          roomName={room.name}
-          onClose={() => setSheet(null)}
-          onMoved={(line) => {
-            setSheet(null);
-            setDone(line);
-          }}
-        />
+        <Dialog onClose={() => setSheet(null)}>
+          <MoveSheet
+            venueId={venueId}
+            timeZone={timeZone}
+            sessionId={s.id}
+            roomName={room.name}
+            onClose={() => setSheet(null)}
+            onMoved={(line) => {
+              setSheet(null);
+              setDone(line);
+            }}
+          />
+        </Dialog>
       )}
       {sheet === "fault" && (
-        <FaultSheet
-          venueId={venueId}
-          target={faultTarget}
-          onClose={() => setSheet(null)}
-          onLogged={(line) => {
-            setSheet(null);
-            setDone(line);
-            void load();
-          }}
-        />
+        <Dialog onClose={() => setSheet(null)}>
+          <FaultSheet
+            venueId={venueId}
+            target={faultTarget}
+            onClose={() => setSheet(null)}
+            onLogged={(line) => {
+              setSheet(null);
+              setDone(line);
+              void load();
+            }}
+          />
+        </Dialog>
       )}
       {sheet === "damage" && s?.check_id && (
-        <DamageSheet
-          venueId={venueId}
-          checkId={s.check_id}
-          roomName={room.name}
+        <Dialog
           onClose={() => {
             setSheet(null);
             void load();
           }}
-        />
+        >
+          <DamageSheet
+            venueId={venueId}
+            checkId={s.check_id}
+            roomName={room.name}
+            onClose={() => {
+              setSheet(null);
+              void load();
+            }}
+          />
+        </Dialog>
       )}
       <div className="desk-cols desk-room-cols">
         <div className="desk-col">

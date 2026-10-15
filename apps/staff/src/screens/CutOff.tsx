@@ -2,6 +2,67 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, type ApiCallError } from "../api.js";
 import { useEvents } from "../events.js";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
+
+/** The reason chips (U-22, D133): one tap fills the reason, and Other is still typed. */
+const REASONS = [
+  "cutOff.reason.drunk",
+  "cutOff.reason.noId",
+  "cutOff.reason.behavior",
+  "cutOff.reason.asked",
+] as const;
+
+/**
+ * The cut-off sheet (U-22): the shared Dialog (Esc, focus kept inside, a bottom sheet on a phone),
+ * the reason chips, the typed reason, then Cut off. The server records it as before.
+ */
+function CutOffSheet(props: {
+  title: string;
+  why: string;
+  reason: string;
+  setReason: (reason: string) => void;
+  onSubmit: (e: FormEvent) => void;
+  onCancel: () => void;
+}) {
+  const { t } = useT();
+  return (
+    <Dialog onClose={props.onCancel} label={props.title}>
+      <form className="sheet cut-off-sheet" onSubmit={props.onSubmit}>
+        <h2>{props.title}</h2>
+        <div className="chips" role="group" aria-label={t("cutOff.reasons")}>
+          {REASONS.map((k) => (
+            <button
+              key={k}
+              type="button"
+              className="secondary"
+              aria-pressed={props.reason === t(k)}
+              onClick={() => props.setReason(t(k))}
+            >
+              {t(k)}
+            </button>
+          ))}
+        </div>
+        <label>
+          <span>{props.why}</span>
+          <input
+            value={props.reason}
+            required
+            maxLength={300}
+            onChange={(e) => props.setReason(e.target.value)}
+          />
+        </label>
+        <div className="actions">
+          <button type="submit" className="primary danger" disabled={!props.reason.trim()}>
+            {t("cutOff.confirm")}
+          </button>
+          <button type="button" className="secondary" onClick={props.onCancel}>
+            {t("team.badge.cancel")}
+          </button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
 
 /**
  * No more alcohol (M3-21; screens N16): for the whole room, or one guest's
@@ -139,33 +200,18 @@ export function CutOffRoom(props: {
         </ul>
       )}
       {asking && (
-        <div
-          className="sheet floating"
-          role="dialog"
-          aria-label={asking === "room" ? t("cutOff.room") : t("cutOff.guestButton")}
-        >
-          <form className="invite-fields" onSubmit={(e) => void send(e)}>
-            <label>
-              <span>
-                {asking === "room"
-                  ? t("cutOff.why.room", { room: props.roomName })
-                  : t("cutOff.why.guest")}
-              </span>
-              <input
-                value={reason}
-                required
-                maxLength={300}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
-            <button type="submit" className="primary danger" disabled={!reason.trim()}>
-              {t("cutOff.confirm")}
-            </button>
-            <button type="button" className="secondary" onClick={() => setAsking(null)}>
-              {t("team.badge.cancel")}
-            </button>
-          </form>
-        </div>
+        <CutOffSheet
+          title={asking === "room" ? t("cutOff.room") : t("cutOff.guestButton")}
+          why={
+            asking === "room"
+              ? t("cutOff.why.room", { room: props.roomName })
+              : t("cutOff.why.guest")
+          }
+          reason={reason}
+          setReason={setReason}
+          onSubmit={(e) => void send(e)}
+          onCancel={() => setAsking(null)}
+        />
       )}
       {error && (
         <p className="error" role="alert">
@@ -219,29 +265,18 @@ export function CutOffTab(props: {
   if (!props.canCutOff) return null;
   return (
     <div className="cut-off">
-      {!asking && (
-        <button type="button" className="secondary danger" onClick={() => setAsking(true)}>
-          {t("cutOff.tab")}
-        </button>
-      )}
+      <button type="button" className="secondary danger" onClick={() => setAsking(true)}>
+        {t("cutOff.tab")}
+      </button>
       {asking && (
-        <form className="invite-fields" aria-label={t("cutOff.tab")} onSubmit={(e) => void send(e)}>
-          <label>
-            <span>{t("cutOff.why.tab")}</span>
-            <input
-              value={reason}
-              required
-              maxLength={300}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-          <button type="submit" className="primary danger" disabled={!reason.trim()}>
-            {t("cutOff.confirm")}
-          </button>
-          <button type="button" className="secondary" onClick={() => setAsking(false)}>
-            {t("team.badge.cancel")}
-          </button>
-        </form>
+        <CutOffSheet
+          title={t("cutOff.tab")}
+          why={t("cutOff.why.tab")}
+          reason={reason}
+          setReason={setReason}
+          onSubmit={(e) => void send(e)}
+          onCancel={() => setAsking(false)}
+        />
       )}
       {error && (
         <p className="error" role="alert">

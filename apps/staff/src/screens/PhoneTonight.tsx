@@ -177,114 +177,116 @@ export function PhoneTonight() {
         <RefundSheet venueId={venueId} bookingId={refundFor} onClose={() => setRefundFor(null)} />
       )}
       {open && (
-        <div className="sheet" role="dialog" aria-label={open.guest_name}>
-          <h2>{open.guest_name}</h2>
-          <p>
-            {t("phone.booking", {
-              time: time(open.starts_at, timeZone),
-              party: open.party_size,
-              room: open.room_name,
-            })}
-          </p>
-          <p className="small">{status(open)}</p>
-          <div className="actions">
-            {(open.status === "pending" || open.status === "confirmed") &&
-              permissions.includes("guests.checkin") && (
+        <Dialog onClose={() => setOpen(null)} label={open.guest_name}>
+          <div className="sheet">
+            <h2>{open.guest_name}</h2>
+            <p>
+              {t("phone.booking", {
+                time: time(open.starts_at, timeZone),
+                party: open.party_size,
+                room: open.room_name,
+              })}
+            </p>
+            <p className="small">{status(open)}</p>
+            <div className="actions">
+              {(open.status === "pending" || open.status === "confirmed") &&
+                permissions.includes("guests.checkin") && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      setSheet({ kind: "booking", bookingId: open.id, name: open.guest_name });
+                      setOpen(null);
+                    }}
+                  >
+                    {t("checkIn.button")}
+                  </button>
+                )}
+              {(open.status === "pending" || open.status === "confirmed") &&
+                now !== null &&
+                now.epochMilliseconds >=
+                  Temporal.Instant.from(open.no_show_from).epochMilliseconds && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      void act(
+                        `/bookings/${open.id}/no-show`,
+                        {},
+                        t("phone.noShowDone", { name: open.guest_name }),
+                      )
+                    }
+                  >
+                    {t("checkIn.noShow")}
+                  </button>
+                )}
+              {(open.status === "pending" || open.status === "confirmed") &&
+                permissions.includes("texts.send") && (
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      void act(
+                        `/bookings/${open.id}/room-ready-text`,
+                        undefined,
+                        t("phone.roomReadySent", { name: open.guest_name }),
+                      )
+                    }
+                  >
+                    {t("phone.roomReady")}
+                  </button>
+                )}
+              {/* Refund from check (M4-22): owners and managers, from the booking. */}
+              {permissions.includes("refunds.request") && (
                 <button
                   type="button"
-                  className="primary"
+                  className="secondary"
                   onClick={() => {
-                    setSheet({ kind: "booking", bookingId: open.id, name: open.guest_name });
+                    setRefundFor(open.id);
                     setOpen(null);
                   }}
                 >
-                  {t("checkIn.button")}
+                  {t("refund.button")}
                 </button>
               )}
-            {(open.status === "pending" || open.status === "confirmed") &&
-              now !== null &&
-              now.epochMilliseconds >=
-                Temporal.Instant.from(open.no_show_from).epochMilliseconds && (
+              {/* "Tab & close out →" opens the room tab (Staff note 4): never a one-tap Done. */}
+              {open.status === "checked_in" && roomOf(open)?.session && (
+                <Link className="button primary" to={`/room/${roomOf(open)!.room_id}`}>
+                  {t("room.open")}
+                </Link>
+              )}
+              {open.status === "checked_in" && roomOf(open)?.session && !roomOf(open)?.next && (
                 <button
                   type="button"
                   className="secondary"
-                  onClick={() =>
-                    void act(
-                      `/bookings/${open.id}/no-show`,
-                      {},
-                      t("phone.noShowDone", { name: open.guest_name }),
-                    )
-                  }
-                >
-                  {t("checkIn.noShow")}
-                </button>
-              )}
-            {(open.status === "pending" || open.status === "confirmed") &&
-              permissions.includes("texts.send") && (
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    void act(
-                      `/bookings/${open.id}/room-ready-text`,
-                      undefined,
-                      t("phone.roomReadySent", { name: open.guest_name }),
-                    )
-                  }
-                >
-                  {t("phone.roomReady")}
-                </button>
-              )}
-            {/* Refund from check (M4-22): owners and managers, from the booking. */}
-            {permissions.includes("refunds.request") && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  setRefundFor(open.id);
-                  setOpen(null);
-                }}
-              >
-                {t("refund.button")}
-              </button>
-            )}
-            {/* "Tab & close out →" opens the room tab (Staff note 4): never a one-tap Done. */}
-            {open.status === "checked_in" && roomOf(open)?.session && (
-              <Link className="button primary" to={`/room/${roomOf(open)!.room_id}`}>
-                {t("room.open")}
-              </Link>
-            )}
-            {open.status === "checked_in" && roomOf(open)?.session && !roomOf(open)?.next && (
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => {
-                  const s = roomOf(open)!.session!;
-                  const from =
-                    s.booked_end_at && now
-                      ? Math.max(Date.parse(s.booked_end_at), now.epochMilliseconds)
-                      : (now?.epochMilliseconds ?? Date.parse(open.ends_at));
-                  void api("PATCH", `/v1/venues/${venueId}/sessions/${s.id}`, {
-                    booked_end_at: Temporal.Instant.fromEpochMilliseconds(
-                      from + 3_600_000,
-                    ).toString(),
-                  })
-                    .then(() => {
-                      setOpen(null);
-                      setDone(t("phone.stayDone", { name: open.guest_name }));
-                      void load();
+                  onClick={() => {
+                    const s = roomOf(open)!.session!;
+                    const from =
+                      s.booked_end_at && now
+                        ? Math.max(Date.parse(s.booked_end_at), now.epochMilliseconds)
+                        : (now?.epochMilliseconds ?? Date.parse(open.ends_at));
+                    void api("PATCH", `/v1/venues/${venueId}/sessions/${s.id}`, {
+                      booked_end_at: Temporal.Instant.fromEpochMilliseconds(
+                        from + 3_600_000,
+                      ).toString(),
                     })
-                    .catch(() => setFailed(true));
-                }}
-              >
-                {t("phone.letStay")}
+                      .then(() => {
+                        setOpen(null);
+                        setDone(t("phone.stayDone", { name: open.guest_name }));
+                        void load();
+                      })
+                      .catch(() => setFailed(true));
+                  }}
+                >
+                  {t("phone.letStay")}
+                </button>
+              )}
+              <button type="button" onClick={() => setOpen(null)}>
+                {t("checkIn.cancel")}
               </button>
-            )}
-            <button type="button" onClick={() => setOpen(null)}>
-              {t("checkIn.cancel")}
-            </button>
+            </div>
           </div>
-        </div>
+        </Dialog>
       )}
       <h2>{t("phone.bookings")}</h2>
       {bookings === null && !failed && <p role="status">{t("shell.loading")}</p>}

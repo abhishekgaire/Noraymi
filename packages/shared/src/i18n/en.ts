@@ -1655,6 +1655,11 @@ export const en = {
   "cutOff.why.tab": "Why is this tab cut off?",
   "drinks.alcohol.cutOffTab": "No alcohol · this tab is cut off",
   "cutOff.failed": "That didn't go through. Try again.",
+  "cutOff.reasons": "Common reasons",
+  "cutOff.reason.drunk": "Looks too drunk",
+  "cutOff.reason.noId": "No valid ID",
+  "cutOff.reason.behavior": "Rowdy or aggressive",
+  "cutOff.reason.asked": "The guest asked",
   // The clear-out check (M3-23).
   "clearOut.push": "Clear-out check: walk every room and the bar · no drinks left out",
   // The age policy (D108): the board at the switch to 21 and over.
@@ -2496,6 +2501,8 @@ export const en = {
   "rail.rooms": "Rooms",
   "rail.roomOpened": "Opened {time} · {min} min · {amount} room time",
   "rail.closed": "Closed tonight · {n}",
+  "rail.closedList": "Closed tonight",
+  "rail.closedSale": "Quick sale {label}",
   "rail.search": "Search the menu",
   "rail.86": "86",
   "rail.86.hint":
@@ -4292,6 +4299,8 @@ export const en = {
   "discount.failed": "That didn't go through. Try again.",
   "discount.pctBad": "Type a percent from 0.01 to 100",
   "discount.amountBad": "Type an amount over $0.00",
+  "discount.presets": "Common discounts",
+  "discount.preset": "{pct}%",
   "receipt.discount": "Discount · {what}",
   "receipt.discountAmount": "Discount",
   "report.discounts": "Discounts",

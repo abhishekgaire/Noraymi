@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 import {
   choiceLabel,
   missingGroup,
@@ -150,84 +151,88 @@ export function AddPackage(props: {
         </button>
       )}
       {open && !chosen && (
-        <div className="sheet" role="dialog" aria-label={t("packages.choose")}>
-          <h3>{t("packages.choose")}</h3>
-          <div className="choice-row">
-            {packages.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                className="chip"
-                disabled={!sellable(p)}
-                onClick={() => {
-                  setChosen(p);
-                  setPicks({});
-                }}
-              >
-                <span data-guest-text>{p.name}</span> {money(p.price_cents as never)}
-                {!sellable(p) && ` · ${t("packages.unavailable")}`}
+        <Dialog onClose={() => setOpen(false)} label={t("packages.choose")}>
+          <div className="sheet">
+            <h3>{t("packages.choose")}</h3>
+            <div className="choice-row">
+              {packages.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="chip"
+                  disabled={!sellable(p)}
+                  onClick={() => {
+                    setChosen(p);
+                    setPicks({});
+                  }}
+                >
+                  <span data-guest-text>{p.name}</span> {money(p.price_cents as never)}
+                  {!sellable(p) && ` · ${t("packages.unavailable")}`}
+                </button>
+              ))}
+            </div>
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => setOpen(false)}>
+                {t("packages.cancel")}
               </button>
-            ))}
+            </div>
           </div>
-          <div className="actions">
-            <button type="button" className="secondary" onClick={() => setOpen(false)}>
-              {t("packages.cancel")}
-            </button>
-          </div>
-        </div>
+        </Dialog>
       )}
       {chosen && (
-        <div className="sheet food-choices" role="dialog" aria-label={chosen.name}>
-          <h3 data-guest-text>{chosen.name}</h3>
-          <ul className="small">
-            {chosen.contents.map((c, n) => (
-              <li key={n}>
-                <span data-guest-text>
-                  {t("packages.contents", { qty: c.qty, name: c.name ?? "" })}
-                </span>
-                {c.food && <span className="kchip"> {t("kitchen.chip")}</span>}
-              </li>
-            ))}
-          </ul>
-          {chosen.contents.flatMap((c, n) =>
-            openGroups(groupsOf(c), sizeOf(c), picks[n] ?? []).map((g) => (
-              <fieldset key={`${n}:${g.id}`}>
-                <legend>
-                  {needsPick(g)
-                    ? t("kitchen.choices.pickOne", { group: g.name })
-                    : t("kitchen.choices.optional", { group: g.name })}{" "}
-                  · <span data-guest-text>{t("packages.pick", { name: c.name ?? "" })}</span>
-                </legend>
-                <div className="choice-row">
-                  {g.options.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      className={(picks[n] ?? []).includes(o.id) ? "chip on" : "chip"}
-                      aria-pressed={(picks[n] ?? []).includes(o.id)}
-                      onClick={() => toggle(n, c, g, o.id)}
-                    >
-                      <span data-guest-text>{choiceLabel(o)}</span>
-                    </button>
-                  ))}
-                </div>
-              </fieldset>
-            )),
-          )}
-          <div className="actions">
-            <button type="button" className="secondary" onClick={() => setChosen(null)}>
-              {t("packages.cancel")}
-            </button>
-            <button
-              type="button"
-              className="primary"
-              disabled={busy || missing}
-              onClick={() => void add()}
-            >
-              {t("packages.addButton", { price: money(chosen.price_cents as never) })}
-            </button>
+        <Dialog onClose={() => setChosen(null)} label={chosen.name}>
+          <div className="sheet food-choices">
+            <h3 data-guest-text>{chosen.name}</h3>
+            <ul className="small">
+              {chosen.contents.map((c, n) => (
+                <li key={n}>
+                  <span data-guest-text>
+                    {t("packages.contents", { qty: c.qty, name: c.name ?? "" })}
+                  </span>
+                  {c.food && <span className="kchip"> {t("kitchen.chip")}</span>}
+                </li>
+              ))}
+            </ul>
+            {chosen.contents.flatMap((c, n) =>
+              openGroups(groupsOf(c), sizeOf(c), picks[n] ?? []).map((g) => (
+                <fieldset key={`${n}:${g.id}`}>
+                  <legend>
+                    {needsPick(g)
+                      ? t("kitchen.choices.pickOne", { group: g.name })
+                      : t("kitchen.choices.optional", { group: g.name })}{" "}
+                    · <span data-guest-text>{t("packages.pick", { name: c.name ?? "" })}</span>
+                  </legend>
+                  <div className="choice-row">
+                    {g.options.map((o) => (
+                      <button
+                        key={o.id}
+                        type="button"
+                        className={(picks[n] ?? []).includes(o.id) ? "chip on" : "chip"}
+                        aria-pressed={(picks[n] ?? []).includes(o.id)}
+                        onClick={() => toggle(n, c, g, o.id)}
+                      >
+                        <span data-guest-text>{choiceLabel(o)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </fieldset>
+              )),
+            )}
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => setChosen(null)}>
+                {t("packages.cancel")}
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={busy || missing}
+                onClick={() => void add()}
+              >
+                {t("packages.addButton", { price: money(chosen.price_cents as never) })}
+              </button>
+            </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </section>
   );

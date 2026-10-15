@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 
 interface Found {
   readonly id: string;
@@ -111,25 +112,46 @@ export function EraseGuest({ venueId }: { venueId: string }) {
                   {t("eraseGuest.erase")}
                 </button>
               ) : (
-                <p className="notice" role="alertdialog">
-                  {g.upcoming_bookings > 0
-                    ? t("eraseGuest.confirmUpcoming", {
-                        name: g.name,
-                        count: g.upcoming_bookings,
-                      })
-                    : t("eraseGuest.confirm", { name: g.name })}
-                  <button
-                    type="button"
-                    className="primary danger"
-                    disabled={busy}
-                    onClick={() => void erase(g)}
-                  >
-                    {t("eraseGuest.confirmButton")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => setConfirming(null)}>
-                    {t("eraseGuest.cancel")}
-                  </button>
-                </p>
+                <Dialog
+                  role="alertdialog"
+                  onClose={() => setConfirming(null)}
+                  label={
+                    g.upcoming_bookings > 0
+                      ? t("eraseGuest.confirmUpcoming", {
+                          name: g.name,
+                          count: g.upcoming_bookings,
+                        })
+                      : t("eraseGuest.confirm", { name: g.name })
+                  }
+                >
+                  <div className="sheet confirm-sheet">
+                    <p>
+                      {g.upcoming_bookings > 0
+                        ? t("eraseGuest.confirmUpcoming", {
+                            name: g.name,
+                            count: g.upcoming_bookings,
+                          })
+                        : t("eraseGuest.confirm", { name: g.name })}
+                    </p>
+                    <div className="actions">
+                      <button
+                        type="button"
+                        className="primary danger"
+                        disabled={busy}
+                        onClick={() => void erase(g)}
+                      >
+                        {t("eraseGuest.confirmButton")}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setConfirming(null)}
+                      >
+                        {t("eraseGuest.cancel")}
+                      </button>
+                    </div>
+                  </div>
+                </Dialog>
               )}
             </li>
           ))}

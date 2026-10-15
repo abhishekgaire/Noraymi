@@ -3294,6 +3294,9 @@ test("the staff phone: Andy's Bookings, booking actions by status, and a runner'
     await expect(
       page.getByRole("dialog", { name: "Sam O." }).getByRole("button", { name: "Mark no-show" }),
     ).toBeVisible();
+    // The booking's sheet is a modal dialog (U-22): Esc closes it before the tabs are used.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Sam O." })).toHaveCount(0);
 
     // Walk-in waitlist off: Waitlist (under More on a manager's phone, U-19) goes at once.
     await tabs.getByRole("button", { name: /^More/ }).click();
@@ -13629,6 +13632,182 @@ test("U-19 · Maya's phone: five tabs, and More holds only what isn't a tab", as
     await page.locator("#side-menu").getByRole("link", { name: "Tips to enter" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tips to enter");
     await expect(more).toHaveAttribute("aria-expanded", "false");
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-22 (D133): every sheet is the shared Dialog. Esc closes it with no change, and Tab and Shift+Tab
+ * never leave it. The list of every dialog is apps/staff/src/dialogs.test.ts; these press the keys.
+ */
+async function expectEscAndTrap(page: Page, dialog: ReturnType<Page["locator"]>) {
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAttribute("aria-modal", "true");
+  const inside = () => dialog.evaluate((d) => d.contains(document.activeElement));
+  await expect.poll(inside).toBe(true);
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press("Tab");
+    expect(await inside(), `Tab ${i + 1} stays in the dialog`).toBe(true);
+  }
+  for (let i = 0; i < 4; i++) {
+    await page.keyboard.press("Shift+Tab");
+    expect(await inside(), `Shift+Tab ${i + 1} stays in the dialog`).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+}
+
+test("U-22 · the bar's sheets: a quick sale in Closed tonight opens Change tip and Refund, the find box finds it, the quick choices fill in, and Esc closes each", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const panel = page.getByRole("complementary");
+    const nav = page.getByRole("navigation");
+
+    // A walk-up Bud Light in cash: Closed tonight lists it as a quick sale.
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Bud Light · \$/ }).click();
+    await panel.getByRole("button", { name: "Pay for 1" }).click();
+    const sale = panel.getByRole("region", { name: "Quick sale" });
+    await sale
+      .getByRole("region", { name: "Cash" })
+      .getByRole("button", { name: /^Exact / })
+      .click();
+    await expect(panel.getByRole("region", { name: "Cash taken" })).toBeVisible();
+    const paid = await db.query<{ number: string }>(
+      `select number::text from checks where kind = 'quick' and status = 'paid'
+        order by paid_at desc nulls last limit 1`,
+    );
+    const number = paid.rows[0]!.number;
+    await page.reload();
+
+    // The find box searches Closed tonight: the number opens it on the sale, a miss shows nothing.
+    const find = nav.getByLabel("Find a name, room or card's last four");
+    const closed = nav.getByRole("list", { name: "Closed tonight" });
+    const row = closed.locator("li", { hasText: `Quick sale #${number}` });
+    await find.fill(number);
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("Maya");
+    await find.fill("zzzz");
+    await expect(nav.getByText(/^Closed tonight · \d+$/)).toHaveCount(0);
+    await find.fill(`#${number}`);
+    await expect(row).toBeVisible();
+
+    // Change tip from the quick sale, the shared Dialog. Refunds are a manager's (Andy's, below).
+    await row.getByRole("button", { name: "Change tip" }).click();
+    const tip = page.getByRole("dialog", { name: "Change tip" });
+    await expect(tip.locator("form.tip-change-row")).toHaveCount(1);
+    await expectEscAndTrap(page, tip);
+    await expect(row.getByRole("button", { name: "Refund" })).toHaveCount(0);
+    expect((await row.getByRole("button").first().boundingBox())!.height).toBeGreaterThanOrEqual(
+      44,
+    );
+    await find.fill("");
+
+    // Cut off: a reason chip fills the reason; Esc leaves the tab as it was.
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Luis M\./ })
+      .click();
+    await panel.getByRole("button", { name: "No more alcohol on this tab" }).click();
+    const cut = page.getByRole("dialog", { name: "No more alcohol on this tab" });
+    const chip = cut.getByRole("button", { name: "Looks too drunk" });
+    expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await chip.click();
+    await expect(cut.getByLabel("Why is this tab cut off?")).toHaveValue("Looks too drunk");
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expectEscAndTrap(page, cut);
+    await expect(panel.getByRole("button", { name: "No more alcohol on this tab" })).toBeVisible();
+    await expect(panel).not.toContainText("Cut off by");
+
+    // Discount: 10% and 20% in one tap (the server still checks and approves it).
+    const discount = panel.getByRole("region", { name: "Discount", exact: true });
+    await panel.getByRole("button", { name: "Discount the check" }).click();
+    await discount.getByRole("radio", { name: "Amount" }).check();
+    await discount.getByRole("button", { name: "20%" }).click();
+    await expect(discount.getByRole("radio", { name: "Percent" })).toBeChecked();
+    await expect(discount.getByLabel("Percent off")).toHaveValue("20");
+    await discount.getByRole("button", { name: "10%" }).click();
+    await expect(discount.getByLabel("Percent off")).toHaveValue("10");
+    await expect(discount.getByRole("button", { name: "10%" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await discount.getByRole("button", { name: "Back" }).click();
+
+    // The fix panel: Rang it wrong is Not made, and VOID leads with COMP second.
+    await page
+      .getByRole("list", { name: "Rooms" })
+      .getByRole("button", { name: /Room 9/ })
+      .click();
+    await panel.getByRole("button", { name: "Fix · Large bucket · 10 beers" }).click();
+    const fix = panel.getByRole("region", { name: "Fix a sent drink" });
+    await expect(fix.getByLabel("Made", { exact: true })).toBeChecked();
+    await fix.getByRole("button", { name: "Rang it wrong" }).click();
+    await expect(fix.getByLabel("Not made")).toBeChecked();
+    await expect(fix.getByRole("button", { name: "VOID · take the sale back" })).toHaveClass(
+      /\bprimary\b/,
+    );
+    const comp = fix.getByRole("button", { name: "COMP · the house pays for it" });
+    await expect(comp).toHaveClass(/\bsecondary\b/);
+    await expect(comp).not.toHaveClass(/\bprimary\b/);
+    expect(await clippedText(page)).toEqual([]);
+
+    // Andy takes over the bar computer: Refund from the same quick sale, the shared Dialog too.
+    await page.getByRole("button", { name: "Lock", exact: true }).first().click();
+    await page.getByRole("button", { name: /Andy C\./ }).click();
+    await typePin(page, "730915");
+    await expect(page.getByRole("heading", { level: 1 })).not.toHaveText("Staff sign-in");
+    await page.goto("/bar");
+    await nav.getByLabel("Find a name, room or card's last four").fill(number);
+    await row.getByRole("button", { name: "Refund" }).click();
+    const refund = page.getByRole("dialog", { name: `Refund from check #${number}` });
+    await expect(refund).toContainText("Bud Light");
+    await expectEscAndTrap(page, refund);
+    for (const b of await row.getByRole("button").all())
+      expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  } finally {
+    await db.end();
+  }
+});
+
+test("U-22 · an Admin confirm is a dialog too, and a phone shows a sheet as a bottom sheet that Esc closes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+
+    // Archive Room 8? asks in a dialog; Esc keeps the room.
+    await page.goto("/admin/rooms");
+    const room8 = page.getByRole("row", { name: /^Room 8 / });
+    await room8.getByRole("button", { name: "Archive" }).click();
+    const ask = page.getByRole("alertdialog", { name: /^Archive Room 8\?/ });
+    await expect(ask.getByRole("button", { name: "Cancel" })).toBeVisible();
+    await expectEscAndTrap(page, ask);
+    await expect(room8).toBeVisible();
+
+    // On a phone, Room 9's Report a fault is a bottom sheet across the screen.
+    await page.setViewportSize({ width: 390, height: 844 });
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    await page.getByRole("button", { name: "Report a fault" }).first().click();
+    const sheet = page.getByRole("dialog", { name: "Report a fault · Room 9" });
+    await expect(sheet).toBeVisible();
+    const box = (await sheet.boundingBox())!;
+    expect(box.width).toBe(390);
+    expect(Math.round(box.y + box.height)).toBe(844);
+    await expectEscAndTrap(page, sheet);
   } finally {
     await db.end();
   }

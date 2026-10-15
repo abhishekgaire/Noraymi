@@ -11,6 +11,7 @@ import type { SendAnswer } from "../tabs/hold.js";
 import { cutOffTab } from "../tabs/cut-off.js";
 import {
   backToTheSale,
+  closedQuickSales,
   quickSaleNumber,
   quickSaleView,
   startQuickSale,
@@ -315,6 +316,24 @@ export function tabRoutes(
       );
       return reply.code(201).send(sale);
     },
+  );
+
+  // Closed tonight's quick sales (U-22, D133): Change tip and Refund reach them, and the find box
+  // searches them. The same people as the bar POS; the tip and refund routes keep their own rules.
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/quick-sales",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "bar_tabs",
+        action: "pos.use",
+      }),
+    },
+    async (request) => ({
+      sales: await request.inVenue((c) =>
+        closedQuickSales(c, request.venueId!, options.clock.now(), request.training),
+      ),
+    }),
   );
 
   app.get<{ Params: { venueId: string; checkId: string } }>(

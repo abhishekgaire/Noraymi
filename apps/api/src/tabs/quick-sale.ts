@@ -143,6 +143,59 @@ export async function quickSaleView(
 }
 
 /**
+ * Closed tonight's quick sales (U-22, D133): tonight's paid walk-up sales, newest first, so the bar
+ * POS can Change tip or Refund one and its find box can search them (by number, the card's last
+ * four or who rang it). Like closed tabs, they leave the list once the night is closed. Only the
+ * fields the list shows: the refund and tip-change sheets read the check again, and their routes
+ * keep every rule and approval.
+ */
+export async function closedQuickSales(
+  c: Queryable,
+  venueId: string,
+  now: Temporal.Instant,
+  training: boolean,
+) {
+  const venue = await venueClock(c, venueId);
+  const today = businessDate(now, venue.timeZone, venue.dayCutover).businessDate.toString();
+  const rows = (
+    await c.query<{
+      check_id: string;
+      number: string;
+      paid_at: string | null;
+      total_cents: number | null;
+      card_last4: string | null;
+      rung_by: string | null;
+    }>(
+      `select k.id as check_id, k.number::text, to_json(k.paid_at) #>> '{}' as paid_at,
+              (select r.total_cents from check_revisions r
+                where r.venue_id = k.venue_id and r.check_id = k.id
+                order by r.rev desc limit 1)::int as total_cents,
+              (select p.card_last4 from payment_allocations a
+                 join payments p on p.venue_id = a.venue_id and p.id = a.payment_id
+                where a.venue_id = k.venue_id and a.check_id = k.id and a.kind = 'payment'
+                  and p.card_last4 is not null
+                order by p.card_last4 limit 1) as card_last4,
+              split_part(u.name, ' ', 1) as rung_by
+         from checks k left join users u on u.id = k.opened_by
+        where k.venue_id = $1 and k.kind = 'quick' and k.status = 'paid'
+          and k.business_date = $2::date and k.training = $3
+          and not exists (select 1 from night_closes n
+                           where n.venue_id = k.venue_id and n.business_date = k.business_date)
+        order by k.paid_at desc nulls last, k.number desc`,
+      [venueId, today, training],
+    )
+  ).rows;
+  return rows.map((r) => ({
+    check_id: r.check_id,
+    label: `#${r.number}`,
+    total_cents: r.total_cents ?? 0,
+    paid_at: r.paid_at,
+    card_last4: r.card_last4,
+    rung_by: r.rung_by,
+  }));
+}
+
+/**
  * Back to the sale (M6-05): a quick sale nobody paid (a tap declined, or the
  * guest changed their mind) is voided and keeps its number, and its drinks go
  * back into the person's quick sale to pay another way or move onto a tab.

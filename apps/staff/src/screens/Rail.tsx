@@ -99,6 +99,16 @@ interface Category {
   readonly tax_category?: string;
   readonly items: readonly Item[];
 }
+/** A quick sale paid tonight (U-22): Closed tonight lists it for Change tip and Refund. */
+interface ClosedSale {
+  readonly check_id: string;
+  readonly label: string;
+  readonly total_cents: number;
+  readonly paid_at: string | null;
+  readonly card_last4: string | null;
+  readonly rung_by: string | null;
+}
+
 interface Tab {
   readonly id: string;
   readonly check_id: string;
@@ -286,6 +296,7 @@ export function Rail() {
   const [refunding, setRefunding] = useState<string | null>(null);
   /** Change tip (P-06) for a tab closed tonight: its check. */
   const [tipChanging, setTipChanging] = useState<string | null>(null);
+  const [closedSales, setClosedSales] = useState<readonly ClosedSale[]>([]);
   const [movingTab, setMovingTab] = useState<string | null>(null);
   // U-12 (D133): Move to a new room's walk-in sheet for this tab, and the last move's Undo.
   const [newRoomFor, setNewRoomFor] = useState<{ id: string; name: string } | null>(null);
@@ -375,6 +386,10 @@ export function Rail() {
       setCategories(menu.categories);
       setAlcoholHeard(menu.alcohol);
       setTabs(tabList.tabs);
+      // Closed tonight's quick sales (U-22): on their own, so a list that can't be read hides nothing else.
+      void api<{ sales: ClosedSale[] }>("GET", `/v1/venues/${venueId}/quick-sales`)
+        .then((r) => setClosedSales(r.sales))
+        .catch(() => setClosedSales([]));
       setRooms(board.rooms.filter((r) => r.session?.check_id));
       // Replayed offline rounds wait under "Confirm replayed orders" instead (M8-05).
       setWaiting(orders.orders.filter((o) => o.source !== "offline"));
@@ -740,7 +755,23 @@ export function Rail() {
               (r.session?.guest_name ?? "").toLowerCase().includes(f),
           )
           .sort((a, b) => a.session!.started_at.localeCompare(b.session!.started_at));
-  const closed = tabs.filter((x) => !x.open);
+  // Closed tonight answers the find box too (U-22, D133): a closed tab by its name, label or card,
+  // a quick sale by its number, its card's last four or who rang it.
+  const closed = tabs.filter(
+    (x) =>
+      !x.open &&
+      (!f ||
+        x.name.toLowerCase().includes(f) ||
+        (x.label ?? "").toLowerCase().includes(f) ||
+        !!x.card?.last4.includes(f)),
+  );
+  const shownSales = closedSales.filter(
+    (x) =>
+      !f ||
+      x.label.toLowerCase().includes(f) ||
+      !!x.card_last4?.includes(f) ||
+      (x.rung_by ?? "").toLowerCase().includes(f),
+  );
   const tab = picked?.kind === "tab" ? tabs.find((x) => x.id === picked.id) : undefined;
   const room = picked?.kind === "room" ? rooms.find((r) => r.room_id === picked.id) : undefined;
   // What's on it: the drinks, songs and fixes, not the computed room time, tax and gratuity.
@@ -1076,10 +1107,10 @@ export function Rail() {
                 </li>
               ))}
             </ul>
-            {closed.length > 0 && (
-              <details>
-                <summary>{t("rail.closed", { n: closed.length })}</summary>
-                <ul className="rail-list">
+            {closed.length + shownSales.length > 0 && (
+              <details open={f ? true : undefined}>
+                <summary>{t("rail.closed", { n: closed.length + shownSales.length })}</summary>
+                <ul className="rail-list" aria-label={t("rail.closedList")}>
                   {closed.map((x) => (
                     <li key={x.id} className="small closed-tab">
                       <span className="name" data-guest-text>
@@ -1129,6 +1160,52 @@ export function Rail() {
                           >
                             {t("tipChange.button")}
                           </button>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                  {/* U-22 (D133): tonight's quick sales, for Change tip and Refund like a closed tab. */}
+                  {shownSales.map((x) => (
+                    <li key={x.check_id} className="small closed-tab closed-sale">
+                      <span className="name">{t("rail.closedSale", { label: x.label })}</span>
+                      <span className="amount">{money(x.total_cents as never)}</span>
+                      <span className="small muted">
+                        {[
+                          x.rung_by,
+                          x.paid_at ? time(x.paid_at, timeZone) : null,
+                          x.card_last4 ? `•${x.card_last4}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </span>
+                      {(canRefund || canTakePayments) && (
+                        <span className="actions">
+                          {canRefund && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                pick(null);
+                                setTipChanging(null);
+                                setRefunding(x.check_id);
+                              }}
+                            >
+                              {t("refund.button")}
+                            </button>
+                          )}
+                          {canTakePayments && (
+                            <button
+                              type="button"
+                              className="secondary"
+                              onClick={() => {
+                                pick(null);
+                                setRefunding(null);
+                                setTipChanging(x.check_id);
+                              }}
+                            >
+                              {t("tipChange.button")}
+                            </button>
+                          )}
                         </span>
                       )}
                     </li>
@@ -1307,60 +1384,65 @@ export function Rail() {
               />
             )}
             {choosing && (
-              <div className="sheet" role="dialog" aria-label={choosing.name}>
-                <h3 data-guest-text>{choosing.name}</h3>
-                {eightySix && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    onClick={() => void markOut(choosing, {}, !choosing.out_tonight)}
-                  >
-                    {choosing.out_tonight ? t("rail.86.restoreAll") : t("rail.86.all")}
-                  </button>
-                )}
-                {choosing.variants.length > 1 &&
-                  choosing.variants.map((v) => (
+              <Dialog onClose={() => setChoosing(null)} label={choosing.name}>
+                <div className="sheet variant-sheet">
+                  <h3 data-guest-text>{choosing.name}</h3>
+                  {eightySix && (
                     <button
-                      key={v.id}
                       type="button"
                       className="secondary"
-                      data-queue={queueOpen ? "" : undefined}
-                      disabled={!eightySix && v.out_tonight}
-                      onClick={() => {
-                        if (eightySix) void markOut(choosing, { variant_id: v.id }, !v.out_tonight);
-                        else {
-                          setRingRequest((r) => ({ variantId: v.id, n: (r?.n ?? 0) + 1 }));
-                          setChoosing(null);
-                        }
-                      }}
+                      onClick={() => void markOut(choosing, {}, !choosing.out_tonight)}
                     >
-                      <span data-guest-text>{v.name}</span>{" "}
-                      {v.out_tonight ? t("drinks.out") : money(v.price_cents as never)}
+                      {choosing.out_tonight ? t("rail.86.restoreAll") : t("rail.86.all")}
                     </button>
-                  ))}
-                {eightySix &&
-                  choosing.groups.flatMap((g) =>
-                    g.options.map((o) => (
+                  )}
+                  {choosing.variants.length > 1 &&
+                    choosing.variants.map((v) => (
                       <button
-                        key={o.id}
+                        key={v.id}
                         type="button"
                         className="secondary"
-                        onClick={() => void markOut(choosing, { option_id: o.id }, !o.out_tonight)}
+                        data-queue={queueOpen ? "" : undefined}
+                        disabled={!eightySix && v.out_tonight}
+                        onClick={() => {
+                          if (eightySix)
+                            void markOut(choosing, { variant_id: v.id }, !v.out_tonight);
+                          else {
+                            setRingRequest((r) => ({ variantId: v.id, n: (r?.n ?? 0) + 1 }));
+                            setChoosing(null);
+                          }
+                        }}
                       >
-                        <span data-guest-text>{o.name}</span>
-                        {o.out_tonight ? ` · ${t("drinks.out")}` : ""}
+                        <span data-guest-text>{v.name}</span>{" "}
+                        {v.out_tonight ? t("drinks.out") : money(v.price_cents as never)}
                       </button>
-                    )),
-                  )}
-                <button
-                  type="button"
-                  className="link"
-                  data-queue={queueOpen ? "" : undefined}
-                  onClick={() => setChoosing(null)}
-                >
-                  {t("rail.backToSale")}
-                </button>
-              </div>
+                    ))}
+                  {eightySix &&
+                    choosing.groups.flatMap((g) =>
+                      g.options.map((o) => (
+                        <button
+                          key={o.id}
+                          type="button"
+                          className="secondary"
+                          onClick={() =>
+                            void markOut(choosing, { option_id: o.id }, !o.out_tonight)
+                          }
+                        >
+                          <span data-guest-text>{o.name}</span>
+                          {o.out_tonight ? ` · ${t("drinks.out")}` : ""}
+                        </button>
+                      )),
+                    )}
+                  <button
+                    type="button"
+                    className="link"
+                    data-queue={queueOpen ? "" : undefined}
+                    onClick={() => setChoosing(null)}
+                  >
+                    {t("rail.backToSale")}
+                  </button>
+                </div>
+              </Dialog>
             )}
           </div>
 

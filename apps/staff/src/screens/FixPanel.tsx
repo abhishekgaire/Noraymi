@@ -317,7 +317,11 @@ export function FixPanel(props: {
                   type="button"
                   className="secondary"
                   aria-pressed={reason === t(k)}
-                  onClick={() => setReason(t(k))}
+                  onClick={() => {
+                    setReason(t(k));
+                    // U-22 (D133): a drink rung by mistake was never poured, so Rang it wrong is Not made.
+                    if (k === "fix.reason.rang") setMade(false);
+                  }}
                 >
                   {t(k)}
                 </button>
@@ -348,9 +352,10 @@ export function FixPanel(props: {
               >
                 {t("fix.void")}
               </button>
+              {/* U-22 (D133): VOID leads; COMP is the second choice, not a second equal primary. */}
               <button
                 type="button"
-                className="primary"
+                className="secondary"
                 disabled={!reason.trim()}
                 onClick={() => void fix("comp")}
               >

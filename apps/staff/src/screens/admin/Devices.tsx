@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { cents, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
 import { useT } from "../../i18n.js";
+import { Dialog } from "../../layout/Dialog.js";
 import { useSession } from "../../session.js";
 
 /**
@@ -250,23 +251,31 @@ export function Devices() {
                           </button>
                         )}
                         {confirming === d.id ? (
-                          <p className="notice" role="alertdialog">
-                            {t("devices.revoke.confirm", { name: d.name })}
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() => void revoke(d)}
-                            >
-                              {t("team.confirm")}
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary"
-                              onClick={() => setConfirming(null)}
-                            >
-                              {t("team.badge.cancel")}
-                            </button>
-                          </p>
+                          <Dialog
+                            role="alertdialog"
+                            onClose={() => setConfirming(null)}
+                            label={t("devices.revoke.confirm", { name: d.name })}
+                          >
+                            <div className="sheet confirm-sheet">
+                              <p>{t("devices.revoke.confirm", { name: d.name })}</p>
+                              <div className="actions">
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  onClick={() => void revoke(d)}
+                                >
+                                  {t("team.confirm")}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="secondary"
+                                  onClick={() => setConfirming(null)}
+                                >
+                                  {t("team.badge.cancel")}
+                                </button>
+                              </div>
+                            </div>
+                          </Dialog>
                         ) : (
                           <button
                             type="button"

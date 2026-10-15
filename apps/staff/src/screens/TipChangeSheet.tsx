@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { parseDollars } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
+import { Dialog } from "../layout/Dialog.js";
 
 /**
  * Change tip (P-06; Payment flows · Outside card machine · Change tip): a check's payments, each with
@@ -120,76 +121,78 @@ export function TipChangeSheet({
           : t("tipChange.card");
 
   return (
-    <div className="sheet tip-change-sheet" role="dialog" aria-label={t("tipChange.title")}>
-      <h2>{t("tipChange.title")}</h2>
-      <p className="small muted">{t("tipChange.hint")}</p>
-      {rows === null && !problem && <p role="status">{t("tipChange.loading")}</p>}
-      {rows !== null && rows.length === 0 && <p>{t("tipChange.none")}</p>}
-      {rows?.map((r) => (
-        <form
-          key={r.payment_id}
-          className="tip-change-row"
-          onSubmit={(e) => void save(e, r)}
-          data-payment={r.payment_id}
-        >
-          <p>
-            <strong>{labelOf(r)}</strong>
-            {r.label && (
-              <span className="small muted" data-guest-text>
-                {" "}
-                · {r.label}
+    <Dialog onClose={onClose} label={t("tipChange.title")}>
+      <div className="sheet tip-change-sheet">
+        <h2>{t("tipChange.title")}</h2>
+        <p className="small muted">{t("tipChange.hint")}</p>
+        {rows === null && !problem && <p role="status">{t("tipChange.loading")}</p>}
+        {rows !== null && rows.length === 0 && <p>{t("tipChange.none")}</p>}
+        {rows?.map((r) => (
+          <form
+            key={r.payment_id}
+            className="tip-change-row"
+            onSubmit={(e) => void save(e, r)}
+            data-payment={r.payment_id}
+          >
+            <p>
+              <strong>{labelOf(r)}</strong>
+              {r.label && (
+                <span className="small muted" data-guest-text>
+                  {" "}
+                  · {r.label}
+                </span>
+              )}
+              <br />
+              <span className="small">
+                {t("tipChange.paid", {
+                  amount: money(r.amount_cents as never),
+                  tip: money(r.tip_cents as never),
+                })}
               </span>
-            )}
-            <br />
-            <span className="small">
-              {t("tipChange.paid", {
-                amount: money(r.amount_cents as never),
-                tip: money(r.tip_cents as never),
-              })}
-            </span>
-          </p>
-          {r.waiting_for ? (
-            <p className="small" role="status">
-              {t("tipChange.waiting", { name: r.waiting_for.split(" ")[0] ?? "" })}
             </p>
-          ) : r.change ? (
-            <div className="actions">
-              <label>
-                <span>{t("tipChange.field")}</span>
-                <input
-                  inputMode="decimal"
-                  value={typed[r.payment_id] ?? ""}
-                  onChange={(e) =>
-                    setTyped((prev) => ({ ...prev, [r.payment_id]: e.target.value }))
-                  }
-                />
-              </label>
-              <button
-                type="submit"
-                className="primary"
-                disabled={busy !== null || !(typed[r.payment_id] ?? "").trim()}
-              >
-                {t("tipChange.save")}
-              </button>
-            </div>
-          ) : (
-            <p className="small muted">{why(r.refused)}</p>
-          )}
-        </form>
-      ))}
-      {notice && (
-        <p className="small" role="status">
-          {notice}
-        </p>
-      )}
-      {problem && (
-        <p className="error" role="alert">
-          {problem}
-        </p>
-      )}
-      <button type="button" className="secondary" onClick={onClose}>
-        {t("tipChange.close")}
-      </button>
-    </div>
+            {r.waiting_for ? (
+              <p className="small" role="status">
+                {t("tipChange.waiting", { name: r.waiting_for.split(" ")[0] ?? "" })}
+              </p>
+            ) : r.change ? (
+              <div className="actions">
+                <label>
+                  <span>{t("tipChange.field")}</span>
+                  <input
+                    inputMode="decimal"
+                    value={typed[r.payment_id] ?? ""}
+                    onChange={(e) =>
+                      setTyped((prev) => ({ ...prev, [r.payment_id]: e.target.value }))
+                    }
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={busy !== null || !(typed[r.payment_id] ?? "").trim()}
+                >
+                  {t("tipChange.save")}
+                </button>
+              </div>
+            ) : (
+              <p className="small muted">{why(r.refused)}</p>
+            )}
+          </form>
+        ))}
+        {notice && (
+          <p className="small" role="status">
+            {notice}
+          </p>
+        )}
+        {problem && (
+          <p className="error" role="alert">
+            {problem}
+          </p>
+        )}
+        <button type="button" className="secondary" onClick={onClose}>
+          {t("tipChange.close")}
+        </button>
+      </div>
+    </Dialog>
   );
 }
