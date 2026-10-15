@@ -812,7 +812,7 @@ export function RoomScreen() {
                     venueId={venueId}
                     checkId={s.check_id}
                     dueCents={share ? share.amount_cents : dueCents}
-                    cashCents={share ? null : cashDueCents}
+                    cashCents={share ? (share.cash_cents ?? null) : cashDueCents}
                     shareId={share?.id ?? null}
                     onTaken={(taken) => {
                       setShare(null);

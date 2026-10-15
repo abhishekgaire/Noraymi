@@ -231,7 +231,22 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
     // A card kept behind the bar (O-08; D116): close-out ends with "Give the card back".
     held_card: (await heldCardsOf(c, venueId, [id])).get(id) ?? null,
     // The open split, if any (M4-14): it survives leaving the screen and switching devices.
-    split: await openSplit(c, venueId, id),
+    split: await openSplit(c, venueId, id).then(
+      async (split) =>
+        split && {
+          ...split,
+          // Each share still to pay carries its cash price with the cash discount on (U-03, D133).
+          shares: await Promise.all(
+            split.shares.map(async (x) => ({
+              ...x,
+              cash_cents:
+                pricer && x.state !== "paid"
+                  ? await pricer({ checkId: id, amountCents: x.amount_cents })
+                  : null,
+            })),
+          ),
+        },
+    ),
     deposit_cents: deposits.reduce((sum, d) => sum + d.amount_cents, 0),
     amount_due_cents: due,
     cash_due_cents: cashDue,

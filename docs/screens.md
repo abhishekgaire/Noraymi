@@ -1021,7 +1021,7 @@ Close-out is four steps. Room 9's numbers are in the demo seed and the money cas
 - **Card states.** Waiting ("Waiting for a tap on the front-desk reader · Cancel"), Paid, Declined ("Declined · try another card or cash"), Unknown ("Checking with Stripe · don't retry"), Reader offline ("Reader offline · use the bar reader"), Reader busy, Waiting for the guest, and on a bar tab "Hold raise declined".
 - **3 Additional tip.** An "Additional tip (optional)" line, entered by staff, by cash or card.
 - **4 Paid, then the receipt.** Text, Email, Print or No receipt ([N2](#n2-receipts-printed-and-web)). Then "Room 9 goes to cleaning", blocked while any order on the room is ringing, asked to wait or unpaid. An order accepted after the check is paid opens a new check.
-- **The cash price (U-02, D133).** With a cash discount on, both prices show before the guest chooses ("Card $13.92 · Cash $13.41"), and Exact, the bill offers, the change and Take work from the cash price the API returns; a split share shows one price. Not drawn on the canvas.
+- **The cash price (U-02, D133).** With a cash discount on, both prices show before the guest chooses ("Card $13.92 · Cash $13.41"), and Exact, the bill offers, the change and Take work from the cash price the API returns; a split share still to pay shows its own two prices, and its cash is discounted the same way (U-03). Not drawn on the canvas.
 - **Cash on a phone.** Cash taken on a staff phone goes into that person's staff bank. They drop it into a drawer (`POST /drawer-sessions/{s}/drop`) before they clock out, and the clock-out checklist asks for it ([N24](#n24-clock-in-duty-and-clock-out-checklist)).
 
 *Decided in [FB 4.5]. Spec: [Payment flows][spec-07], [Money rules][spec-05]. See: [Money cases][see-cases].*

@@ -1889,7 +1889,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 3. Tap **Exact**: the cash is taken in one tap, the change reads **$0.00**, and Close the night's X report counts the cash price under Cash.
 4. Tap a bill instead (say **$20.00**) on another sale: the change is $20.00 less the cash price, not the card price.
 5. Open a tab with drinks and tap **Close tab**: **Card $… · Cash $…** shows under the total before choosing; **Cash** then works from the cash price. A room's close-out (Present the check) shows the same line in its cash panel, and Close the night's tab that couldn't be charged shows both prices before **Cash**.
-6. A split share shows one price: a share is never discounted.
+6. Split a tab two ways: each share shows "Card $X · Cash $Y"; pay share 1 with Exact, which is the cash price with $0.00 change, then share 2 at its card price closes the tab.
 7. At West 4 (no cash discount) nothing changes: one price, Exact is the total.
 8. With Spanish chosen: **Tarjeta $… · Efectivo $…**.
 

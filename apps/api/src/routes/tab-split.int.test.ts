@@ -9,6 +9,7 @@ import {
   publishRulePack,
   withVenue,
 } from "@west4/db";
+import { cashDiscount } from "@west4/rules";
 import { appPool, createTestDatabase, type TestDatabase } from "@west4/db/test-helpers";
 import { FrozenClock, SEED_NOW, newYorkCounty, newYorkCountyTaxed } from "@west4/shared";
 import { buildApp } from "../app.js";
@@ -267,6 +268,8 @@ interface Share {
   share_no: number;
   amount_cents: number;
   state: string;
+  /** U-03 follow-up: what cash pays for this share with the cash discount on, else null. */
+  cash_cents: number | null;
 }
 interface SplitListed {
   state: string;
@@ -593,6 +596,8 @@ describe("U-03: split a cardless tab (D133)", () => {
       [0, 1, 2].map((i) => even + (i < total - even * 3 ? 1 : 0)),
     );
     expect(row).toMatchObject({ state: "open", paid_cents: 0, rest_cents: total });
+    // With the cash discount off (West 4), a share has one price.
+    expect(shares.map((s) => s.cash_cents)).toEqual([null, null, null]);
 
     expect((await cash(tab.check_id, shares[0]!)).statusCode).toBe(201);
     const first = await outside(tab.check_id, shares[1]!.amount_cents, shares[1]!.id);
@@ -646,5 +651,105 @@ describe("U-03: split a cardless tab (D133)", () => {
     const rest = await outside(tab.check_id, after.rest_cents);
     expect(rest.statusCode, rest.body).toBe(201);
     expect(await tabRow(tab.id)).toMatchObject({ state: "closed" });
+  });
+  it("Sing Sing's 3.38% cash discount: a cash share pays its cash price, the shares still add up, and the tab closes", async () => {
+    // Sing Sing's cash discount (D130; Money rules 10) on this venue's pay setting, as a new version.
+    const top = (
+      await owner.query<{ v: number }>(
+        "select max(version)::int as v from venue_settings where venue_id = $1 and key = 'pay'",
+        [venueId],
+      )
+    ).rows[0]!.v;
+    await owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select venue_id, key, version + 1, jsonb_set(value, '{cardFee}', $2::jsonb), starts_on
+         from venue_settings where venue_id = $1 and key = 'pay' and version = $3`,
+      [venueId, JSON.stringify({ mode: "discount", pct: 3.38, foodIncludesFee: true }), top],
+    );
+    // The same rule as any cash taken on a check: the rate on the cash, half up, and its tax.
+    const rule = (amountCents: number) =>
+      cashDiscount({
+        amountCents,
+        pct: 3.38,
+        taxRatePct: "8.875",
+        foodIncludesFee: true,
+        foodWeightCents: 0,
+        otherWeightCents: 0,
+      });
+    try {
+      const tab = await cardless("Fay U03");
+      expect((await send(tab.check_id, jessRound())).statusCode).toBe(201);
+      expect((await split(tab.id, 2)).statusCode).toBe(201);
+      const row = await tabRow(tab.id);
+      const total = row.totals.total_cents;
+      const shares = row.split!.shares;
+      // The shares still divide the card total to the cent; each carries its cash price.
+      expect(shares.reduce((s, x) => s + x.amount_cents, 0)).toBe(total);
+      for (const s of shares) {
+        expect(s.cash_cents).toBe(rule(s.amount_cents).cashPaysCents);
+        expect(s.cash_cents!).toBeLessThan(s.amount_cents);
+      }
+      // A room's close-out reads the same split from the check, with the same cash prices.
+      const check = await app.inject({
+        method: "GET",
+        url: `/v1/venues/${venueId}/checks/${tab.check_id}`,
+      });
+      expect(
+        check.json<{ split: { shares: Share[] } }>().split.shares.map((s) => s.cash_cents),
+      ).toEqual(shares.map((s) => s.cash_cents));
+
+      // Exact on share 1: the share's amount is sent, the cash price is handed over, no change.
+      const first = shares[0]!;
+      const off = rule(first.amount_cents);
+      const paid = await app.inject({
+        method: "POST",
+        url: `/v1/venues/${venueId}/checks/${tab.check_id}/payments`,
+        headers: { "idempotency-key": `u03-cash-share-${++n}` },
+        payload: {
+          method: "cash",
+          amount_cents: first.amount_cents,
+          tendered_cents: first.cash_cents,
+          share_id: first.id,
+        },
+      });
+      expect(paid.statusCode, paid.body).toBe(201);
+      expect(paid.json()).toMatchObject({ amount_cents: first.cash_cents, change_cents: 0 });
+      // The discount and its tax come off the check as lines, as with any cash taken.
+      const lines = await owner.query<{ kind: string; cents: number }>(
+        `select kind, amount_cents::int as cents from check_lines
+          where check_id = $1 and (kind = 'cash_discount' or description = 'Tax · cash discount')`,
+        [tab.check_id],
+      );
+      expect(lines.rows.map((l) => l.cents).sort((a, b) => a - b)).toEqual(
+        [-off.discountCents, -off.taxOffCents].filter((c) => c !== 0).sort((a, b) => a - b),
+      );
+      const after = await tabRow(tab.id);
+      expect(after.totals.total_cents).toBe(total - off.discountCents - off.taxOffCents);
+      expect(after).toMatchObject({
+        state: "open",
+        paid_cents: first.cash_cents,
+        rest_cents: shares[1]!.amount_cents,
+      });
+      expect(after.split!.shares.map((s) => s.state)).toEqual(["paid", "open"]);
+      // The share left keeps its card price, and its own cash price.
+      expect(after.split!.shares[1]!.cash_cents).toBe(rule(shares[1]!.amount_cents).cashPaysCents);
+
+      // Share 2 on the outside card machine at its card price closes the tab.
+      const last = await outside(tab.check_id, shares[1]!.amount_cents, shares[1]!.id);
+      expect(last.statusCode, last.body).toBe(201);
+      expect(last.json()).toMatchObject({ check_status: "paid" });
+      expect(await tabRow(tab.id)).toMatchObject({ state: "closed" });
+      const allocated = await owner.query<{ cents: number }>(
+        `select coalesce(sum(amount_cents), 0)::int as cents from payment_allocations
+          where check_id = $1 and state = 'captured'`,
+        [tab.check_id],
+      );
+      expect(allocated.rows[0]!.cents).toBe(after.totals.total_cents);
+    } finally {
+      await owner.query(
+        "delete from venue_settings where venue_id = $1 and key = 'pay' and version > $2",
+        [venueId, top],
+      );
+    }
   });
 });

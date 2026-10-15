@@ -6,7 +6,7 @@ import { venueClock } from "../rooms/assignment.js";
 import { holdView, tabOfCheck } from "./hold.js";
 import { slipView } from "./tip.js";
 import { tabSavedCard } from "./saved-card.js";
-import { cashPricer } from "../payments/surcharge.js";
+import { cashDiscountGiven, cashPricer } from "../payments/surcharge.js";
 
 /**
  * Bar tabs as the bar POS lists them (M6-02; API · Bar tabs; Staff screens and
@@ -120,7 +120,16 @@ export async function listTabs(
           [venueId, t.check_id, held?.payment_status === "authorized"],
         )
       ).rows[0]!;
-      const total = view.totals?.total_cents ?? 0;
+      // A cash share's discount (U-03, D133) comes off the finalized total, so paid and rest add up to it.
+      const cashOff =
+        view.totals && view.check.status !== "open" && view.check.status !== "reopened"
+          ? await cashDiscountGiven(c, venueId, t.check_id)
+          : 0;
+      const totals = view.totals && {
+        ...view.totals,
+        total_cents: (view.totals.total_cents ?? 0) + cashOff,
+      };
+      const total = totals?.total_cents ?? 0;
       const rest = Math.max(0, total - beside.captured - beside.charging);
       // A tab with no standing hold (reopened after its hold was captured, M6-12): never "Close to card";
       // the card saved from its first tap, if the reader saved one, and a charge on it waiting for a Yes.
@@ -173,19 +182,26 @@ export async function listTabs(
         // into a room has nothing left on it (M6-13): it reads "Moved to Room 9".
         reopenable: TAB_SETTLED.includes(t.state as never) && !t.moved_to,
         moved_to: t.moved_to ? { room: t.moved_to } : null,
-        totals: view.totals,
+        totals,
         amount_due_cents: view.amount_due_cents,
         // A split kept on the server: its shares and their states, and "Partly paid · $16.33 of $32.66".
         split: view.split
           ? {
               id: view.split.id,
               share_count: view.split.share_count,
-              shares: view.split.shares.map((x) => ({
-                id: x.id,
-                share_no: x.share_no,
-                amount_cents: x.amount_cents,
-                state: x.state,
-              })),
+              shares: await Promise.all(
+                view.split.shares.map(async (x) => ({
+                  id: x.id,
+                  share_no: x.share_no,
+                  amount_cents: x.amount_cents,
+                  state: x.state,
+                  // What cash pays for a share still to pay, with the cash discount on (U-03, D133).
+                  cash_cents:
+                    cashPrice && x.state !== "paid"
+                      ? await cashPrice({ checkId: t.check_id, amountCents: x.amount_cents })
+                      : null,
+                })),
+              ),
             }
           : null,
         paid_cents: beside.captured,

@@ -6221,6 +6221,9 @@ test("Close-out on the phone: Tab & close out → from Priya R.'s row, no Done, 
   request,
 }) => {
   test.setTimeout(150_000);
+  // The reader panel shows only once the venue has a registered reader (U-01); the fresh seed has
+  // none until stripe:seed registers both S710s on the fake.
+  stripeSeed();
   const db = await dbClient();
   try {
     await setClock(request, "2026-09-26T02:41:00Z");
@@ -12036,6 +12039,115 @@ test("U-03 · a cardless tab splits three ways: cash, outside machine, outside m
       )
     ).rows.map((r) => r.state);
     expect(states).toEqual(["paid", "paid", "paid"]);
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-03 follow-up · Sing Sing's 3.38% cash discount on a split (D133; Money rules 10): each share still
+ * to pay shows "Card $X · Cash $Y" from the API, Exact on a cash share takes its cash price with no
+ * change, the share left keeps its card price, and the tab closes on it.
+ */
+test("U-03 · a cash share at Sing Sing's cash discount shows Card · Cash, Exact takes the cash price, and the tab closes", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'outside_card', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardRequired', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select venue_id, key, version + 1,
+              jsonb_set(value, '{cardFee}', '{"mode":"discount","pct":3.38,"foodIncludesFee":true}'::jsonb), starts_on
+         from venue_settings where venue_id = $1 and key = 'pay' order by version desc limit 1`,
+      [venueId],
+    );
+    await db.query("update devices set stripe_reader_id = null where stripe_reader_id is not null");
+    const usd = (c: number) => `$${(c / 100).toFixed(2)}`;
+    const cashOf = (c: number) =>
+      cashDiscount({
+        amountCents: c,
+        pct: "3.38",
+        taxRatePct: "8.875",
+        foodIncludesFee: true,
+        foodWeightCents: 0,
+        otherWeightCents: 0,
+      }).cashPaysCents;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+
+    await page.getByRole("button", { name: "New tab" }).click();
+    const noCard = panel.getByRole("group", { name: "Or open it without a card" });
+    await noCard.getByLabel("Name on the tab").fill("Fay");
+    await noCard.getByRole("button", { name: "Open without a card" }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Fay");
+    await page.getByRole("tab", { name: "Beer" }).click();
+    for (let i = 0; i < 3; i++) await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 3 to the bar" }).click();
+
+    await panel.getByRole("button", { name: "Split", exact: true }).click();
+    await panel.getByRole("button", { name: "Split 2 ways" }).click();
+    const split = panel.getByRole("region", { name: "Split" });
+    await expect(split.getByRole("listitem")).toHaveCount(2);
+    const amounts = (
+      await db.query<{ cents: number }>(
+        `select s.amount_cents::int as cents from split_shares s join check_splits k on k.id = s.split_id
+           join tabs t on t.check_id = k.check_id where t.name = 'Fay' order by s.share_no`,
+      )
+    ).rows.map((r) => r.cents);
+    const share = (n: number) => split.getByRole("listitem", { name: `Share ${n} of 2` });
+    // Both prices on each share before the guest chooses.
+    for (const n of [1, 2]) {
+      const card = amounts[n - 1]!;
+      await expect(share(n)).toContainText(`Card ${usd(card)} · Cash ${usd(cashOf(card))}`);
+    }
+
+    // Share 1 in cash: Exact is the cash price, with no change.
+    const cash = cashOf(amounts[0]!);
+    await share(1).getByRole("button", { name: "Pay this share" }).click();
+    await panel.getByRole("button", { name: `Exact ${usd(cash)}` }).click();
+    await panel.getByRole("button", { name: `Take ${usd(cash)} in cash` }).click();
+    await expect(share(1)).toContainText("Paid");
+    const taken = await db.query<{ amount_cents: number; change_cents: number }>(
+      `select p.amount_cents::int as amount_cents, p.change_cents::int as change_cents
+         from payments p join payment_allocations a on a.payment_id = p.id
+         join tabs t on t.check_id = a.check_id where t.name = 'Fay' and p.method = 'cash'`,
+    );
+    expect(taken.rows).toEqual([{ amount_cents: cash, change_cents: 0 }]);
+
+    // Share 2 on the outside machine at its card price closes the tab.
+    await share(2).getByRole("button", { name: "Pay this share" }).click();
+    const machine = panel.getByRole("form", { name: "Outside card machine" });
+    await expect(machine.getByLabel("Amount charged, $")).toHaveValue(
+      (amounts[1]! / 100).toFixed(2),
+    );
+    await machine.getByRole("button", { name: "Record payment" }).click();
+    await expect
+      .poll(
+        async () =>
+          (await db.query<{ state: string }>("select state from tabs where name = 'Fay'")).rows[0]
+            ?.state,
+      )
+      .toBe("closed");
     expect(await clippedText(page)).toEqual([]);
   } finally {
     await db.end();

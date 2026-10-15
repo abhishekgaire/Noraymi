@@ -58,8 +58,8 @@ export function CashPanel({
   dueCents: number;
   /**
    * The cash price of `dueCents` with the cash discount on (U-02), as the API gave it: Exact, the bill
-   * offers, the change and Take are worked from it. Null with the discount off (or on a share, which
-   * the server never discounts); what's sent is still `dueCents`, discounted on the server.
+   * offers, the change and Take are worked from it. Null with the discount off; a split's share passes
+   * its own cash price (U-03, D133). What's sent is still `dueCents`, discounted on the server.
    */
   cashCents?: number | null;
   /** A split's share (M4-14): the payment pays it. */
@@ -79,7 +79,7 @@ export function CashPanel({
 
   const tipCents = toCents(tip) ?? 0;
   // What the cash pays: the cash price with the cash discount on, else what's due.
-  const owedCents = !shareId && cashCents !== null && cashCents > 0 ? cashCents : dueCents;
+  const owedCents = cashCents !== null && cashCents > 0 ? cashCents : dueCents;
   const offers = cashOffers(owedCents + tipCents);
   const change =
     tendered === null ? null : changeDue({ owedCents, tipCents, tenderedCents: tendered });

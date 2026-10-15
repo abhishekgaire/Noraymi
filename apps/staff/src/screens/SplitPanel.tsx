@@ -2,6 +2,7 @@ import { useState } from "react";
 import { cents, type MessageKey } from "@west4/shared";
 import { api } from "../api.js";
 import { useT } from "../i18n.js";
+import { CardAndCash } from "./CashPanel.js";
 
 /**
  * Split (M4-14; Money rules 13; screens N21): evenly in N shares, kept on
@@ -19,6 +20,8 @@ export interface Share {
   readonly share_no: number;
   readonly amount_cents: number;
   readonly state: "open" | "paying" | "paid";
+  /** What cash pays for it with the cash discount on (U-03, D133), from the API; null with it off. */
+  readonly cash_cents?: number | null;
 }
 export interface Split {
   readonly id: string;
@@ -126,6 +129,9 @@ export function SplitPanel({
                   {t("split.share", { n: s.share_no, count: split.share_count })} ·{" "}
                   {money(cents(s.amount_cents))}
                 </span>
+                {s.state === "open" && (
+                  <CardAndCash cardCents={s.amount_cents} cashCents={s.cash_cents} />
+                )}
                 <span className={s.state === "paid" ? "ok" : "muted"}>
                   {t(`split.state.${s.state}` as MessageKey)}
                 </span>

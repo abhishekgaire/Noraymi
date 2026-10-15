@@ -56,16 +56,18 @@ export async function takeCash(
     now: Temporal.Instant;
   },
 ): Promise<CashTaken> {
+  // A split's share pays its own (card) amount; its cash is discounted below like any other cash.
+  const shareCents = input.amountCents;
   // A cash discount, where a venue has one (M4-25; off at West 4): the cash pays the discounted amount.
-  if (!input.shareId) {
-    const discounted = await applyCashDiscount(c, venueId, {
-      checkId: input.checkId,
-      amountCents: input.amountCents,
-      businessDate: input.businessDate,
-      at: input.now.toString(),
-    });
-    if (discounted !== input.amountCents) input = { ...input, amountCents: discounted };
-  }
+  // A cash share too (U-03 follow-up, D133): the discount and its tax come off the check as lines, so
+  // the shares left still owe what's left and the tab closes when they're paid.
+  const discounted = await applyCashDiscount(c, venueId, {
+    checkId: input.checkId,
+    amountCents: input.amountCents,
+    businessDate: input.businessDate,
+    at: input.now.toString(),
+  });
+  if (discounted !== input.amountCents) input = { ...input, amountCents: discounted };
   const change = changeDue({
     owedCents: input.amountCents,
     tipCents: input.tipCents,
@@ -78,7 +80,7 @@ export async function takeCash(
   const at = input.now.toString();
   // A split's share (M4-14): cash pays it at once.
   const claimed = input.shareId
-    ? await claimShare(c, venueId, input.checkId, input.shareId, input.amountCents, "paid")
+    ? await claimShare(c, venueId, input.checkId, input.shareId, shareCents, "paid")
     : null;
   // Practice cash (training mode, M7-03) never opens a drawer and writes no drawer move: the
   // panel still shows the change, and the payment is the check's own, outside every total.

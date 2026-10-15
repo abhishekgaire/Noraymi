@@ -1569,6 +1569,7 @@ export function Rail() {
                           venueId={venueId}
                           checkId={tab.check_id}
                           dueCents={share.amount_cents}
+                          cashCents={share.cash_cents ?? null}
                           shareId={share.id}
                           onTaken={() => {
                             setShare(null);

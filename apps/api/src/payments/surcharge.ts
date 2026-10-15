@@ -292,6 +292,28 @@ export async function cashPriceFor(
   return price ? price(input) : null;
 }
 
+/** The tax line that goes with a `cash_discount` line (Money rules 10). */
+const CASH_DISCOUNT_TAX = "Tax · cash discount";
+
+/**
+ * The cash discount given on a check so far, with its tax (zero or less): the lines cash taken wrote
+ * after the check was finalized, so a split tab's total and rest count a cash share's discount (U-03,
+ * D133) and its shares still owe what's left.
+ */
+export async function cashDiscountGiven(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+): Promise<number> {
+  const r = await c.query<{ cents: number }>(
+    `select coalesce(sum(amount_cents), 0)::int as cents from check_lines
+      where venue_id = $1 and check_id = $2
+        and (kind = 'cash_discount' or (kind = 'tax' and description = $3))`,
+    [venueId, checkId, CASH_DISCOUNT_TAX],
+  );
+  return r.rows[0]!.cents;
+}
+
 /**
  * Cash taken with a cash discount on (M4-25): a `cash_discount` line for its share of what's paid and
  * a matching tax reduction, written as the cash is taken; answers what the cash then pays.
@@ -335,7 +357,7 @@ export async function applyCashDiscount(
       ],
     );
   if (off > 0) await line("cash_discount", "Cash discount", -off, null);
-  if (taxOff > 0) await line("tax", "Tax · cash discount", -taxOff, terms.taxRate);
+  if (taxOff > 0) await line("tax", CASH_DISCOUNT_TAX, -taxOff, terms.taxRate);
   return input.amountCents - off - taxOff;
 }
 
