@@ -1812,3 +1812,12 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. Tap **Sat 26** and press **New booking**: the booking is made for Saturday, and Saturday's number in the grid goes up by one.
 5. **›** shows October 2026 (no day outlined), **‹** comes back. **Days** returns to the list of days ahead.
 6. With Spanish chosen, the switch reads **Días · Mes**, the month "septiembre de 2026", and a past day "Este día ya pasó: no admite reservas nuevas."
+
+### 30.12 Today at a glance and who's on shift (P-12)
+
+1. Sign in as Andy (passkey) and open **Rooms**. Above the room counts: **Sales so far**, **Open checks** 13 (8 rooms in use plus 5 bar tabs), **Rooms in use** 8 and **On the clock** 3 (Maya, Andy, Diego).
+2. Open **Reports**: the X report's **Net sales** is the same amount as Sales so far. Ring a drink on a tab and come back: within a few seconds Sales so far and the X report move together.
+3. At phone size the four boxes sit two by two and nothing is cut off. With Spanish chosen they read **Ventas hasta ahora**, **Cuentas abiertas**, **Salas en uso** and **En turno**.
+4. On the bar computer (paired, nobody signed in) the sign-in screen shows **3 on shift** beside the venue's name ("3 en turno" in Spanish). Clock Diego out and lock: it reads **2 on shift**, and Andy's On the clock reads 2.
+5. Sign in on the bar computer as Andy by PIN (`730915`): Rooms shows Open checks, Rooms in use and On the clock, but no Sales so far (a PIN session can't open the X report). Lock, then sign in as Diego (`6358`): no glance at all.
+6. With Team, time clock & tips off (Admin → Features), On the clock and "N on shift" go. (A role without Reports losing Sales so far has no switch in the app yet; the integration test `glance.int.test.ts` checks it.)

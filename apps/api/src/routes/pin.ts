@@ -89,6 +89,8 @@ export function pinRoutes(app: FastifyInstance, options: PinRoutesOptions): void
               }
             : {}),
         })),
+        // "N on shift" on the sign-in screen (P-12): everyone on the clock, null while the module is off.
+        on_shift: shifts ? shifts.size : null,
         venue: { id: request.venueId, ...venue },
         server_time: now().toString(),
       };

@@ -208,13 +208,18 @@ Definition of done: see CLAUDE.md.
 
 ### P-12 · Today at a glance, and who's on shift on the PIN screen
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** reports (X), punches
 - **Spec:** [Staff screens](../spec/10-staff-screens-bar-pos.md)
 - **Build:** For owners and managers, the top of Tonight shows **sales so far** (the X report's net), **open checks**, **rooms in use** and **on the clock**. The PIN screen shows "N on shift".
 - **Acceptance:**
-  - [ ] The numbers match the X report and the punches; staff without reports don't see sales; EN and ES; tests.
+  - [x] The numbers match the X report and the punches; staff without reports don't see sales; EN and ES; tests.
+- **Notes:**
+  - `GET /v1/venues/{v}/glance` (`apps/api/src/routes/glance.ts`): for tonight's posting date, `sales_cents` (the running X report's `sales.net_cents`, from the same `nightReport`), `open_checks`, `rooms_in_use` and `on_the_clock`. Owners and managers only (any session); bartenders, the front desk and runners get 403. `GET /team/tiles` gains `on_shift` for the sign-in screen's "N on shift". No migration. Spec 10 · Today at a glance, spec 08 · Board and sessions.
+  - Staff: `Glance.tsx` at the top of Rooms (`Tonight.tsx`) for owners and managers, desktop and phone (two by two at phone size), with loading and error states; refreshes every minute and 3 s after a room, check, tab, payment, shift or accepted-order event. "N on shift" / "N en turno" beside the venue's name on a shared computer's sign-in screen.
+  - Cautious defaults: Sales so far shows only to someone who could open the X report itself, a role with `reports.view` in a passkey or authenticator session, so a manager signed in by PIN or badge on a shared screen sees the other three boxes but no sales; open checks are rooms in use plus open bar tabs (open or tipping), the same two Close the night lists, quick sales being paid at once; practice (training) rooms and tabs aren't counted, as the X report leaves them out; On the clock and "N on shift" drop out while Team, time clock & tips is off, and count every open shift (on break included).
+  - Tests: `glance.int.test.ts` (equals the X report's net and the database's counts, the board's in-use and the tiles' `on_shift`; the same read as app_rw; a clock-out moves both; no sales in a PIN session or with Reports off for the role; bartender and front desk refused; Team off), the two P-12 e2e tests in `staff.spec.ts` (1280, 390, ES; the bar computer's "3 on shift", Andy by PIN without sales, Diego without a glance); manual test 30.12.
 
 ### P-13 · The order of the menu
 

@@ -40,6 +40,8 @@ interface Tile {
 
 interface TilesAnswer {
   readonly tiles: Tile[];
+  /** Everyone on the clock (P-12); null while Team, time clock & tips is off. */
+  readonly on_shift?: number | null;
   readonly venue: { id: string; name: string; time_zone: string; day_cutover: string };
   readonly server_time: string;
 }
@@ -386,6 +388,9 @@ export function SignIn() {
           <div className="clock-line">
             {clockLine && <time>{clockLine}</time>}
             <span className="muted">{tiles?.venue.name ?? device.venue?.name ?? ""}</span>
+            {typeof tiles?.on_shift === "number" && (
+              <span className="on-shift">{t("signIn.onShift", { count: tiles.on_shift })}</span>
+            )}
           </div>
         </header>
         {notice && (
