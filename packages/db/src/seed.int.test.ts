@@ -77,6 +77,7 @@ describe("the M1 part of the demo seed", () => {
       "hours",
       "kitchen",
       "languages",
+      "menuOrder",
       "messages",
       "ordering",
       "pay",
