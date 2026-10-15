@@ -309,6 +309,7 @@ async function boardAlerts(
       const next = await nextBooking(s.room_id);
       if (!next || !s.booked_end_at) continue;
       const base = {
+        room_id: s.room_id,
         room_name: s.room_name,
         session_id: s.id,
         guest_name: s.guest_name,
@@ -340,6 +341,7 @@ async function boardAlerts(
       color: "pink",
       since: k.created_at,
       call_id: k.id,
+      room_id: k.room_id,
       room_name: k.room_name,
       call: k.kind,
       minutes_ago: minutes(k.created_at),
@@ -399,10 +401,11 @@ async function boardAlerts(
     placed_at: string;
     escalation_level: number;
     manager_told: "text" | "push" | null;
+    room_id: string | null;
     room_name: string | null;
     items: string | null;
   }>(
-    `select o.id, o.status, to_json(o.placed_at) #>> '{}' as placed_at, o.escalation_level, o.manager_told, r.name as room_name,
+    `select o.id, o.status, to_json(o.placed_at) #>> '{}' as placed_at, o.escalation_level, o.manager_told, r.id as room_id, r.name as room_name,
             (select string_agg(i.qty || ' × ' || i.name_snapshot, ', ' order by i.sort)
                from order_items i where i.venue_id = o.venue_id and i.order_id = o.id) as items
        from orders o
@@ -444,6 +447,7 @@ async function boardAlerts(
       since: o.placed_at,
       order_id: o.id,
       status: o.status,
+      room_id: o.room_id,
       room_name: o.room_name,
       items: o.items,
       age_sec: age,
@@ -472,8 +476,13 @@ async function boardAlerts(
       reprint_n: j.reprint_n,
     });
   // Ten wrong room codes rotated a room's code (M3-08): amber for half an hour.
-  const rotated = await c.query<{ session_id: string; room_name: string; at: string }>(
-    `select s.id as session_id, r.name as room_name, to_json(s.code_alert_at) #>> '{}' as at
+  const rotated = await c.query<{
+    session_id: string;
+    room_id: string;
+    room_name: string;
+    at: string;
+  }>(
+    `select s.id as session_id, r.id as room_id, r.name as room_name, to_json(s.code_alert_at) #>> '{}' as at
        from room_sessions s join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
       where s.venue_id = $1 and s.ended_at is null and s.code_alert_at > $2::timestamptz - interval '30 minutes'`,
     [venueId, now.toString()],
@@ -484,6 +493,7 @@ async function boardAlerts(
       color: "amber",
       since: k.at,
       session_id: k.session_id,
+      room_id: k.room_id,
       room_name: k.room_name,
     });
   const waiting = (await staffWaitlist(c, venueId, now)).filter((w) => w.status === "waiting");
@@ -496,6 +506,7 @@ async function boardAlerts(
       color: "lime",
       since: entry?.joined_at ?? now.toString(),
       entry_id: suggestion.entry_id,
+      room_id: suggestion.room_id,
       room_name: suggestion.room_name,
       name: suggestion.name,
       party_size: suggestion.party_size,
@@ -520,30 +531,8 @@ async function boardAlerts(
     });
   }
   // A guest who texted they're late: an arriving booking whose thread has their text tonight.
-  const late = await c.query<{
-    booking_id: string;
-    conversation_id: string;
-    name: string;
-    room_name: string;
-    starts_at: string;
-    running_late_until: string | null;
-    body: string;
-    at: string;
-  }>(
-    `select distinct on (b.id) b.id as booking_id, cv.id as conversation_id, g.name, r.name as room_name,
-            to_json(b.starts_at) #>> '{}' as starts_at, to_json(b.running_late_until) #>> '{}' as running_late_until,
-            m.body, to_json(m.created_at) #>> '{}' as at
-       from bookings b
-       join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
-       join rooms r on r.venue_id = b.venue_id and r.id = b.room_id
-       join conversations cv on cv.venue_id = b.venue_id and cv.context_kind = 'booking' and cv.context_id = b.id
-       join messages m on m.venue_id = cv.venue_id and m.conversation_id = cv.id and m.direction = 'inbound'
-      where b.venue_id = $1 and b.status in ('pending', 'confirmed')
-        and b.starts_at <= $2::timestamptz + interval '1 hour' and m.created_at >= $2::timestamptz - interval '6 hours'
-      order by b.id, m.created_at desc`,
-    [venueId, now.toString()],
-  );
-  for (const l of late.rows) {
+  const late = await lateArrivals(c, venueId, now);
+  for (const l of late) {
     const grace = Temporal.Instant.from(l.starts_at).add({ minutes: 15 }).toString();
     const until = l.running_late_until ?? grace;
     out.push({
@@ -551,6 +540,7 @@ async function boardAlerts(
       color: "grey",
       since: until,
       booking_id: l.booking_id,
+      room_id: l.room_id,
       conversation_id: l.conversation_id,
       name: l.name,
       text: l.body,
@@ -566,4 +556,33 @@ async function boardAlerts(
       KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) ||
       Temporal.Instant.compare(Temporal.Instant.from(a.since), Temporal.Instant.from(b.since)),
   );
+}
+
+/** A guest who texted they're late (M2-30): an arriving booking whose thread has their text tonight. */
+export async function lateArrivals(c: Queryable, venueId: string, now: Temporal.Instant) {
+  const r = await c.query<{
+    booking_id: string;
+    conversation_id: string;
+    name: string;
+    room_id: string;
+    room_name: string;
+    starts_at: string;
+    running_late_until: string | null;
+    body: string;
+    at: string;
+  }>(
+    `select distinct on (b.id) b.id as booking_id, cv.id as conversation_id, g.name, r.id as room_id, r.name as room_name,
+            to_json(b.starts_at) #>> '{}' as starts_at, to_json(b.running_late_until) #>> '{}' as running_late_until,
+            m.body, to_json(m.created_at) #>> '{}' as at
+       from bookings b
+       join guests g on g.venue_id = b.venue_id and g.id = b.guest_id
+       join rooms r on r.venue_id = b.venue_id and r.id = b.room_id
+       join conversations cv on cv.venue_id = b.venue_id and cv.context_kind = 'booking' and cv.context_id = b.id
+       join messages m on m.venue_id = cv.venue_id and m.conversation_id = cv.id and m.direction = 'inbound'
+      where b.venue_id = $1 and b.status in ('pending', 'confirmed')
+        and b.starts_at <= $2::timestamptz + interval '1 hour' and m.created_at >= $2::timestamptz - interval '6 hours'
+      order by b.id, m.created_at desc`,
+    [venueId, now.toString()],
+  );
+  return r.rows;
 }

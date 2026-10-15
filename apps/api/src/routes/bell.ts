@@ -4,6 +4,7 @@ import type { Queryable } from "@west4/db";
 import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
+import { bellRoomLines } from "../rooms/bell-alerts.js";
 
 /**
  * One bell for everything waiting (P-11; spec 10 · The bell; module `bell`). The staff app works
@@ -12,6 +13,10 @@ import { ApiError } from "../http/errors.js";
  * keeps is which of those each person has marked read:
  *   GET  /v1/venues/{v}/bell/reads            { keys } the signed-in person's, the last few days
  *   POST /v1/venues/{v}/bell/reads { keys }   mark these read; a key already read stays as it was
+ *   GET  /v1/venues/{v}/bell/alerts           { alerts } the room lines (U-18): time's up, calls, a
+ *                                             free room for the waitlist, a late guest; the bell's
+ *                                             own light read instead of the whole board. Rooms off
+ *                                             answers 404 module_off too.
  * Off, both answer 404 module_off; the menu badges stay either way.
  */
 const READS_KEPT_HOURS = 72;
@@ -71,6 +76,19 @@ export function bellRoutes(app: FastifyInstance, options: { clock: Clock }): voi
       return {
         keys: await request.inVenue((c) => bellReads(c, request.venueId!, userId, since)),
       };
+    },
+  );
+
+  app.get<{ Params: { venueId: string } }>(
+    "/v1/venues/:venueId/bell/alerts",
+    { config },
+    async (request) => {
+      who(request);
+      const alerts = await request.inVenue((c) =>
+        bellRoomLines(c, request.venueId!, options.clock.now(), request.training),
+      );
+      if (!alerts) throw new ApiError("module_off", "this part of the system is off at this venue");
+      return { alerts };
     },
   );
 

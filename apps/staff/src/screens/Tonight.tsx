@@ -126,6 +126,11 @@ interface Session {
 }
 
 const REFETCH_MS = 60_000;
+/**
+ * The live connection asks for a full refetch when it first connects (and after a gap). A board
+ * read that started this recently already answers it, so a board load reads the board once (U-18).
+ */
+const FRESH_MS = 3_000;
 
 interface Arrival {
   readonly id: string;
@@ -203,6 +208,14 @@ export function Tonight() {
     if ((location.state as { room?: string } | null)?.room)
       void navigate(location.pathname, { replace: true, state: null });
   }, [location.state, location.pathname, navigate]);
+  // Every alert opens its room (U-18): `/tonight?room=<id>` from the Bell and the "Time's up"
+  // strip opens that room's panel, then the address goes back to plain /tonight.
+  useEffect(() => {
+    const room = new URLSearchParams(location.search).get("room");
+    if (!room) return;
+    setSelected(room);
+    void navigate(location.pathname, { replace: true, state: null });
+  }, [location.search, location.pathname, navigate]);
   // Add drinks on the room's panel (U-10): the room's own add-drinks, without opening the room.
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const phone = usePhone();
@@ -243,7 +256,11 @@ export function Tonight() {
   const [done, setDone] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const loadedAt = useRef({ venueId: "", at: 0 });
+  const fresh = () =>
+    loadedAt.current.venueId === venueId && Date.now() - loadedAt.current.at < FRESH_MS;
   const load = useCallback(async () => {
+    loadedAt.current = { venueId, at: Date.now() };
     try {
       const [answer, bookings, rooms] = await Promise.all([
         api<{ sessions: Session[] }>("GET", `/v1/venues/${venueId}/sessions`),
@@ -289,7 +306,8 @@ export function Tonight() {
 
   useEffect(() => {
     if (!venueId) return;
-    void load();
+    // A read that just started answers this mount too (React's development double mount).
+    if (!fresh()) void load();
     const timer = setInterval(() => void load(), REFETCH_MS);
     return () => clearInterval(timer);
   }, [venueId, load]);
@@ -297,6 +315,7 @@ export function Tonight() {
   useEffect(
     () =>
       subscribe((events) => {
+        if (events.length === 0 && fresh()) return;
         if (
           events.length === 0 ||
           events.some((e) =>

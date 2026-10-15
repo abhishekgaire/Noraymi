@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Temporal, type MessageKey } from "@west4/shared";
 import { api, ApiCallError, NetworkError } from "../api.js";
 import { unreachableStatus } from "../connection-state.js";
@@ -8,13 +8,14 @@ import { useT } from "../i18n.js";
 import { kindKey } from "../approvals/types.js";
 import {
   bellItems,
+  bellShown,
   readBellCache,
   unreadCount,
   writeBellCache,
   type BellItem,
   type BellKind,
+  type BellRoomLine,
   type BellSources,
-  type BoardAlert,
 } from "./bell-items.js";
 
 /** Which lists this person may see, as the menu and its badges decide (P-11). */
@@ -91,7 +92,8 @@ export function useBell(venueId: string, userId: string, reach: BellReach) {
             `${base}/approvals?status=pending`,
           )
         : none,
-      rooms ? api<{ alerts: readonly BoardAlert[] }>("GET", `${base}/board`) : none,
+      // The bell's own light read of the rooms (U-18), never the whole board.
+      rooms ? api<{ alerts: readonly BellRoomLine[] }>("GET", `${base}/bell/alerts`) : none,
       orders
         ? api<{ orders: BellSources["orders"] }>("GET", `${base}/orders?status=ringing,held`)
         : none,
@@ -120,7 +122,7 @@ export function useBell(venueId: string, userId: string, reach: BellReach) {
         : undefined;
     const items = bellItems({
       approvals: value<{ waiting_for_me: BellSources["approvals"] }>(1)?.waiting_for_me ?? [],
-      alerts: value<{ alerts: readonly BoardAlert[] }>(2)?.alerts ?? [],
+      alerts: value<{ alerts: readonly BellRoomLine[] }>(2)?.alerts ?? [],
       orders: value<{ orders: BellSources["orders"] }>(3)?.orders ?? [],
       conversations: value<{ conversations: BellSources["conversations"] }>(4)?.conversations ?? [],
       failed: value<{ jobs: BellSources["failed"] }>(5)?.jobs ?? [],
@@ -168,8 +170,7 @@ export function useBell(venueId: string, userId: string, reach: BellReach) {
     [flush, keep],
   );
 
-  const count = state.items ? unreadCount(state.items, state.read) : 0;
-  return { ...state, count, markRead, retry: load };
+  return { ...state, markRead, retry: load };
 }
 
 const KIND_LABEL: Readonly<Record<BellKind, MessageKey>> = {
@@ -180,7 +181,10 @@ const KIND_LABEL: Readonly<Record<BellKind, MessageKey>> = {
   print: "bell.kind.print",
 };
 
-/** The bell in the top bar and its list (P-11). */
+/**
+ * The bell in the top bar and its list (P-11; U-18). It shows only what the screen in front of you
+ * doesn't (no room lines on the board, no orders on Bar orders), and its number counts those.
+ */
 export function Bell({
   venueId,
   userId,
@@ -194,8 +198,11 @@ export function Bell({
 }) {
   const { t, time } = useT();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const bell = useBell(venueId, userId, reach);
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [actionFailed, setActionFailed] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -213,31 +220,65 @@ export function Bell({
       document.removeEventListener("keydown", esc);
     };
   }, [open]);
+  useEffect(() => setActionFailed(false), [open]);
 
   const words = (item: BellItem) =>
     item.kind === "approval"
       ? t(item.labelKey, { ...item.params, kind: t(kindKey(String(item.params["kind"]))) })
       : t(item.labelKey, item.params);
-  const unread = useMemo(
-    () => (bell.items ?? []).filter((i) => !bell.read.has(i.key)).map((i) => i.key),
-    [bell.items, bell.read],
+  const shown = useMemo(
+    () => (bell.items ? bellShown(bell.items, pathname) : null),
+    [bell.items, pathname],
   );
+  const count = shown ? unreadCount(shown, bell.read) : 0;
+  const unread = useMemo(
+    () => (shown ?? []).filter((i) => !bell.read.has(i.key)).map((i) => i.key),
+    [shown, bell.read],
+  );
+
+  const openItem = (item: BellItem) => {
+    bell.markRead([item.key]);
+    setOpen(false);
+    void navigate(item.path);
+  };
+  /** On it or Accept, through the screen's own route; the server still checks everything. */
+  const act = async (item: BellItem) => {
+    const a = item.action;
+    if (!a) return;
+    setBusy(item.key);
+    setActionFailed(false);
+    try {
+      await api(
+        "POST",
+        a.kind === "onIt"
+          ? `/v1/venues/${venueId}/calls/${a.callId}/ack`
+          : `/v1/venues/${venueId}/orders/${a.orderId}/accept`,
+        a.kind === "onIt" ? undefined : {},
+      );
+      bell.markRead([item.key]);
+      await bell.retry();
+    } catch {
+      setActionFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="bell" ref={root}>
       <button
         type="button"
         className="icon-button bell-button"
-        aria-label={t("bell.open", { count: bell.count })}
+        aria-label={t("bell.open", { count })}
         aria-expanded={open}
         aria-controls="bell-panel"
         data-testid="bell"
         onClick={() => setOpen((o) => !o)}
       >
         <span aria-hidden="true">🔔</span>
-        {bell.count > 0 && (
+        {count > 0 && (
           <span className="badge bell-count" aria-hidden="true">
-            {bell.count}
+            {count}
           </span>
         )}
       </button>
@@ -267,26 +308,30 @@ export function Bell({
               </button>
             </p>
           )}
-          {bell.items === null ? (
+          {actionFailed && (
+            <p className="error small" role="alert">
+              {t("bell.action.failed")}
+            </p>
+          )}
+          {shown === null ? (
             !bell.failed && <p role="status">{t("shell.loading")}</p>
-          ) : bell.items.length === 0 ? (
+          ) : shown.length === 0 ? (
             <p className="muted" role="status">
               {t("bell.empty")}
             </p>
           ) : (
             <ul className="bell-list">
-              {bell.items.map((item) => {
+              {shown.map((item) => {
                 const isRead = bell.read.has(item.key);
                 return (
-                  <li key={item.key}>
+                  <li
+                    key={item.key}
+                    className={item.action ? "bell-line with-action" : "bell-line"}
+                  >
                     <button
                       type="button"
                       className={isRead ? "bell-item" : "bell-item unread"}
-                      onClick={() => {
-                        bell.markRead([item.key]);
-                        setOpen(false);
-                        void navigate(item.path);
-                      }}
+                      onClick={() => openItem(item)}
                     >
                       <span className="muted small">
                         {t(KIND_LABEL[item.kind])}
@@ -294,6 +339,20 @@ export function Bell({
                       </span>
                       <span>{words(item)}</span>
                     </button>
+                    {item.action && (
+                      <button
+                        type="button"
+                        className="primary bell-action"
+                        // Offline the kept list can't act: open the line instead once it answers.
+                        disabled={busy !== null || bell.offlineAt !== null}
+                        aria-label={`${t(
+                          item.action.kind === "onIt" ? "calls.onIt" : "bell.action.accept",
+                        )} · ${words(item)}`}
+                        onClick={() => void act(item)}
+                      >
+                        {t(item.action.kind === "onIt" ? "calls.onIt" : "bell.action.accept")}
+                      </button>
+                    )}
                   </li>
                 );
               })}

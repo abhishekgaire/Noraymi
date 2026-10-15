@@ -18,6 +18,7 @@ import { QueueProvider } from "../queue.js";
 import { OfflineCodesSync } from "../screens/OfflineCodes.js";
 import { useUnreadTexts, useWaitingOrders } from "./unread.js";
 import { Bell } from "./Bell.js";
+import { TimeUpStrip, useTimeUp } from "../room-sound.js";
 
 /**
  * The frame around every staff screen: the venue, the venue's time and
@@ -158,6 +159,8 @@ function Frame({
   const connection = useConnection();
   const connectionBands = banners(connection, outageScreen);
   const showReconnecting = !outageScreen && (!connected || connection.kind === "offline");
+  // The "Time's up" strip (P-05; U-18): in the bands, on every signed-in screen.
+  const timeUp = useTimeUp();
 
   const onLock = () => {
     void lock().then(() => navigate("/sign-in", { replace: true }));
@@ -169,7 +172,10 @@ function Frame({
         <a className="skip" href="#main">
           {t("shell.skipToContent")}
         </a>
-        {(showReconnecting || membership.training || connectionBands.length > 0) && (
+        {(showReconnecting ||
+          membership.training ||
+          connectionBands.length > 0 ||
+          timeUp.length > 0) && (
           <div className="bands">
             {/* The outage and vendor banners (M8-01; spec 09 · Outages). */}
             <ConnectionBanners outageScreen={outageScreen} />
@@ -184,6 +190,7 @@ function Frame({
                 {t("training.band")}
               </div>
             )}
+            <TimeUpStrip />
           </div>
         )}
         <header className="topbar">
