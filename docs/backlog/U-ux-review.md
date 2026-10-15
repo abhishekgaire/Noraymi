@@ -280,7 +280,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-18 · One place for what needs doing
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** P-05, P-11
 - **Spec:** [Bar POS and staff screens](../spec/10-staff-screens-bar-pos.md) · rule 14 (Bell), the board's alerts
@@ -290,9 +290,16 @@ Definition of done: see CLAUDE.md.
   - The Bell reads a light alerts endpoint, not the whole `/board` (it doubled the board's load at every screen and caused the offline race fixed in 8ac4348).
   - The time-up strip moves inside the shell's bands (not above it, and not on the sign-in or lock screens), has **Clear all**, is titled "Time's up", and reuses the tile words (Staying · 41 min past, Needed now).
 - **Acceptance:**
-  - [ ] A room's time-up appears on its tile, the strip and (off the board) the Bell; tapping any opens Room 7.
-  - [ ] Network: one `/board` read per board load; the Bell's endpoint is covered by the principal and wall suites.
-- **Notes:**
+  - [x] A room's time-up appears on its tile, the strip and (off the board) the Bell; tapping any opens Room 7.
+  - [x] Network: one `/board` read per board load; the Bell's endpoint is covered by the principal and wall suites.
+- **Notes:** Built Oct 15, 2026 (D133; spec 10 rule 14, spec 09 · Sound when a room's time is up, spec 08 · The bell). No migration.
+  - **The light endpoint** is `GET /v1/venues/{v}/bell/alerts` (`apps/api/src/rooms/bell-alerts.ts`, route in `routes/bell.ts`): the room lines only (`time_up` with the tile's words, `call`, `offer`, `late`), each with `room_id`; no guest names. Principals as the bell (staff and owner/manager, a person's own); `404 module_off` while the bell or Rooms is off; the principal and wall suites pick it up from the route registry. The board's own alerts now carry `room_id` too (the late-guest query moved to `lateArrivals`).
+  - **The Bell** (`layout/Bell.tsx`, `bell-items.ts`) reads `/bell/alerts` instead of `/board`; each line has its `homes` and is left out on them (room lines on `/tonight`, calls also on `/calls`, orders on `/bar-orders`, approvals on `/approvals`, texts on `/messages`); the number counts what it shows on that screen. Room lines open `/tonight?room=<id>`, which opens the panel and returns the address to `/tonight`. On it (calls) and Accept (bar orders) go through the existing routes and their checks; a failure says "That didn't go through. Open it to try again."; offline the kept list shows with the actions greyed. Wipe and new-room-code lines are gone (they stay on the board).
+  - **Time's up**: a room past its end (red tile) is the bell's line, in the tile's words (Staying · 41 min past, Needed now · 11 min past); a key per session and step, so Staying → Needed now counts again. Wrap up (amber) stays on the tile and the strip only.
+  - **The strip** (`room-sound.tsx`): `RoomSoundLoop` still runs app-wide on paired shared screens, signed in or locked, and plays as before (once per step per room session, `alerts.roomSound`); `TimeUpStrip` renders inside the shell's bands, so nothing shows on sign-in or the lock screen. Titled "Time's up", lines "Room 7 · Needed now · 11 min past" (the tile words, In room/Wrap up for amber), a tap clears that name and opens the room, **Clear all** clears every name (no replay).
+  - **One board read a load**: the Rooms screen skips the live connection's first full-refetch signal (and React's development double mount) when a board read started under 3 s ago; the 8ac4348 fix (keep the last board when a read fails) is unchanged.
+  - **Cautious defaults:** prints that failed always stay in the bell (the ticket lists them as homeless; the board's band also shows them); the strip still appears only on paired bar and front-desk screens, as P-05 had it; the bell's Accept says "Accept" (the Bar orders button says "Accept · print ticket"), and Accept on a held order is the same server call as on Bar orders.
+  - **Tests:** unit (`bell-items.test.ts`, `room-sound.test.ts`), integration (`routes/bell.int.test.ts` · the bell's room alerts), e2e `U-18 · every alert opens its room…` at the end of `e2e/staff.spec.ts`, `e2e/room-sound.staff.spec.ts` rewritten for the strip in the shell, P-11 now reads the bell off the board (`/clock`). Manual test 31.18.
 
 ### U-19 · The phone's tabs
 

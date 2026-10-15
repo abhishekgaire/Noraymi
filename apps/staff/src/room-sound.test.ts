@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   EMPTY_ROOM_SOUND,
+  clearAllRooms,
   dismissRoom,
   roomSoundDecision,
   type BoardForSound,
@@ -92,5 +93,25 @@ describe("Sound when a room's time is up (P-05)", () => {
     const off = run([board([room("Room 2", "s2", "red")], false)]);
     expect(off.plays).toEqual([false]);
     expect(off.state.shown).toEqual([]);
+  });
+
+  it("the strip names each room's id and its tile's newest words, and Clear all clears them (U-18)", () => {
+    const tile = (min: number) => ({
+      ...room("Room 7", "s7", "red"),
+      words: { kind: "needed_now", minutes_past: min },
+    });
+    const a = run([board([tile(11)])]);
+    expect(a.state.shown).toMatchObject([
+      { room: "Room 7", room_id: "r-Room 7", words: { kind: "needed_now", minutes_past: 11 } },
+    ]);
+    const b = run([board([tile(12)])], a.state);
+    expect(b.plays).toEqual([false]);
+    expect(b.state.shown[0]!.words).toEqual({ kind: "needed_now", minutes_past: 12 });
+    const cleared = clearAllRooms(b.state);
+    expect(cleared.shown).toEqual([]);
+    expect(run([board([tile(13)])], cleared)).toMatchObject({
+      plays: [false],
+      state: { shown: [] },
+    });
   });
 });

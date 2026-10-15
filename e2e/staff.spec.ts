@@ -10351,8 +10351,8 @@ test("the Board offline: the browser loses the network, the pink banner shows, a
     await signInAndy(page, request, db);
     const footer = page.getByTestId("sync-footer");
     await expect(footer).toHaveText(/^Online · synced \d+ s ago$/);
-    // The board has been read once before the network goes: the bell's own board read (P-11)
-    // runs beside it, so the first answer can take longer than the footer's first sync.
+    // The board has been read once before the network goes (the bell reads its own light
+    // alerts beside it, U-18), so the first answer can take longer than the footer's first sync.
     await expect(page.getByRole("listitem", { name: "Room 9", exact: true })).toBeVisible();
     await page.context().setOffline(true);
     await expect(page.getByTestId("banner-offline")).toHaveText(PINK);
@@ -11282,8 +11282,10 @@ test("P-11 · one bell: the count matches the list, clears on read and stays rea
   try {
     await db.query("delete from bell_reads where venue_id = $1", [venue]);
     await page.setViewportSize({ width: 1280, height: 800 });
-    const firstLoad = page.waitForResponse((r) => r.url().endsWith("/bell/reads") && r.ok());
     await signInAndy(page, request, db);
+    // Off the board (U-18): on the Time clock nothing the bell lists has a home, so it lists it all.
+    const firstLoad = page.waitForResponse((r) => r.url().endsWith("/bell/reads") && r.ok());
+    await page.goto("/clock");
     await firstLoad;
     const bell = page.getByTestId("bell");
     await expect(bell).toHaveAccessibleName(/^Bell · [1-9]\d* new$/);
@@ -11297,6 +11299,7 @@ test("P-11 · one bell: the count matches the list, clears on read and stays rea
     expect((await first.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await first.click();
     await expect(page).toHaveURL(/\/(approvals|calls|tonight|bar-orders|messages|bar)$/);
+    await page.goto("/clock");
     await expect(bell).toHaveAccessibleName(`Bell · ${n - 1} new`);
     await bell.click();
     await panel.getByRole("button", { name: "Mark all read" }).click();
@@ -11314,7 +11317,7 @@ test("P-11 · one bell: the count matches the list, clears on read and stays rea
     // Out of reach: the kept list, as of its last answer, in Spanish.
     await db.query("update memberships set locale = 'es'");
     await page.route(
-      /\/v1\/venues\/[^/]+\/(bell\/reads|approvals|board|orders|conversations|print-jobs)(\?.*)?$/,
+      /\/v1\/venues\/[^/]+\/(bell\/reads|bell\/alerts|approvals|orders|conversations|print-jobs)(\?.*)?$/,
       (route) => route.abort("internetdisconnected"),
     );
     await page.reload();
@@ -13410,6 +13413,108 @@ test("U-17: a tip-out is one tap on Maya's pre-filled share, and the count says 
     );
     await expect(bar).not.toContainText("Should be in the drawer");
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * U-18 · One place for what needs doing. Andy at the seed's 10:41 PM: Room 7 is past its end with
+ * the Parks booked next (Needed now · 11 min past). On the board its tile and its alert line say
+ * so and the bell leaves the rooms out; the board is read once a load (the bell reads its own light
+ * alerts); a tap on the alert line opens Room 7's panel. Off the board the bell lists Room 7 in the
+ * tile's words and opening it opens Room 7's panel; Room 9's call carries On it, which answers it.
+ */
+test("U-18 · every alert opens its room: the board's line and the bell's, one board read a load, On it from the bell", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const venue = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  try {
+    await db.query("delete from bell_reads where venue_id = $1", [venue]);
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+
+    // One /board read a board load; the bell reads /bell/alerts, never the board.
+    const boardReads: string[] = [];
+    const bellReads: string[] = [];
+    page.on("request", (r) => {
+      if (/\/v1\/venues\/[^/]+\/board$/.test(r.url())) boardReads.push(r.url());
+      if (/\/v1\/venues\/[^/]+\/bell\/alerts$/.test(r.url())) bellReads.push(r.url());
+    });
+    const bellLoaded = page.waitForResponse((r) => r.url().endsWith("/bell/alerts") && r.ok());
+    await page.reload();
+    await bellLoaded;
+    const tile = page.getByRole("listitem", { name: "Room 7", exact: true });
+    await expect(tile).toContainText("Needed now · 11 min past");
+    await page.waitForTimeout(1_000);
+    expect(boardReads).toHaveLength(1);
+    expect(bellReads.length).toBeGreaterThanOrEqual(1);
+
+    // On the board the bell leaves the rooms to the board.
+    const bell = page.getByTestId("bell");
+    await bell.click();
+    const panel = page.getByRole("region", { name: "Bell", exact: true });
+    await expect(panel.getByText(/^Room \d+ · (Needed now|Staying)/)).toHaveCount(0);
+    await bell.click();
+
+    // The board's alert line opens Room 7's panel.
+    const line = page
+      .getByRole("list", { name: "Alerts" })
+      .getByRole("button", { name: /^Room 7 is 11 min past its time/ });
+    expect((await line.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await line.click();
+    await expect(page.getByRole("region", { name: "Room 7", exact: true })).toBeVisible();
+
+    // Off the board: the bell lists Room 7 in the tile's words; opening it opens Room 7's panel.
+    await page.goto("/clock");
+    await bell.click();
+    const room7 = panel.getByRole("button", { name: /Room 7 · Needed now · 11 min past/ });
+    await expect(room7).toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: /Room 10 · Staying · 41 min past/ }),
+    ).toBeVisible();
+    await expect(panel.getByText(/needs a wipe|new room code/)).toHaveCount(0);
+    await room7.click();
+    await expect(page).toHaveURL(/\/tonight$/);
+    await expect(page.getByRole("region", { name: "Room 7", exact: true })).toBeVisible();
+
+    // Room 9's call carries On it in the bell, and On it answers it.
+    await page.goto("/clock");
+    await bell.click();
+    const onIt = panel.getByRole("button", { name: "On it · Room 9 wants another mic" });
+    expect((await onIt.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await onIt.click();
+    await expect(panel.getByText("Room 9 wants another mic")).toHaveCount(0);
+    const open = await db.query(
+      `select 1 from room_calls k join room_sessions s on s.venue_id = k.venue_id and s.id = k.session_id
+         join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+        where k.venue_id = $1 and r.name = 'Room 9' and k.acked_at is null`,
+      [venue],
+    );
+    expect(open.rowCount).toBe(0);
+
+    // In Spanish too.
+    await db.query("update memberships set locale = 'es'");
+    await page.reload();
+    await bell.click();
+    await expect(
+      page
+        .getByRole("region", { name: "Campana", exact: true })
+        .getByRole("button", { name: /Room 7 · Se necesita ya · 11 min de más/ }),
+    ).toBeVisible();
+  } finally {
+    await db.query(
+      `update room_calls k set acked_at = null, acked_by = null
+         from room_sessions s join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+        where k.venue_id = $1 and s.venue_id = k.venue_id and s.id = k.session_id and r.name = 'Room 9'`,
+      [venue],
+    );
+    await db.query("delete from bell_reads where venue_id = $1", [venue]);
+    await db.query("update memberships set locale = 'en'");
     await db.end();
   }
 });

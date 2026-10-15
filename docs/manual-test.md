@@ -2044,3 +2044,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. As Maya (a bartender) the drawer panel never shows anyone's tip share, and she has no Tip-out.
 7. Tap **Paid-out**: the receipt's photo is still required (the API requires it, spec 08 · Drawer); **Open the drawer** stays grey until the amount, a reason and the photo are in.
 8. Spanish: "¿La diferencia pasa de $20.00? Añadirás una nota y otra persona cuenta también." and "Toca un nombre para pagarle su parte de las propinas de esta noche."
+
+### 31.18 One place for what needs doing (U-18)
+
+1. Start the demo (`scripts/demo-start.sh`) and sign in as Andy on a laptop. On **Rooms**, Room 7's tile reads "Needed now · 11 min past", and the alerts band's first line reads "Room 7 is 11 min past its time, and The Parks (8) are booked into Room 7 at 11:00." Tap the words of that line (not its buttons): Room 7's panel opens.
+2. Open the bell on Rooms: it lists no room lines (the board already shows them), only approvals, bar orders, guest texts and tickets that didn't print. The browser's network panel shows one `/board` read for the page and a `/bell/alerts` read for the bell.
+3. Open **Time clock** and the bell again: now it lists "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past" with the other room lines (Room 9's call, the free room for the waitlist). There's no "needs a wipe" or "new room code" line. Tap Room 7's line: the board opens with Room 7's panel.
+4. Back on Time clock, Room 9's call ("Room 9 wants another mic") has **On it** beside it. Tap On it: the line goes, and Calls no longer lists the call. Go to **Bar orders**: the bell leaves the ringing orders out there; on Time clock each has **Accept**, and Accept prints its ticket as on Bar orders.
+5. In Admin → Devices, pair this browser as the bar computer (or use the desktop app). Locked at 10:41 PM, the sound plays once, and nothing shows on the lock screen. Sign in as Maya (4071): under the top of the screen the **Time's up** strip lists "Room 3 · Wrap up · … min left", "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past". Tap Room 7: it leaves the strip and the board opens on Room 7's panel. Tap **Clear all**: the strip goes and doesn't come back at the next read; nothing plays again.
+6. Take the network away (the browser's offline switch): the bell shows its kept list, "Offline · as of 10:41 PM", with On it and Accept greyed.
+7. Spanish: the bell's lines read "Room 7 · Se necesita ya · 11 min de más" and "Room 10 · Se queda · 41 min de más"; the strip is "Se acabó el tiempo" with **Quitar todo**.

@@ -5,9 +5,15 @@ import { useT } from "../i18n.js";
 /**
  * The board's alerts band (M2-30; Board note 3), most urgent first: pink,
  * amber, lime, grey, each with its actions. The order and the data come from
- * `GET /board`; the words come from the catalog.
+ * `GET /board`; the words come from the catalog. A line that names its room opens that room's
+ * panel (U-18).
  */
-export type Alert =
+export type Alert = AlertKinds & {
+  /** The room the line is about (U-18): tapping the line opens its panel. */
+  readonly room_id?: string | null;
+};
+
+type AlertKinds =
   | {
       readonly kind: "needed_now" | "near_end";
       readonly color: string;
@@ -247,7 +253,17 @@ export function Alerts({
       <ul className="alerts" aria-label={label ?? t("alert.title")}>
         {shown.map((a, i) => (
           <li key={`${a.kind}-${i}`} className={`alert ${a.color}`} aria-label={words(a)}>
-            <span>{words(a)}</span>
+            {a.room_id ? (
+              <button
+                type="button"
+                className="link alert-room"
+                onClick={() => actions.show(a.room_id!)}
+              >
+                {words(a)}
+              </button>
+            ) : (
+              <span>{words(a)}</span>
+            )}
             <span className="actions">
               {(a.kind === "needed_now" || a.kind === "near_end") && (
                 <>

@@ -1,24 +1,35 @@
 import type { MessageKey } from "@west4/shared";
 
 /**
- * One bell for everything waiting (P-11; spec 10 · The bell). What's waiting comes from the lists
- * the screens already read, each only when this person may see it: approvals routed to them, the
- * board's room alerts that need someone, ringing and asked-to-wait bar orders, guest texts not yet
- * read, and tickets that didn't print. Each thing has a key; the keys this person marked read come
- * from the API (`/bell/reads`), so the count is per person on every screen they sign in to.
+ * One bell for everything waiting (P-11; U-18; spec 10 · The bell). A short list of what has no
+ * home on the screen in front of you: approvals routed to you, tickets that didn't print, guest
+ * texts not yet read, and the rooms (a room past its time, a room calling, a free room for the
+ * waitlist, a guest running late) and bar orders only when you're not on the screen that already
+ * shows them. Each line opens its place (a room's line opens that room's panel on the board) and
+ * carries the real action where there is one (On it on a call, Accept on a bar order). The keys
+ * this person marked read come from the API (`/bell/reads`), so the count is per person on every
+ * screen they sign in to.
  *
  * What's kept for offline holds no guest's name or words: only the kind, the room's name and the
  * key, so a shared computer's storage never carries guest data.
  */
 export type BellKind = "approval" | "room" | "order" | "text" | "print";
 
+/** The real action a line carries, through the screen's own route (U-18). */
+export type BellAction =
+  | { readonly kind: "onIt"; readonly callId: string }
+  | { readonly kind: "accept"; readonly orderId: string };
+
 export interface BellItem {
   readonly key: string;
   readonly kind: BellKind;
   readonly labelKey: MessageKey;
   readonly params: Readonly<Record<string, string | number>>;
-  /** The screen it opens. */
+  /** The screen it opens: a room's line opens that room's panel (`/tonight?room=<id>`). */
   readonly path: string;
+  /** The screens that already show it: the bell leaves it out there (U-18). */
+  readonly homes?: readonly string[];
+  readonly action?: BellAction;
 }
 
 export interface BellSources {
@@ -27,7 +38,8 @@ export interface BellSources {
     readonly kind: string;
     readonly requested_by_name: string;
   }[];
-  readonly alerts?: readonly BoardAlert[];
+  /** The room lines from `GET /bell/alerts` (U-18). */
+  readonly alerts?: readonly BellRoomLine[];
   readonly orders?: readonly {
     readonly id: string;
     readonly status: string;
@@ -45,16 +57,22 @@ export interface BellSources {
   }[];
 }
 
-/** One of the board's alerts (GET /board); the bell reads only the fields it names. */
-export type BoardAlert = { readonly kind: string } & Readonly<Record<string, unknown>>;
+/** One of the bell's room lines (GET /bell/alerts); the bell reads only the fields it names. */
+export type BellRoomLine = {
+  readonly kind: string;
+  readonly room_id: string;
+  readonly room_name: string;
+} & Readonly<Record<string, unknown>>;
 
 const CALLS = new Set(["mic", "tv", "check", "other"]);
 
+/** The board's link that opens one room's panel (U-18). */
+export const roomPath = (roomId: string) => `/tonight?room=${encodeURIComponent(roomId)}`;
+
 /**
  * Everything waiting, in the bell's order: approvals first (someone is standing there), then the
- * rooms in the board's own order, bar orders, guest texts and tickets that didn't print. The board's
- * near-end, 21+ and clear-out lines are notices, not things to do, and its order and ticket lines
- * are already here as bar orders and printer errors.
+ * rooms in the server's order (time's up, calls, the waitlist, late guests), bar orders, guest
+ * texts and tickets that didn't print.
  */
 export function bellItems(s: BellSources): BellItem[] {
   const items: BellItem[] = [];
@@ -65,11 +83,26 @@ export function bellItems(s: BellSources): BellItem[] {
       labelKey: "bell.item.approval",
       params: { kind: a.kind, name: a.requested_by_name },
       path: "/approvals",
+      homes: ["/approvals"],
     });
-  for (const alert of s.alerts ?? []) {
-    const a = alert;
-    const room = String(a["room_name"] ?? "");
+  for (const a of s.alerts ?? []) {
+    const room = String(a.room_name ?? "");
+    const path = roomPath(String(a.room_id));
     switch (a.kind) {
+      case "time_up": {
+        const words = (a["words"] ?? {}) as { kind?: string; minutes_past?: number };
+        const needed = words.kind === "needed_now";
+        items.push({
+          // A room that goes from Staying to Needed now (someone booked next) counts again.
+          key: `room:time_up:${String(a["session_id"])}:${needed ? "needed_now" : "staying"}`,
+          kind: "room",
+          labelKey: needed ? "bell.item.neededNow" : "bell.item.staying",
+          params: { room, min: Number(words.minutes_past ?? 0) },
+          path,
+          homes: ["/tonight"],
+        });
+        break;
+      }
       case "call": {
         const call = String(a["call"]);
         items.push({
@@ -77,45 +110,20 @@ export function bellItems(s: BellSources): BellItem[] {
           kind: "room",
           labelKey: `bell.item.call.${CALLS.has(call) ? call : "other"}` as MessageKey,
           params: { room },
-          path: "/calls",
+          path,
+          homes: ["/tonight", "/calls"],
+          action: { kind: "onIt", callId: String(a["call_id"]) },
         });
         break;
       }
-      case "needed_now":
-        items.push({
-          key: `room:needed_now:${String(a["session_id"])}`,
-          kind: "room",
-          labelKey: "bell.item.neededNow",
-          params: { room },
-          path: "/tonight",
-        });
-        break;
       case "offer":
         items.push({
           key: `room:offer:${String(a["entry_id"])}:${room}`,
           kind: "room",
           labelKey: "bell.item.offer",
           params: { room },
-          path: "/tonight",
-        });
-        break;
-      case "wipe":
-        for (const r of (a["rooms"] as readonly { room_id: string; name: string }[]) ?? [])
-          items.push({
-            key: `room:wipe:${r.room_id}`,
-            kind: "room",
-            labelKey: "bell.item.wipe",
-            params: { room: r.name },
-            path: "/tonight",
-          });
-        break;
-      case "code":
-        items.push({
-          key: `room:code:${String(a["session_id"])}`,
-          kind: "room",
-          labelKey: "bell.item.code",
-          params: { room },
-          path: "/tonight",
+          path,
+          homes: ["/tonight"],
         });
         break;
       case "late":
@@ -124,7 +132,8 @@ export function bellItems(s: BellSources): BellItem[] {
           kind: "room",
           labelKey: "bell.item.late",
           params: { room },
-          path: "/tonight",
+          path,
+          homes: ["/tonight"],
         });
         break;
     }
@@ -142,6 +151,8 @@ export function bellItems(s: BellSources): BellItem[] {
           : "bell.item.order.noRoom",
       params: { room: o.room_name ?? "" },
       path: "/bar-orders",
+      homes: ["/bar-orders"],
+      action: { kind: "accept", orderId: o.id },
     });
   for (const c of s.conversations ?? [])
     if (c.unread > 0)
@@ -151,6 +162,7 @@ export function bellItems(s: BellSources): BellItem[] {
         labelKey: "bell.item.text",
         params: { count: c.unread },
         path: "/messages",
+        homes: ["/messages"],
       });
   for (const j of s.failed ?? [])
     items.push({
@@ -167,6 +179,11 @@ export function bellItems(s: BellSources): BellItem[] {
       path: "/bar",
     });
   return items;
+}
+
+/** What the bell shows on this screen: the lines whose home it isn't (U-18). */
+export function bellShown(items: readonly BellItem[], pathname: string): BellItem[] {
+  return items.filter((i) => !(i.homes ?? []).includes(pathname));
 }
 
 /** The bell's number: the things in its list this person hasn't marked read. */
