@@ -1812,3 +1812,12 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. Tap **Sat 26** and press **New booking**: the booking is made for Saturday, and Saturday's number in the grid goes up by one.
 5. **›** shows October 2026 (no day outlined), **‹** comes back. **Days** returns to the list of days ahead.
 6. With Spanish chosen, the switch reads **Días · Mes**, the month "septiembre de 2026", and a past day "Este día ya pasó: no admite reservas nuevas."
+
+### 30.9 Staff actions (P-09)
+
+1. Sign in as Andy and open **Reports**. The **Staff actions** card reads From and To tonight (2026-09-25) and lists people by name: **Maya S.** with **Comps · 1 · $12.00** and **Andy C.** with **Cut-offs · 1**.
+2. Tap **Comps · 1 · $12.00**: its row opens with the time, the room, the item, "no approval" and the reason. Tap it again to close it. Each button is at least 44 px tall.
+3. Void a sent line over the reason-only limit from the fix panel and approve it on Andy's phone, give a 10% discount on a check (P-02, section 30), take a no-sale and a paid-out at the bar drawer: after each, the card shows the person's count and dollars, and the opened row says "approved by Andy C." where Andy approved it. The dollars match the exceptions list and the Z report's comps, voids and discounts.
+4. Set From to 2026-09-01 and To to 2026-09-24: "No staff actions in these dates." Set From after To: "Pick a start on or before the end, 93 days at most."
+5. Sign in as Maya (a bartender): Reports isn't in her menu, and `GET /reports/staff-actions` answers 403.
+6. With Spanish chosen, the card reads **Acciones del personal**, "Desde", "Hasta", "Invitaciones" and "sin aprobación".

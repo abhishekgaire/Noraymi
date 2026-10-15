@@ -175,13 +175,16 @@ Definition of done: see CLAUDE.md.
 
 ### P-09 · Staff actions (voids, comps, discounts, no-sales by person)
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** `/reports/staff-actions`
 - **Spec:** [Money rules](../spec/05-money-rules.md) · Close the night and reports
 - **Build:** Reports → **Staff actions** for the owner and managers: a date range, and per person the count and dollars of voids, comps, discounts (P-02), refunds, no-sales, paid-outs, over/short and punch edits, each opening its list with who approved it.
 - **Acceptance:**
-  - [ ] The dollars match the audit rows; staff without the permission are refused; EN and ES; tests.
+  - [x] The dollars match the audit rows; staff without the permission are refused; EN and ES; tests.
+- **Notes:**
+  - `GET /reports/staff-actions` now takes `?from=&to=` (or `?date=`, tonight when left out) and answers per person (by user, so two people with one name stay apart) each kind's count and cents and `entries`, one per action with when, its business date, where, what, why, the amount and who approved it. The rows come from `apps/api/src/nights/staff-actions.ts` (`staffActionRows`, grouped by `groupStaffActions`); each person's dollars are the sum of their rows, which are the actions' own rows as the audit log recorded them. No migration. Staff: a **Staff actions** card on Reports (`ReportsStaffActions.tsx`) with From and To, a 44 px button per kind opening its rows. Tests: `staff-actions.test.ts` (unit), `staff-actions-report.int.test.ts` (each kind, the audit log compared person by person, the same rows as app_rw, ranges, a bartender refused), the P-09 e2e in `staff.spec.ts`; manual test 30.9; spec 05 rule 16 and spec 08 · Reports and exports.
+  - Cautious defaults: a range is 93 days at most (the reports' 5-second limit), and backwards is refused; amounts are signed as stored (comps, voids and discounts negative; the screen shows them as positive dollars, over/short with its sign); discounts count only when still standing on the check, at what came off it (its discount lines, or what it counted when given before any); refunds go to who asked for them (not failed or canceled; an automatic refund has nobody and isn't listed) and replace the old `refund_asked` and `refund_approved` pair; over/short lists only drawers counted over or short, not exactly, by who counted them; a punch edit belongs to who edited it, on the punch's own business date (no longer matched through a shift, so a clock-in moved earlier still counts), naming whose punch it was; no-sales and paid-outs from a staff bank count too (before only drawers'); cut-offs stay in the report (the old route had them) without dollars; "who approved it" is the row's own approver, or "no approval" when it was within the person's reason-only limit; no CSV (the ticket asks for none). Permission is the reports' own: owners and managers (`admin.access`); per-person access is P-10's.
 
 ### P-10 · Access person by person, and which actions ask for a PIN
 

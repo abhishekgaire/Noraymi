@@ -11063,3 +11063,71 @@ test("the Spanish review: every staff route in Spanish at 390 and 1440, screensh
     await db.end();
   }
 });
+
+/**
+ * P-09 · Reports → Staff actions: tonight per person, the seed's comp by Maya ($12.00, no approval) and
+ * a no-sale Diego took that Andy approved; each kind opens its rows (44 px); a range before the
+ * night has none, and a backwards range says so.
+ */
+test("P-09 · staff actions: per person, each opening its rows with who approved it", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  let moveId: string | null = null;
+  try {
+    const venue = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    const person = async (name: string) =>
+      (
+        await db.query<{ id: string }>(
+          "select u.id from users u join memberships m on m.user_id = u.id where m.venue_id = $1 and u.name = $2",
+          [venue, name],
+        )
+      ).rows[0]!.id;
+    const session = (
+      await db.query<{ id: string }>(
+        "select id from drawer_sessions where venue_id = $1 and business_date = '2026-09-25' order by opened_at, id limit 1",
+        [venue],
+      )
+    ).rows[0]!.id;
+    moveId = (
+      await db.query<{ id: string }>(
+        `insert into drawer_moves (venue_id, drawer_session_id, kind, amount_cents, taken_by, reason, approved_by, at)
+         values ($1, $2, 'no_sale', 0, $3, 'Change for a $20', $4, '2026-09-26T01:40:00Z') returning id`,
+        [venue, session, await person("Diego R."), await person("Andy C.")],
+      )
+    ).rows[0]!.id;
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/reports");
+    const card = page.getByRole("region", { name: "Staff actions", exact: true });
+    await expect(card.getByLabel("From", { exact: true })).toHaveValue("2026-09-25");
+    await expect(card.getByLabel("To", { exact: true })).toHaveValue("2026-09-25");
+    await expect(card.getByRole("heading", { name: "Maya S." })).toBeVisible();
+    const comps = card.getByRole("button", { name: "Comps · 1 · $12.00" });
+    await expect(comps).toBeVisible();
+    await comps.click();
+    await expect(comps).toHaveAttribute("aria-expanded", "true");
+    await expect(card.getByRole("list", { name: "Comps · 1 · $12.00" })).toContainText(
+      "no approval",
+    );
+    const noSales = card.getByRole("button", { name: "No-sales · 1" });
+    await noSales.click();
+    const rows = card.getByRole("list", { name: "No-sales · 1" });
+    await expect(rows).toContainText("approved by Andy C.");
+    await expect(rows).toContainText("Change for a $20");
+    const box = await noSales.boundingBox();
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+    await card.getByLabel("From", { exact: true }).fill("2026-09-01");
+    await card.getByLabel("To", { exact: true }).fill("2026-09-24");
+    await expect(card).toContainText("No staff actions in these dates.");
+    await card.getByLabel("From", { exact: true }).fill("2026-09-25");
+    await card.getByLabel("To", { exact: true }).fill("2026-09-20");
+    await expect(card.getByRole("alert")).toContainText("Pick a start on or before the end");
+  } finally {
+    if (moveId) await db.query("delete from drawer_moves where id = $1", [moveId]);
+    await db.end();
+  }
+});

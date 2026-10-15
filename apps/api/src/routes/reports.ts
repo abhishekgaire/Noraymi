@@ -5,6 +5,7 @@ import { Temporal, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
+import { groupStaffActions, staffActionRows } from "../nights/staff-actions.js";
 
 /**
  * Reports (M7-18; spec 08 · Reports and exports, Conventions: reports on a
@@ -14,8 +15,10 @@ import { venueClock } from "../rooms/assignment.js";
  *   GET /v1/venues/{v}/reports/occupancy?date=    rooms in use by hour, of the venue's rooms
  *   GET /v1/venues/{v}/reports/bookings?to=       online, walk-ins seated, big parties, stayed past booked
  *                                                 time, no-shows with the deposit kept, the no-show rate by week
- *   GET /v1/venues/{v}/reports/staff-actions?date= per person: comps, voids, refunds asked and approved,
- *                                                 cut-offs, no-sales, paid-outs, drawers over or short, punch edits
+ *   GET /v1/venues/{v}/reports/staff-actions?from=&to= (or ?date=) per person (P-09): voids, comps,
+ *                                                 discounts, refunds, no-sales, paid-outs, drawers over or
+ *                                                 short, punch edits and cut-offs, counts and dollars, and
+ *                                                 each action's row with who approved it; 93 days at most
  *   GET /v1/venues/{v}/reports/exceptions?date=   every comp, void and refund, approved or not
  * Owners and managers; all under Reports & accounting, which answers 404
  * module_off when it's off (the Z report stays on Night). Every query runs
@@ -23,6 +26,8 @@ import { venueClock } from "../rooms/assignment.js";
  * before go-live come from `legacy_nightly_totals`.
  */
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** Staff actions' longest range (P-09): a quarter, so it stays inside the 5-second limit. */
+const MAX_STAFF_ACTION_DAYS = 93;
 
 async function today(c: Queryable, venueId: string, now: Temporal.Instant) {
   const v = await venueClock(c, venueId);
@@ -236,53 +241,22 @@ export function reportRoutes(app: FastifyInstance, options: { clock: Clock }): v
       }),
   );
 
-  app.get<{ Params: { venueId: string }; Querystring: { date?: string } }>(
-    "/v1/venues/:venueId/reports/staff-actions",
-    { config },
-    async (request) =>
-      run(request, async (c) => {
-        const venueId = request.venueId!;
-        const date = (await dateOf(c, request, request.query.date)).toString();
-        const r = await c.query<{ name: string; what: string; n: string; cents: string }>(
-          `select u.name, x.what, count(*)::text as n, coalesce(sum(x.cents), 0)::text as cents from (
-              -- A meal comped or voided with its parts (K-12) is one action, at the whole amount.
-              select l.added_by as who, l.kind as what,
-                     l.amount_cents + coalesce((select sum(p.amount_cents) from live_check_lines p
-                                                 where p.venue_id = l.venue_id and p.part_of_id = l.id), 0) as cents
-                from live_check_lines l
-               where l.venue_id = $1 and l.business_date = $2::date and l.kind in ('comp', 'void')
-                 and l.part_of_id is null
-              union all
-              select f.requested_by, 'refund_asked', f.amount_cents from refunds f
-               where f.venue_id = $1 and f.business_date = $2::date
-              union all
-              select f.approved_by, 'refund_approved', f.amount_cents from refunds f
-               where f.venue_id = $1 and f.business_date = $2::date and f.approved_by is not null
-              union all
-              select t.cut_off_by, 'cut_off', 0 from tabs t join live_checks k on k.venue_id = t.venue_id and k.id = t.check_id
-               where t.venue_id = $1 and k.business_date = $2::date and t.cut_off_by is not null
-              union all
-              select m.taken_by, m.kind, m.amount_cents from drawer_moves m join drawer_sessions s on s.venue_id = m.venue_id and s.id = m.drawer_session_id
-               where m.venue_id = $1 and s.business_date = $2::date and m.kind in ('no_sale', 'paid_out')
-              union all
-              select s.counted_by, 'over_short', s.over_short_cents from drawer_sessions s
-               where s.venue_id = $1 and s.business_date = $2::date and s.counted_by is not null
-              union all
-              select p.edited_by, 'punch_edit', 0 from time_punches p join shifts sh on sh.venue_id = p.venue_id
-                and sh.membership_id = p.membership_id and p.at >= sh.started_at and (sh.ended_at is null or p.at <= sh.ended_at)
-               where p.venue_id = $1 and sh.business_date = $2::date and p.edited_by is not null
-            ) x join users u on u.id = x.who
-           group by u.name, x.what order by u.name, x.what`,
-          [venueId, date],
-        );
-        const people = new Map<string, Record<string, { count: number; cents: number }>>();
-        for (const row of r.rows) {
-          const p = people.get(row.name) ?? {};
-          p[row.what] = { count: Number(row.n), cents: Number(row.cents) };
-          people.set(row.name, p);
-        }
-        return { date, people: [...people].map(([name, actions]) => ({ name, actions })) };
-      }),
+  app.get<{
+    Params: { venueId: string };
+    Querystring: { date?: string; from?: string; to?: string };
+  }>("/v1/venues/:venueId/reports/staff-actions", { config }, async (request) =>
+    run(request, async (c) => {
+      // P-09: a range of business dates (`from`, `to`), or one night (`date`); tonight when left out.
+      const q = request.query;
+      const from = await dateOf(c, request, q.date ?? q.from ?? q.to);
+      const to = q.date !== undefined ? from : await dateOf(c, request, q.to ?? q.from);
+      if (Temporal.PlainDate.compare(from, to) > 0)
+        throw new ApiError("invalid_request", "from comes after to");
+      if (from.until(to).days >= MAX_STAFF_ACTION_DAYS)
+        throw new ApiError("invalid_request", `${MAX_STAFF_ACTION_DAYS} days at most`);
+      const rows = await staffActionRows(c, request.venueId!, from.toString(), to.toString());
+      return { from: from.toString(), to: to.toString(), people: groupStaffActions(rows) };
+    }),
   );
 
   app.get<{ Params: { venueId: string }; Querystring: { date?: string } }>(

@@ -480,6 +480,21 @@
 .reports.desk .actions input {
   width: auto;
 }
+/* Staff actions (P-09): a person's kinds as full-width 44 px buttons, each opening its rows. */
+.reports .staff-actions,
+.reports .staff-actions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.reports .staff-actions h3 {
+  margin: 12px 0 4px;
+}
+.reports .staff-actions button.row {
+  width: 100%;
+  justify-content: space-between;
+  text-align: start;
+}
 /* Reports: the three numbers as the canvas's figure cards, the trend as columns. */
 .reports.desk .desk-cols {
   margin-bottom: 12px;
