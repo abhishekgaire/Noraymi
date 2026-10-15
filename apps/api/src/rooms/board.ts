@@ -159,6 +159,12 @@ export async function board(
             training: s.training,
             started_at: s.started_at,
             guest_name: s.guest_name,
+            /** Starting a room (P-04): the note, and a prepaid block with the package it came with. */
+            note: s.note,
+            prepaid:
+              s.prepaid_minutes !== null
+                ? { minutes: s.prepaid_minutes, package_name: s.package_name }
+                : null,
             party_size: s.party_size,
             ids_checked: s.ids_checked,
             minutes: s.clock.minutes,

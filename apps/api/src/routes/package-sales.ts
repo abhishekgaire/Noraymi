@@ -1,12 +1,12 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { menuPromotionRefusals, orderableVariant, type Queryable } from "@west4/db";
-import { businessDate } from "@west4/rules";
-import type { Clock, Temporal } from "@west4/shared";
+import { businessDate, packageLineShares } from "@west4/rules";
+import { cents, type Clock, type Temporal } from "@west4/shared";
 import { z } from "zod";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { inVenueRefusing } from "../orders/alcohol.js";
-import { placeStaffOrder, type StaffLine } from "../orders/place.js";
+import { orderItemsFor, placeStaffOrder, type StaffLine } from "../orders/place.js";
 import { promotableOf } from "../menu/promotions.js";
 import { venueClock } from "../rooms/assignment.js";
 
@@ -75,12 +75,17 @@ async function today(c: Queryable, venueId: string, now: Temporal.Instant) {
   return businessDate(now, clock.timeZone, clock.dayCutover).businessDate;
 }
 
-/** Why a package can't be sold on a tab now, or null. */
+/**
+ * Why a package can't be sold now, or null: on a tab, or at a room's start (P-04), where only a
+ * package with a length is sold, and one with a length but nothing in it is room time alone. A
+ * package with a length sets the room's time, so it's never added to a running tab.
+ */
 async function unsellable(
   c: Queryable,
   venueId: string,
   row: Row,
   now: Temporal.Instant,
+  atStart = false,
 ): Promise<{ reason: string; message: string } | null> {
   if (row["hourly"] === true)
     return { reason: "hourly_package", message: `${String(row["name"])} is priced by the hour` };
@@ -89,7 +94,15 @@ async function unsellable(
       reason: "private_function_not_cleared",
       message: `${String(row["name"])} relies on the private-function exception`,
     };
-  if (contentsOf(row).length === 0)
+  const length = row["minutes"] == null ? null : Number(row["minutes"]);
+  if (atStart && length === null)
+    return { reason: "no_length", message: `${String(row["name"])} has no length of room time` };
+  if (!atStart && length !== null)
+    return {
+      reason: "starts_room",
+      message: `${String(row["name"])} sets the room's time: pick it when the room starts`,
+    };
+  if (contentsOf(row).length === 0 && length === null)
     return { reason: "empty_package", message: `${String(row["name"])} has nothing in it` };
   const { refusals } = await menuPromotionRefusals(
     c,
@@ -117,16 +130,19 @@ export function packageSaleRoutes(app: FastifyInstance, options: { clock: Clock 
         const venueId = request.venueId!;
         const now = options.clock.now();
         const nowIso = new Date(now.epochMilliseconds).toISOString();
+        // ?at_start=1 (P-04): the packages a walk-in can start with: each with a length, and none
+        // whose lines need a choice, since the walk-in dialog asks for none.
+        const atStart = (request.query as { at_start?: string }).at_start === "1";
         const rows = (
           await c.query<Row>(
-            `select id, name, price_cents, hourly, private_function_only, contents from packages
+            `select id, name, price_cents, hourly, private_function_only, contents, minutes from packages
               where venue_id = $1 order by name, id`,
             [venueId],
           )
         ).rows;
         const packages = [];
         for (const row of rows) {
-          if (await unsellable(c, venueId, row, now)) continue;
+          if (await unsellable(c, venueId, row, now, atStart)) continue;
           const variants = await defaultVariants(
             c,
             venueId,
@@ -167,10 +183,13 @@ export function packageSaleRoutes(app: FastifyInstance, options: { clock: Clock 
               })),
             });
           }
+          if (atStart && contents.some((x) => !x.variant_id || x.groups.some((g) => g.required)))
+            continue;
           packages.push({
             id: String(row["id"]),
             name: String(row["name"]),
             price_cents: Number(row["price_cents"]),
+            minutes: row["minutes"] == null ? null : Number(row["minutes"]),
             contents,
           });
         }
@@ -204,7 +223,7 @@ export function packageSaleRoutes(app: FastifyInstance, options: { clock: Clock 
       const order = await inVenueRefusing(request, async (c) => {
         const now = options.clock.now();
         const found = await c.query<Row>(
-          `select id, name, price_cents, hourly, private_function_only, contents from packages
+          `select id, name, price_cents, hourly, private_function_only, contents, minutes from packages
             where venue_id = $1 and id = $2`,
           [venueId, body.package_id],
         );
@@ -260,4 +279,98 @@ export function packageSaleRoutes(app: FastifyInstance, options: { clock: Clock 
       return reply.code(201).send({ order });
     },
   );
+}
+
+/**
+ * The package a room starts with (P-04; spec 05 · rule 3, Prepaid block): one with a length, sold
+ * at the start, or a refusal. Read before the room is seated, so its length sets the room's time.
+ */
+export async function packageForStart(
+  c: Queryable,
+  venueId: string,
+  packageId: string,
+  now: Temporal.Instant,
+): Promise<{ id: string; name: string; minutes: number }> {
+  const found = await c.query<Row>(
+    `select id, name, price_cents, hourly, private_function_only, contents, minutes from packages
+      where venue_id = $1 and id = $2`,
+    [venueId, packageId],
+  );
+  const row = found.rows[0];
+  if (!row) throw new ApiError("not_found", "no such package");
+  const why = await unsellable(c, venueId, row, now, true);
+  if (why) throw new ApiError("invalid_request", why.message, { details: { reason: why.reason } });
+  return { id: String(row["id"]), name: String(row["name"]), minutes: Number(row["minutes"]) };
+}
+
+/**
+ * Sells the package a room starts with, on its new check (P-04). The package's price covers its
+ * length of room time and its lines: it's divided across the block (its minutes at the room's
+ * rate) and each line's regular price, largest remainder (Money rules 1). The block's share is the
+ * session's prepaid block; the lines are a staff order accepted at once, as on a tab (K-09). A
+ * package with nothing in it is room time alone. It takes no choices: the walk-in dialog offers
+ * only packages whose lines need none. Returns the block's share.
+ */
+export async function sellPackageAtStart(
+  c: Queryable,
+  venueId: string,
+  input: {
+    packageId: string;
+    checkId: string;
+    sessionId: string;
+    /** The block's minutes at the room's rate: what its room time would have been. */
+    blockRegularCents: number;
+    userId: string;
+    membershipId: string;
+    deviceId: string | null;
+    now: Temporal.Instant;
+  },
+): Promise<number> {
+  const found = await c.query<Row>(
+    "select id, price_cents, contents from packages where venue_id = $1 and id = $2",
+    [venueId, input.packageId],
+  );
+  const row = found.rows[0];
+  if (!row) throw new ApiError("not_found", "no such package");
+  const price = Number(row["price_cents"]);
+  const contents = contentsOf(row);
+  const variants = await defaultVariants(
+    c,
+    venueId,
+    contents.map((x) => x.item_id),
+  );
+  const lines: StaffLine[] = contents.flatMap((entry) => {
+    const variantId = variants.get(entry.item_id);
+    if (!variantId)
+      throw new ApiError("invalid_request", "an item in this package isn't on the menu", {
+        details: { reason: "not_on_menu", item_id: entry.item_id },
+      });
+    return Array.from({ length: entry.qty ?? 1 }, () => ({ variant_id: variantId, qty: 1 }));
+  });
+  const regular = lines.length ? await orderItemsFor(c, venueId, lines, input.now) : [];
+  const shares = packageLineShares(cents(price), [
+    { regularCents: input.blockRegularCents },
+    ...regular.map((i) => ({
+      regularCents: i.unitCents + i.options.reduce((sum, o) => sum + o.price_delta_cents, 0),
+    })),
+  ]);
+  const block = shares[0]!;
+  if (lines.length)
+    await placeStaffOrder(c, venueId, {
+      checkId: input.checkId,
+      lines,
+      clientOrderId: null,
+      userId: input.userId,
+      membershipId: input.membershipId,
+      deviceId: input.deviceId,
+      now: input.now,
+      keepDraft: true,
+      package: { id: input.packageId, priceCents: price - block },
+    });
+  await c.query("update room_sessions set prepaid_cents = $3 where venue_id = $1 and id = $2", [
+    venueId,
+    input.sessionId,
+    block,
+  ]);
+  return block;
 }

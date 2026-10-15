@@ -1999,6 +1999,101 @@ test("D128 · the walk-in dialog is taps, fits a 1366 × 768 screen, and needs n
 });
 
 /**
+ * Starting a room (P-04). From a fresh seed at 10:41 PM on a 1366 × 768 bar computer, with a test
+ * package that has a length of room time: + Walk-in on Room 11 shows a Note, Pay as you go (chosen)
+ * and Prepaid block, and a Package select, and still fits with no scroll. Picking the package locks
+ * How long at its length; back to No package, Andy types a note, picks Prepaid block and seats 4
+ * guests for 2 h. The tile shows the note; the room's panel shows "Prepaid block · 2 h" and $80.00
+ * of room time at once.
+ */
+test("P-04 · a walk-in starts with a note and a prepaid block, and the dialog still fits", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  execSync(SEED_COMMAND, { stdio: ["ignore", "ignore", "pipe"] });
+  const db = await dbClient();
+  try {
+    await db.query(
+      `insert into packages (venue_id, name, price_cents, contents, minutes, checked_pack_version)
+         select id, 'TEST Room hour', 3000, '[]', 60, 'unchecked' from venues where slug = 'west4karaoke'`,
+    );
+    await setClock(request, "2026-09-26T02:41:00Z");
+    await page.setViewportSize({ width: 1366, height: 768 });
+    await signInAndy(page, request, db);
+    await page.goto("/tonight");
+    const room11 = await openRoom(page, "Room 11");
+    await room11.getByRole("button", { name: "+ Walk-in" }).click();
+    const dialog = page.getByRole("dialog", { name: "Walk-in · Room 11" });
+    const length = dialog.getByRole("group", { name: "4 · How long" });
+    const time = dialog.getByRole("group", { name: "Time" });
+    const seat = dialog.getByRole("button", { name: "Seat them" });
+    const fits = async (label: string) => {
+      await expect(seat, label).toBeInViewport({ ratio: 1 });
+      expect(
+        await dialog.evaluate((d) => d.scrollHeight <= d.clientHeight + 1),
+        `${label}: the dialog scrolls`,
+      ).toBe(true);
+      expect(await clippedText(page), label).toEqual([]);
+      for (const button of await dialog.getByRole("button").all())
+        expect(Math.round((await button.boundingBox())!.height), label).toBeGreaterThanOrEqual(44);
+    };
+    await expect(time.getByRole("button", { name: "Pay as you go" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const pkg = dialog.getByLabel("Package");
+    await expect(pkg).toBeVisible();
+    await fits("1366 × 768, with a package to offer");
+
+    // A package sets How long and the block, and locks them.
+    await pkg.selectOption({ label: "TEST Room hour · 1 h · $30.00" });
+    await expect(length.getByRole("button", { name: "1 h", exact: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(length.getByRole("button", { name: "2 h" })).toBeDisabled();
+    await expect(time.getByRole("button", { name: "Prepaid block" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await pkg.selectOption({ label: "No package" });
+    await expect(length.getByRole("button", { name: "2 h" })).toBeEnabled();
+
+    await dialog
+      .getByRole("group", { name: "1 · Guests" })
+      .getByRole("button", { name: "4", exact: true })
+      .click();
+    await dialog.getByLabel("Note (optional)").fill("Nia's birthday · cake at 11");
+    await time.getByRole("button", { name: "Prepaid block" }).click();
+    await fits("1366 × 768, filled in");
+    await seat.click();
+    await expect(page.getByText(/^Room 11 · room code [A-Z2-9]{5} · check #\d{4}$/)).toBeVisible();
+
+    const tile = page.getByRole("listitem", { name: "Room 11", exact: true });
+    await expect(tile).toContainText("Nia's birthday · cake at 11");
+    const panel = await openRoom(page, "Room 11");
+    await expect(panel).toContainText("Prepaid block · 2 h");
+    await expect(panel).toContainText("Nia's birthday · cake at 11");
+    await expect(panel).toContainText("$80.00");
+    const row = (
+      await db.query<{ note: string; prepaid_minutes: number; prepaid_cents: number }>(
+        `select s.note, s.prepaid_minutes, s.prepaid_cents
+           from room_sessions s join rooms r on r.id = s.room_id
+          where r.name = 'Room 11' and s.ended_at is null`,
+      )
+    ).rows[0];
+    expect(row).toEqual({
+      note: "Nia's birthday · cake at 11",
+      prepaid_minutes: 120,
+      prepaid_cents: 8000,
+    });
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * Keep the card behind the bar (O-08; D116). From a fresh seed at 10:41 PM: Andy picks "Keep the
  * card behind the bar" in Admin → Deposits & cancelling; a walk-in on Room 11 is seated, then the
  * name on the guest's card and its last 4 are typed (a full number never fits the field); the tile

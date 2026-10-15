@@ -20,8 +20,14 @@ import {
   withVenue,
   type Queryable,
 } from "@west4/db";
-import { businessDate, minSpendFor, rateAt, type RoomForRate } from "@west4/rules";
-import { Temporal, walkInTakesOf, type Clock } from "@west4/shared";
+import {
+  businessDate,
+  minSpendFor,
+  prepaidBlockCents,
+  rateAt,
+  type RoomForRate,
+} from "@west4/rules";
+import { Temporal, cents, walkInTakesOf, type Clock } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { noShowMoney } from "../bookings/cancel.js";
 import { queueText, venueTexts } from "../texts/queue.js";
@@ -30,6 +36,8 @@ import { sealRoomCode } from "./room-code.js";
 import { venueClock } from "./assignment.js";
 import { emailRoomQr, printRoomQr } from "./room-qr.js";
 import type { EmailSettings } from "../email/settings.js";
+import { AlcoholRefused, logRefused } from "../orders/alcohol.js";
+import { packageForStart, sellPackageAtStart } from "../routes/package-sales.js";
 
 /**
  * Check-in, walk-ins and Mark no-show (M2-11; screens N10; spec 10 · Check in;
@@ -184,6 +192,15 @@ interface SeatInput {
    * see it. Its check is numbered T-… from its own counter.
    */
   readonly training?: boolean;
+  /** Starting a room (P-04): a note shown on the tile and at close-out. */
+  readonly note?: string | null;
+  /**
+   * A prepaid block (P-04; spec 05 · rule 3): its minutes, billed at least at the room's rate, or
+   * as the room-time share of the package it starts with. Null is pay as you go.
+   */
+  readonly prepaid?: { readonly minutes: number; readonly packageId: string | null } | null;
+  /** Who's seating them, for the package's staff order. */
+  readonly staff?: { readonly membershipId: string; readonly deviceId: string | null } | null;
 }
 
 /**
@@ -191,9 +208,23 @@ interface SeatInput {
  * booking's own block turns into it, or a new one when the room changed), the
  * room in use, the check with its number (taken first, in its own short
  * transaction), and the Room code text to the host. A room that doesn't fit
- * or isn't free answers 409 room_not_free.
+ * or isn't free answers 409 room_not_free. A package it starts with is sold
+ * on the check in the same transaction; an alcohol refusal seats nobody and
+ * is logged.
  */
 async function seat(ctx: Context, input: SeatInput) {
+  try {
+    return await seatOnce(ctx, input);
+  } catch (e) {
+    if (e instanceof AlcoholRefused)
+      await withVenue(ctx.pool, { venueId: input.venueId }, (c) =>
+        logRefused(c, input.venueId, e.refused),
+      );
+    throw e;
+  }
+}
+
+async function seatOnce(ctx: Context, input: SeatInput) {
   const training = input.training ?? false;
   const number = await nextCheckNumber(ctx.pool, input.venueId, { training });
   return withVenue(ctx.pool, { venueId: input.venueId, userId: input.userId }, async (c) => {
@@ -241,12 +272,16 @@ async function seat(ctx: Context, input: SeatInput) {
       partySize: input.partySize,
       bigParty: priced.bigParty,
     });
+    // A prepaid block's regular price: its minutes at the room's rate as the room starts (P-04).
+    const blockRegular = input.prepaid
+      ? prepaidBlockCents(input.prepaid.minutes, cents(rate.hourlyCents))
+      : null;
     const sessionId = (
       await c.query<{ id: string }>(
         `insert into room_sessions (venue_id, room_id, booking_id, party_size, started_at, booked_end_at, business_date,
            server_user_id, room_code_hash, token_version, host_token_hash, guest_id, room_code_enc, host_lock, min_spend_cents,
-           training)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13, $14, $15) returning id`,
+           training, note, prepaid_minutes, prepaid_cents, package_id)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19) returning id`,
         [
           input.venueId,
           room.id,
@@ -265,6 +300,11 @@ async function seat(ctx: Context, input: SeatInput) {
             false,
           minSpend,
           training,
+          input.note?.trim() || null,
+          input.prepaid?.minutes ?? null,
+          // A package's share is set once it's sold, below.
+          input.prepaid ? (input.prepaid.packageId ? 0 : blockRegular) : null,
+          input.prepaid?.packageId ?? null,
         ],
       )
     ).rows[0]!.id;
@@ -342,6 +382,20 @@ async function seat(ctx: Context, input: SeatInput) {
     const depositApplied = input.bookingId
       ? await applyDeposits(c, input.venueId, { bookingId: input.bookingId, checkId })
       : 0;
+    // The package it starts with (P-04): on the tab now, its room-time share the prepaid block.
+    if (input.prepaid?.packageId) {
+      if (!input.staff) throw new ApiError("forbidden", "a package is a person's sale");
+      await sellPackageAtStart(c, input.venueId, {
+        packageId: input.prepaid.packageId,
+        checkId,
+        sessionId,
+        blockRegularCents: blockRegular!,
+        userId: input.userId,
+        membershipId: input.staff.membershipId,
+        deviceId: input.staff.deviceId,
+        now: input.start,
+      });
+    }
 
     // The Room code text, to the host, with the join link that carries the host token.
     let texted: "queued" | "no_phone" | "not_sent" = "no_phone";
@@ -422,6 +476,7 @@ export async function checkIn(
     ids_checked: number;
     room_id?: string | undefined;
     start_at?: string | undefined;
+    note?: string | null | undefined;
   },
   userId: string,
 ) {
@@ -468,6 +523,7 @@ export async function checkIn(
     bookingBlockId: found.blockId,
     guest: { id: found.booking.guest_id, phone: found.phone },
     userId,
+    note: body.note ?? null,
   });
   await withVenue(ctx.pool, { venueId, userId }, async (c) => {
     const room = (await listRooms(c, venueId)).find((r) => r.id === seated.room_id)!;
@@ -494,13 +550,32 @@ export async function seatWalkIn(
       | undefined;
     /** A waitlist offer's hold in the room (M2-26): released as the session takes the room. */
     holdBlockId?: string | null;
+    /** Starting a room (P-04): a note, pay as you go (the default) or a prepaid block, a package. */
+    note?: string | null | undefined;
+    time?: "pay_as_you_go" | "prepaid" | undefined;
+    package_id?: string | undefined;
   },
   userId: string,
   training = false,
+  staff: { membershipId: string; deviceId: string | null } | null = null,
 ) {
   const now = ctx.clock.now().round({ smallestUnit: "minute", roundingMode: "floor" });
   if (body.ids_checked > body.party_size)
     throw new ApiError("invalid_request", "more IDs checked than guests");
+  // A package with a length sets the room's time and is a prepaid block (P-04). Packages &
+  // specials must be on: a switched-off feature is refused here, not just hidden.
+  let minutes = body.minutes;
+  let prepaid: { minutes: number; packageId: string | null } | null =
+    body.time === "prepaid" ? { minutes, packageId: null } : null;
+  if (body.package_id) {
+    const pkg = await withVenue(ctx.pool, { venueId }, async (c) => {
+      if (!(await moduleOn(c, venueId, "packages")))
+        throw new ApiError("module_off", "Packages & specials is off at this venue");
+      return packageForStart(c, venueId, body.package_id!, ctx.clock.now());
+    });
+    minutes = pkg.minutes;
+    prepaid = { minutes, packageId: pkg.id };
+  }
   // A practice walk-in writes no guest record: practice never reaches a real guest.
   const guest =
     body.guest && !training
@@ -519,12 +594,15 @@ export async function seatWalkIn(
     partySize: body.party_size,
     idsChecked: body.ids_checked,
     start: now,
-    plannedEnd: now.add({ minutes: body.minutes }),
+    plannedEnd: now.add({ minutes }),
     bookingId: null,
     bookingBlockId: training ? null : (body.holdBlockId ?? null),
     guest,
     userId,
     training,
+    note: body.note ?? null,
+    prepaid,
+    staff,
   });
 }
 

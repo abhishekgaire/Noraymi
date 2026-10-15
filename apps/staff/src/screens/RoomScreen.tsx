@@ -8,6 +8,7 @@ import { useT } from "../i18n.js";
 import { useSession } from "../session.js";
 import { AddDrinks } from "./AddDrinks.js";
 import { AddPackage } from "./AddPackage.js";
+import { prepaidText } from "./room-start.js";
 import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
@@ -55,6 +56,9 @@ interface BoardRoom {
     readonly wrap_up: boolean;
     readonly close: string | null;
     readonly cut_off: { readonly at: string; readonly by: string | null } | null;
+    /** Starting a room (P-04): its note, and a prepaid block with the package it came with. */
+    readonly note?: string | null;
+    readonly prepaid?: { readonly minutes: number; readonly package_name: string | null } | null;
   } | null;
   readonly next: { readonly name: string; readonly party_size: number; readonly at: string } | null;
   readonly notes: readonly { readonly id: string; readonly text: string }[];
@@ -352,6 +356,12 @@ export function RoomScreen() {
         {s?.guest_name && (
           <p className="desk-sub">
             {t("board.party", { name: s.guest_name, party: s.party_size })}
+          </p>
+        )}
+        {s?.prepaid && <p className="desk-sub">{prepaidText(t, s.prepaid)}</p>}
+        {s?.note && (
+          <p className="desk-sub room-note" data-guest-text>
+            {s.note}
           </p>
         )}
       </div>

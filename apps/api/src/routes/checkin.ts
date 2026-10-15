@@ -18,7 +18,8 @@ import {
  *   GET  /v1/venues/{v}/check-in/preview?booking=&room=&party=   what the sheet shows
  *   POST /v1/venues/{v}/bookings/{b}/check-in   { party_size, ids_checked, room_id?, start_at?: "now" | "booked" }
  *   POST /v1/venues/{v}/bookings/{b}/no-show    after the grace (or a running-late hold, if later)
- *   POST /v1/venues/{v}/rooms/{r}/sessions      a walk-in: the check-in body plus minutes and the guest
+ *   POST /v1/venues/{v}/rooms/{r}/sessions      a walk-in: the check-in body plus minutes and the guest,
+ *        and (P-04) a note, time ("pay_as_you_go" or "prepaid") and a package_id with a length
  */
 const checkInBody = z
   .object({
@@ -26,6 +27,8 @@ const checkInBody = z
     ids_checked: z.number().int().min(0),
     room_id: z.string().uuid().optional(),
     start_at: z.enum(["now", "booked"]).optional(),
+    // Starting a room (P-04): a note shown on the tile and at close-out.
+    note: z.string().trim().max(200).nullable().optional(),
   })
   .strict();
 
@@ -47,6 +50,11 @@ const walkInBody = z
       })
       .strict()
       .optional(),
+    // Starting a room (P-04): a note; pay as you go (the default) or a prepaid block of `minutes`;
+    // or a package with a length, which sets the minutes and is the prepaid block.
+    note: z.string().trim().max(200).nullable().optional(),
+    time: z.enum(["pay_as_you_go", "prepaid"]).optional(),
+    package_id: z.string().uuid().optional(),
   })
   .strict();
 
@@ -136,7 +144,13 @@ export function checkInRoutes(
     async (request, reply) => {
       const parsed = walkInBody.safeParse(request.body);
       if (!parsed.success)
-        throw new ApiError("invalid_request", "send { party_size, ids_checked, minutes, guest? }");
+        throw new ApiError(
+          "invalid_request",
+          "send { party_size, ids_checked, minutes, guest?, note?, time?, package_id? }",
+        );
+      const p = request.principal;
+      const membership =
+        p.kind === "user" ? p.memberships.find((m) => m.venueId === request.venueId) : undefined;
       const seated = await seatWalkIn(
         ctx,
         request.venueId!,
@@ -144,6 +158,12 @@ export function checkInRoutes(
         parsed.data,
         userOf(request.principal as never),
         request.training,
+        membership
+          ? {
+              membershipId: membership.membershipId,
+              deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+            }
+          : null,
       );
       return reply.code(201).send(seated);
     },

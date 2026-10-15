@@ -85,7 +85,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-04 · Starting a room: a note, a prepaid block, a package
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** M2 (walk-in), D128, package sales
 - **Spec:** [Money rules](../spec/05-money-rules.md) · rule 3 (room time)
@@ -94,9 +94,15 @@ Definition of done: see CLAUDE.md.
   - **Time:** "Pay as you go" (today's billing, the default) or **Prepaid block**: the guests are billed at least the block (the block's minutes at the room's rate, or a package's price) even if they leave early; staying past it bills the extra minutes as today. Tests first: `prepaid_block` cases in `seed/money-cases.json`.
   - **Package** at start (when Packages & specials is on): picking one with a length sets the room's time and puts the package on the tab.
 - **Acceptance:**
-  - [ ] The `prepaid_block` cases pass through daylight saving.
-  - [ ] The note shows on the board and close-out; the dialog still fits a laptop screen (D128).
-  - [ ] EN and ES; tests.
+  - [x] The `prepaid_block` cases pass through daylight saving.
+  - [x] The note shows on the board and close-out; the dialog still fits a laptop screen (D128).
+  - [x] EN and ES; tests.
+- **Notes:**
+  - Migration 0163: `room_sessions.note` (1 to 200 characters), `prepaid_minutes` and `prepaid_cents` (both or neither), `package_id`; `packages.minutes` (15 to 720, never on an hourly package). Admin → Menu's Add a package gets **Room time included** (None, 60 to 240 min); the list says "120 min of room time".
+  - Rules: `roomTime(..., { prepaid })`, `prepaidBlockCents`, `prepaidBlockBetween` in `packages/rules/src/room-time.ts`; `sessionClock` passes the block through, so the board, the room's check and close-out all bill it. 14 `prepaid_block` cases (`packages/rules/src/prepaid-block.test.ts`), including both daylight-saving nights; the audit lists the group as a stored input.
+  - API: `POST /rooms/{r}/sessions` takes `note`, `time` (`pay_as_you_go` default, `prepaid`) and `package_id`; `POST /bookings/{b}/check-in` takes `note`. `GET /package-menu?at_start=1` lists the packages a room can start with; the plain list leaves them out, and `POST /checks/{c}/packages` refuses one with a length (`starts_room`). A package at the start with Packages & specials off answers 404 `module_off`; one without a length 400 `no_length`. The board's session carries `note` and `prepaid {minutes, package_name}`.
+  - Screens: the note under Room (both kinds); Time chips (Pay as you go / Prepaid block) inside How long; a Package select only when a package with a length is on offer. The tile shows the note; the room panel and DeskRoom show the note and "Prepaid block · 2 h" or "{package} · prepaid 2 h". The D128 fit holds at 1366 × 768 with the package select showing (e2e "P-04 · …").
+  - Cautious defaults (spec 05 rule 3 says each): the block is fixed, so a party-size change inside it bills at the new rate only from the block's end; a package's price is divided across the block (its minutes at the room's rate) and its lines by largest remainder, the block's share billing as room time; a package with a length and no lines is room time alone; at the start only packages whose lines need no choice are offered (the dialog asks none); a booking's check-in gets the note only, its length and billing unchanged; an alcohol refusal while selling the package seats nobody and is logged.
 
 ### P-05 · A sound when a room's time is up
 

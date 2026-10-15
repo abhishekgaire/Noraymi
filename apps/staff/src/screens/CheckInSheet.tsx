@@ -3,8 +3,10 @@ import { checkNumberLabel, type MessageKey } from "@west4/shared";
 import { api, type ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { useSheetDialog } from "../layout/Dialog.js";
+import { useSession } from "../session.js";
 import { HeldCardTake } from "./HeldCardTake.js";
 import { RoomCardTap } from "./RoomCardTap.js";
+import { lengthText } from "./room-start.js";
 
 /**
  * The check-in sheet (M2-11; screens N10): the same on the board and on a
@@ -13,6 +15,8 @@ import { RoomCardTap } from "./RoomCardTap.js";
  * slip, the code by text, the QR by email). [+ Walk-in] opens it with a free
  * room and asks how long and, optionally, the guest's name, phone and email.
  * Presets are tap targets (D128), and on a wide screen it fits without a scroll.
+ * Starting a room (P-04): a note on both; a walk-in is pay as you go or a
+ * prepaid block of How long, or starts with a package that has a length.
  */
 interface Preview {
   readonly guest_name: string | null;
@@ -48,6 +52,14 @@ interface Seated {
   readonly text: string;
   /** The room's join QR (F-07): printed, and emailed to the host when they gave an email. */
   readonly qr?: { readonly printed: boolean; readonly emailed: string | null };
+}
+
+/** A package a room can start with (P-04): one with a length and no choices to make. */
+interface StartPackage {
+  readonly id: string;
+  readonly name: string;
+  readonly price_cents: number;
+  readonly minutes: number;
 }
 
 /** The party-size chips; "More" opens the number field. */
@@ -92,6 +104,14 @@ export function CheckInSheet({
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [minutes, setMinutes] = useState(120);
+  // Starting a room (P-04): a note, pay as you go or a prepaid block, and a package with a length.
+  const [note, setNote] = useState("");
+  const [prepaid, setPrepaid] = useState(false);
+  const [packages, setPackages] = useState<readonly StartPackage[]>([]);
+  const [packageId, setPackageId] = useState("");
+  const { state: sessionState } = useSession();
+  const packagesOn =
+    sessionState.status === "signedIn" && sessionState.membership.modules.packages !== "off";
   // "More" opens the number field for a party bigger than the chips.
   const [moreParty, setMoreParty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -120,6 +140,20 @@ export function CheckInSheet({
   useEffect(() => {
     load().catch(() => setError(t("shell.error.cantReach")));
   }, [load, t]);
+
+  // The packages a walk-in can start with (P-04); none shows no Package field at all.
+  const walkInTarget = target.kind === "walk_in";
+  useEffect(() => {
+    if (!walkInTarget || !packagesOn) return;
+    let live = true;
+    api<{ packages: StartPackage[] }>("GET", `/v1/venues/${venueId}/package-menu?at_start=1`)
+      .then((r) => live && setPackages(r.packages))
+      .catch(() => live && setPackages([]));
+    return () => {
+      live = false;
+    };
+  }, [venueId, walkInTarget, packagesOn]);
+  const pkg = packages.find((p) => p.id === packageId) ?? null;
 
   const rooms: Room[] = preview
     ? [
@@ -160,12 +194,15 @@ export function CheckInSheet({
                 ids_checked: ids,
                 room_id: roomId,
                 start_at: startBooked ? "booked" : "now",
+                ...(note.trim() ? { note: note.trim() } : {}),
               },
             )
           : await api<Seated>("POST", `/v1/venues/${venueId}/rooms/${roomId}/sessions`, {
               party_size: party,
               ids_checked: ids,
-              minutes,
+              minutes: pkg ? pkg.minutes : minutes,
+              ...(note.trim() ? { note: note.trim() } : {}),
+              ...(pkg ? { package_id: pkg.id } : { time: prepaid ? "prepaid" : "pay_as_you_go" }),
               ...(name.trim()
                 ? {
                     guest: {
@@ -227,10 +264,7 @@ export function CheckInSheet({
     );
 
   const lengths = [60, 90, 120, 180, 240];
-  const hoursLabel = (m: number) =>
-    m % 60 === 30
-      ? t("checkIn.hoursHalf", { hours: Math.floor(m / 60) })
-      : t("checkIn.hours", { hours: m / 60 });
+  const hoursLabel = (m: number) => lengthText(t, m);
   const walkIn = target.kind === "walk_in";
   // Step 6 (D128): what seating will actually send, for this venue and what's typed right now.
   const sends: string[] = [];
@@ -364,6 +398,15 @@ export function CheckInSheet({
                   <span className="small error">{t("checkIn.roomTooSmall")}</span>
                 )}
               </label>
+              <label>
+                <span>{t("checkIn.note")}</span>
+                <input
+                  value={note}
+                  maxLength={200}
+                  autoComplete="off"
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </label>
             </div>
             <div className="checkin-col">
               {walkIn && (
@@ -375,14 +418,53 @@ export function CheckInSheet({
                         key={m}
                         type="button"
                         className="chip"
-                        aria-pressed={minutes === m}
+                        disabled={pkg !== null}
+                        aria-pressed={(pkg ? pkg.minutes : minutes) === m}
                         onClick={() => setMinutes(m)}
                       >
                         {hoursLabel(m)}
                       </button>
                     ))}
                   </div>
+                  {/* P-04: pay as you go (the default) or a prepaid block of How long. */}
+                  <div className="chips" role="group" aria-label={t("checkIn.time")}>
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={pkg !== null}
+                      aria-pressed={!pkg && !prepaid}
+                      onClick={() => setPrepaid(false)}
+                    >
+                      {t("checkIn.time.payAsYouGo")}
+                    </button>
+                    <button
+                      type="button"
+                      className="chip"
+                      disabled={pkg !== null}
+                      aria-pressed={pkg !== null || prepaid}
+                      onClick={() => setPrepaid(true)}
+                    >
+                      {t("checkIn.time.prepaid")}
+                    </button>
+                  </div>
                 </fieldset>
+              )}
+              {walkIn && packages.length > 0 && (
+                <label>
+                  <span>{t("checkIn.package")}</span>
+                  <select value={packageId} onChange={(e) => setPackageId(e.target.value)}>
+                    <option value="">{t("checkIn.package.none")}</option>
+                    {packages.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {t("checkIn.package.option", {
+                          name: p.name,
+                          length: hoursLabel(p.minutes),
+                          price: money(p.price_cents as never),
+                        })}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               )}
               {target.kind === "booking" ? (
                 <fieldset className="sheet-clock">

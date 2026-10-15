@@ -90,6 +90,8 @@ const AS_STORED_INPUTS = new Set([
   // The outside card machine (F-10) is stored as captured payments with their tips; its totals are
   // the Z report's (tenderTotals), checked in tenders.test.ts.
   "outside_card",
+  // A prepaid block (P-04) is stored as the room_time line the room clock gives, through rule 3.
+  "prepaid_block",
 ]);
 
 describe("the money cases, every group, through the audit (M9-15)", () => {
