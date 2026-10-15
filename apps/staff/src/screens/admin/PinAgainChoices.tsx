@@ -60,6 +60,7 @@ export function PinAgainChoices({ venueId, isOwner }: { venueId: string; isOwner
         <h4>{t("pinAgain.choices")}</h4>
       </legend>
       <p className="small muted">{t("pinAgain.choices.hint")}</p>
+      <p className="small muted relates">{t("admin.relates.pinAgainInChoices")}</p>
       {error && (
         <p className="error" role="alert">
           {error}

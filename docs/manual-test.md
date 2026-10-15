@@ -2088,4 +2088,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing has no badge reader). On the bar computer, switch to Sing Sing: the sign-in screen leads with "Tap your name, then your PIN" and the name tiles, with no badge card. West 4 (two badge readers) still shows "Tap your badge on the reader" first.
 9. A failed action now reads in one form, for example "Couldn't save · Try again" or "Couldn't do that · Try again".
 
+### 31.21 Admin in six groups, Set up your venue first (U-21)
 
+1. Start the demo with `scripts/demo-start.sh --onboard` and open Sing Sing's owner invite (section 29). Before finishing setup, go to **Admin** (or type `/admin`): you land in **Set up your venue**, not the first section. Finish setup; `/admin` now opens Team as before.
+2. Start the demo (`scripts/demo-start.sh`) and sign in as Abhishek (owner) on a laptop. Admin's section list reads as six short groups: **Rooms** (Hours & prices, Rooms, Sounds & rules), **Bar** (Menu, Bar POS, Bar mode), **Guests** (Phone & texts, Texts, Deposits & cancelling, Spam protection, Website), **Team** (Team, Console, Activity log), **Money** (Cash drawers, Payments, Card fee & gratuity, Disputes) and **Venue** (Venue, Features, Printers & devices, Safety, Licenses, Connections, Setup, About).
+3. Sign in as Andy (manager): the same groups, without Team, Console, Payments, Venue and Activity log. A bartender given Menu (Team → Can also open) sees one group, **Bar**, with Menu alone.
+4. Open **Features**: the switches sit under the same six headings (Kitchen & food under Bar shows only where the plan has it), then **Choices** and **Menu order** below.
+5. Under Choices, **Print tickets for drinks rung at the bar** reads "The same switch as Admin → Bar POS → Drink tickets…"; in Admin → Bar POS the same switch reads "The same switch as Admin → Features → Choices…". Change it in one place and reload the other: it follows.
+6. **Texting** under Choices says off stops every text even with Guest texts or Marketing texts on; **Guest texts** and **Marketing texts** above each say their texts go out only while Texting is on too; Admin → Texts' Texting switch says it's the same switch as Choices.
+7. **Approvals** says Ask for the PIN again is separate; **Ask for the PIN again for** says Approvals decides who says yes.
+8. Switch to Español: the headings read **Salas**, **Barra**, **Clientes**, **Equipo**, **Dinero** and **Local**, and each hint is in Spanish.

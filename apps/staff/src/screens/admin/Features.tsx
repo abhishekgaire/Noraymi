@@ -8,6 +8,7 @@ import {
 } from "@west4/shared";
 import { api, type ApiCallError } from "../../api.js";
 import { useEvents } from "../../events.js";
+import { byGroup, groupLabelKey, MODULE_GROUP } from "../../admin/groups.js";
 import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { FeatureChoices } from "./FeatureChoices.js";
@@ -169,103 +170,118 @@ export function Features({ embedded = false }: { embedded?: boolean } = {}) {
               ? t("onboarding.features.summary", { count: counts.on })
               : t("modules.count", counts)}
           </p>
-          <ul className="module-list">
-            {rows.map((m) => (
-              <li key={m.id} className={`module module-${m.state}`}>
-                <div className="module-head">
-                  <div>
-                    <h3>{t(`module.${m.id}.name` as MessageKey)}</h3>
-                    {m.id === "bar_screen" && (
-                      <p className="small">{t("module.bar_screen.description")}</p>
-                    )}
-                    {m.needs.length > 0 && (
-                      <p className="small muted">
-                        {t("modules.needsLabel", { list: names(m.needs) })}
-                      </p>
-                    )}
-                    {m.allowed && m.state === "off" && (m.still_needs?.length ?? 0) > 0 && (
-                      <p className="notice small" role="status">
-                        {m.wanted ? whenReady(m.still_needs!) : kitchenNeeds(m.still_needs!)}
-                      </p>
-                    )}
-                  </div>
-                  <div
-                    className="module-state"
-                    role="group"
-                    aria-label={`${t(`module.${m.id}.name` as MessageKey)} · ${t("modules.state.label")}`}
-                  >
-                    {m.core ? (
-                      <span className="pill">{t("modules.alwaysOn")}</span>
-                    ) : !m.allowed ? (
-                      <span className="pill muted">{t("modules.notInPlan")}</span>
-                    ) : m.state === "off" && (m.still_needs?.length ?? 0) > 0 ? (
-                      // Its needs come later in setup (D129): chosen now, on by itself once they're in.
-                      <>
-                        <button
-                          type="button"
-                          className="secondary"
-                          aria-pressed={m.wanted === true}
-                          disabled={busy !== null || m.wanted === true}
-                          onClick={() => void change(m.id, "on", false, true)}
-                        >
-                          {t("kitchen.whenReady.button")}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
-                          aria-pressed={m.wanted !== true}
-                          disabled={busy !== null || m.wanted !== true}
-                          onClick={() => void change(m.id, "off")}
-                        >
-                          {t("modules.state.off")}
-                        </button>
-                      </>
-                    ) : (
-                      STATES.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          className="secondary"
-                          aria-pressed={m.state === s}
-                          disabled={busy !== null || m.state === s}
-                          onClick={() => void change(m.id, s)}
-                        >
-                          {t(`modules.state.${s}` as MessageKey)}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-                {pending?.id === m.id && (
-                  <p className="notice" role="alertdialog">
-                    {confirmQuestion(pending)}
-                    <button
-                      type="button"
-                      className="primary"
-                      disabled={busy !== null}
-                      onClick={() => void change(pending.id, pending.state, true)}
-                    >
-                      {t("modules.confirm.yes")}
-                    </button>
-                    <button type="button" className="secondary" onClick={() => setPending(null)}>
-                      {t("modules.confirm.no")}
-                    </button>
-                  </p>
-                )}
-                {!m.core && (
-                  <dl className="module-hides">
-                    <dt className="muted small">{t("modules.hidesTitle")}</dt>
-                    {HIDES.map((h) => (
-                      <div key={h}>
-                        <dt>{t(`modules.hides.${h}` as MessageKey)}</dt>
-                        <dd>{t(`module.${m.id}.hides.${h}` as MessageKey)}</dd>
+          {/* Six short groups instead of one long list (U-21; groups.ts). */}
+          {byGroup(rows, (m) => MODULE_GROUP[m.id]).map(({ group, items }) => (
+            <section key={group} className="module-group" aria-labelledby={`module-group-${group}`}>
+              <h3 className="module-group-name" id={`module-group-${group}`}>
+                {t(groupLabelKey(group))}
+              </h3>
+              <ul className="module-list">
+                {items.map((m) => (
+                  <li key={m.id} className={`module module-${m.state}`}>
+                    <div className="module-head">
+                      <div>
+                        <h4>{t(`module.${m.id}.name` as MessageKey)}</h4>
+                        {m.id === "bar_screen" && (
+                          <p className="small">{t("module.bar_screen.description")}</p>
+                        )}
+                        {(m.id === "guest_texts" || m.id === "marketing_texts") && (
+                          <p className="small muted">{t("admin.relates.textingInModule")}</p>
+                        )}
+                        {m.needs.length > 0 && (
+                          <p className="small muted">
+                            {t("modules.needsLabel", { list: names(m.needs) })}
+                          </p>
+                        )}
+                        {m.allowed && m.state === "off" && (m.still_needs?.length ?? 0) > 0 && (
+                          <p className="notice small" role="status">
+                            {m.wanted ? whenReady(m.still_needs!) : kitchenNeeds(m.still_needs!)}
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </dl>
-                )}
-              </li>
-            ))}
-          </ul>
+                      <div
+                        className="module-state"
+                        role="group"
+                        aria-label={`${t(`module.${m.id}.name` as MessageKey)} · ${t("modules.state.label")}`}
+                      >
+                        {m.core ? (
+                          <span className="pill">{t("modules.alwaysOn")}</span>
+                        ) : !m.allowed ? (
+                          <span className="pill muted">{t("modules.notInPlan")}</span>
+                        ) : m.state === "off" && (m.still_needs?.length ?? 0) > 0 ? (
+                          // Its needs come later in setup (D129): chosen now, on by itself once they're in.
+                          <>
+                            <button
+                              type="button"
+                              className="secondary"
+                              aria-pressed={m.wanted === true}
+                              disabled={busy !== null || m.wanted === true}
+                              onClick={() => void change(m.id, "on", false, true)}
+                            >
+                              {t("kitchen.whenReady.button")}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary"
+                              aria-pressed={m.wanted !== true}
+                              disabled={busy !== null || m.wanted !== true}
+                              onClick={() => void change(m.id, "off")}
+                            >
+                              {t("modules.state.off")}
+                            </button>
+                          </>
+                        ) : (
+                          STATES.map((s) => (
+                            <button
+                              key={s}
+                              type="button"
+                              className="secondary"
+                              aria-pressed={m.state === s}
+                              disabled={busy !== null || m.state === s}
+                              onClick={() => void change(m.id, s)}
+                            >
+                              {t(`modules.state.${s}` as MessageKey)}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    {pending?.id === m.id && (
+                      <p className="notice" role="alertdialog">
+                        {confirmQuestion(pending)}
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={busy !== null}
+                          onClick={() => void change(pending.id, pending.state, true)}
+                        >
+                          {t("modules.confirm.yes")}
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setPending(null)}
+                        >
+                          {t("modules.confirm.no")}
+                        </button>
+                      </p>
+                    )}
+                    {!m.core && (
+                      <dl className="module-hides">
+                        <dt className="muted small">{t("modules.hidesTitle")}</dt>
+                        {HIDES.map((h) => (
+                          <div key={h}>
+                            <dt>{t(`modules.hides.${h}` as MessageKey)}</dt>
+                            <dd>{t(`module.${m.id}.hides.${h}` as MessageKey)}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
           {venueId && <FeatureChoices venueId={venueId} />}
           {/* Menu order (P-13): Admin only; Set up your venue keeps the app's own order. */}
           {venueId && !embedded && state.status === "signedIn" && (

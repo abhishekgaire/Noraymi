@@ -4507,4 +4507,25 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "about.notSet": "Aún no configurado",
   "about.loading": "Cargando…",
   "about.cantLoad": "No se puede cargar Acerca de.",
+  // Admin's groups and where two settings meet (U-21; D133)
+  "admin.group.rooms": "Salas",
+  "admin.group.bar": "Barra",
+  "admin.group.guests": "Clientes",
+  "admin.group.team": "Equipo",
+  "admin.group.money": "Dinero",
+  "admin.group.venue": "Local",
+  "admin.relates.ticketsInChoices":
+    "El mismo interruptor que Admin → TPV de barra → Tickets de bebidas: cámbialo en cualquiera de los dos.",
+  "admin.relates.ticketsInBarPos":
+    "El mismo interruptor que Admin → Funciones → Opciones: cámbialo en cualquiera de los dos.",
+  "admin.relates.textingInChoices":
+    "Apagado no se envía ningún mensaje, aunque Mensajes a clientes o Mensajes de marketing estén activados. El mismo interruptor está en Admin → Mensajes de texto, junto al de cada mensaje.",
+  "admin.relates.textingInTexts":
+    "El mismo interruptor que Admin → Funciones → Opciones. Mensajes a clientes y Mensajes de marketing son funciones allí: un mensaje a un cliente sale solo si Mensajes de texto, su función y su propio interruptor están activados.",
+  "admin.relates.textingInModule":
+    "Sus mensajes salen solo si Mensajes de texto, en Opciones, también está activado.",
+  "admin.relates.approvalsInChoices":
+    "Quién dice que sí cuando alguien necesita a un gerente. Pedir el PIN otra vez, abajo, es aparte: quien lo hace escribe su propio PIN.",
+  "admin.relates.pinAgainInChoices":
+    "Comprueba quién lo hace. Aprobaciones, arriba, decide quién dice que sí cuando alguien necesita a un gerente.",
 };

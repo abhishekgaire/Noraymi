@@ -751,8 +751,20 @@ main select {
   justify-content: space-between;
   align-items: flex-start;
 }
-.module-head h3 {
+.module-head h3,
+.module-head h4 {
   margin: 0 0 4px;
+}
+/* Features' six groups (U-21): a small heading over each group's cards. */
+.module-group {
+  margin-top: 20px;
+}
+.module-group-name {
+  margin: 0;
+  font-size: 1rem;
+}
+.relates {
+  font-style: italic;
 }
 .module-head p {
   margin: 0 0 4px;

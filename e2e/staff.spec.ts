@@ -13688,3 +13688,164 @@ test("U-20 · name tiles first without a badge reader, Fri night, Send 3 and Sen
     await db.end();
   }
 });
+
+/**
+ * U-21 (D133; spec 03 · Admin's groups): until Set up your venue is finished, `/admin` opens the
+ * wizard for the owner; afterwards Admin's sections and Features' switches read as six short
+ * groups, and each place where two settings meet says how they relate. Spanish fits.
+ */
+test("U-21: Admin opens Set up your venue until it's finished, then six groups with hints where settings meet", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const db = new pg.Client({ connectionString: DB });
+  await db.connect();
+  const venueId = (
+    await db.query<{ id: string }>(
+      "select m.venue_id as id from memberships m join users u on u.id = m.user_id where u.email = $1",
+      [ABHISHEK],
+    )
+  ).rows[0]!.id;
+  const completed = (
+    await db.query<{ at: string | null }>(
+      "select setup_completed_at as at from venues where id = $1",
+      [venueId],
+    )
+  ).rows[0]!.at;
+  const staff = await db.query<{ id: string }>(
+    `insert into console_staff (name, email) values ('E2E staff', 'e2e-u21@noraymi.test')
+       on conflict ((lower(email))) do update set active = true returning id`,
+  );
+  try {
+    await db.query("update memberships set locale = 'en'");
+    // West 4 as a venue our Console made, its setup not finished.
+    await db.query("update venues set setup_completed_at = null where id = $1", [venueId]);
+    await db.query(
+      "insert into venue_onboarding (venue_id, created_by, reason) values ($1, $2, 'E2E U-21') on conflict do nothing",
+      [venueId, staff.rows[0]!.id],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/");
+    await enrolPasskey(page, request, db, ABHISHEK);
+    await page.getByLabel("Email").fill(ABHISHEK);
+    await page.getByRole("button", { name: "Continue with a passkey" }).click();
+    await expect(page).toHaveURL(/\/set-up/);
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/set-up/);
+
+    // Setup finished: Admin opens Team as before, its sections in six groups.
+    await db.query("delete from venue_onboarding where venue_id = $1", [venueId]);
+    await db.query("update venues set setup_completed_at = $2 where id = $1", [venueId, completed]);
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/team$/);
+    const nav = page.getByRole("navigation", { name: "Sections" });
+    const group = (name: string) => nav.getByRole("group", { name, exact: true });
+    await expect(nav.getByRole("group")).toHaveCount(6);
+    const groups: Record<string, string[]> = {
+      Rooms: ["Hours & prices", "Rooms", "Sounds & rules"],
+      Bar: ["Menu", "Bar POS", "Bar mode"],
+      Guests: ["Phone & texts", "Texts", "Deposits & cancelling", "Spam protection", "Website"],
+      Team: ["Team", "Console", "Activity log"],
+      Money: ["Cash drawers", "Payments", "Card fee & gratuity", "Disputes"],
+      Venue: [
+        "Venue",
+        "Features",
+        "Printers & devices",
+        "Safety",
+        "Licenses",
+        "Connections",
+        "Setup",
+        "About",
+      ],
+    };
+    for (const [name, links] of Object.entries(groups)) {
+      await expect(group(name).locator(".admin-link-name")).toHaveText(links);
+    }
+
+    // Features: the switches under the same six headings, each a short group.
+    await group("Venue")
+      .getByRole("link", { name: /^Features/ })
+      .click();
+    const sections = page.locator("section.module-group");
+    await expect(sections).toHaveCount(6);
+    await expect(sections.locator(".module-group-name")).toHaveText([
+      "Rooms",
+      "Bar",
+      "Guests",
+      "Team",
+      "Money",
+      "Venue",
+    ]);
+    const bar = page.getByRole("region", { name: "Bar", exact: true });
+    await expect(bar.getByRole("group", { name: "Bar screen & tickets · State" })).toBeVisible();
+    await expect(bar.getByRole("heading", { level: 4 })).toHaveCount(5);
+    await expect(page.getByText("Always on", { exact: true })).toHaveCount(6);
+
+    // Where two settings meet, a hint in each place.
+    await expect(
+      page.getByText(
+        "The same switch as Admin → Bar POS → Drink tickets: change it in either place.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Off stops every text, even with Guest texts or Marketing texts on.", {
+        exact: false,
+      }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("region", { name: "Guests", exact: true })
+        .getByText("Its texts go out only while Texting, under Choices, is on too."),
+    ).toHaveCount(2);
+    await expect(
+      page.getByText("Ask for the PIN again, below, is separate", { exact: false }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Approvals, above, decides who says yes", { exact: false }),
+    ).toBeVisible();
+    await group("Bar")
+      .getByRole("link", { name: /^Bar POS/ })
+      .click();
+    await expect(
+      page.getByText("The same switch as Admin → Features → Choices: change it in either place."),
+    ).toBeVisible();
+    await group("Guests")
+      .getByRole("link", { name: /^Texts/ })
+      .click();
+    await expect(
+      page.getByText(
+        "The same switch as Admin → Features → Choices. Guest texts and Marketing texts",
+        {
+          exact: false,
+        },
+      ),
+    ).toBeVisible();
+
+    // Spanish: the six headings, and Features still fits.
+    await group("Venue")
+      .getByRole("link", { name: /^Features/ })
+      .click();
+    await page.getByRole("button", { name: "Switch to Español" }).click();
+    await expect(sections.locator(".module-group-name")).toHaveText([
+      "Salas",
+      "Barra",
+      "Clientes",
+      "Equipo",
+      "Dinero",
+      "Local",
+    ]);
+    await expect(
+      page
+        .getByRole("navigation", { name: "Secciones" })
+        .getByRole("group", { name: "Local", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText("Comprueba quién lo hace.", { exact: false })).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.query("delete from venue_onboarding where venue_id = $1", [venueId]);
+    await db.query("update venues set setup_completed_at = $2 where id = $1", [venueId, completed]);
+    await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});

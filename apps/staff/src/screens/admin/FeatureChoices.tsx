@@ -91,6 +91,7 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
             <div>
               <h4>{t("barPos.tickets.label")}</h4>
               <p className="small muted">{t("barPos.tickets.hint")}</p>
+              <p className="small muted relates">{t("admin.relates.ticketsInChoices")}</p>
             </div>
             {pos ? (
               <label className="switch-line">
@@ -116,6 +117,7 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
               <h4>{t("approvals.mode")}</h4>
             </legend>
             <p className="small muted">{t("approvals.mode.hint")}</p>
+            <p className="small muted relates">{t("admin.relates.approvalsInChoices")}</p>
             {mode === null
               ? !failed && <span role="status">{t("shell.loading")}</span>
               : approvalModes.map((m) => (

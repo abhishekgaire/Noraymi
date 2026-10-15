@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet } from "react-router";
 import { visibleSections } from "../admin/sections.js";
+import { byGroup, groupLabelKey, sectionGroup } from "../admin/groups.js";
 import { AdminDraftProvider, useAdminDraft } from "../admin/draft.js";
 import { api } from "../api.js";
 import { useEvents } from "../events.js";
@@ -53,16 +54,29 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
       <aside className="admin-aside">
         <h1>{t("menu.admin")}</h1>
         <nav className="admin-nav" aria-label={t("admin.sections")}>
-          <ul>
-            {sections.map((s) => (
-              <li key={s.id}>
-                <NavLink to={s.path} className="admin-link">
-                  <span className="admin-link-name">{t(s.labelKey)}</span>
-                  <span className="admin-link-hint">{t(s.hintKey)}</span>
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+          {/* Six short groups instead of one long list (U-21; groups.ts). */}
+          {byGroup(sections, (s) => sectionGroup(s.id)).map(({ group, items }) => (
+            <div
+              key={group}
+              className="admin-group"
+              role="group"
+              aria-labelledby={`admin-group-${group}`}
+            >
+              <p className="admin-group-name" id={`admin-group-${group}`}>
+                {t(groupLabelKey(group))}
+              </p>
+              <ul>
+                {items.map((s) => (
+                  <li key={s.id}>
+                    <NavLink to={s.path} className="admin-link">
+                      <span className="admin-link-name">{t(s.labelKey)}</span>
+                      <span className="admin-link-hint">{t(s.hintKey)}</span>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
         <p className="admin-note">{t("admin.changesNote")}</p>
       </aside>
@@ -84,16 +98,26 @@ function AdminDesk({ state }: { state: Extract<SessionState, { status: "signedIn
   );
 }
 
-/** `/admin` opens the first section the person may see; a manager with none yet reads why. */
+/**
+ * `/admin` opens the first section the person may see; a manager with none yet reads why. Until
+ * Set up your venue is finished (`setup` is "pending" until Finish setup, O-02), the owner lands
+ * in the wizard and a manager on its checklist, Admin → Setup (U-21).
+ */
 export function AdminIndex() {
   const { t } = useT();
   const { state } = useSession();
   if (state.status !== "signedIn") return null;
-  const first = visibleSections(state.membership.permissions, {
+  const sections = visibleSections(state.membership.permissions, {
     allowedModules: state.membership.modules_allowed ?? [],
     role: state.membership.role,
     granted: state.membership.admin_sections ?? [],
-  })[0];
+  });
+  if (state.membership.setup === "pending") {
+    if (state.membership.role === "owner") return <Navigate to="/set-up" replace />;
+    const checklist = sections.find((s) => s.id === "setup");
+    if (checklist) return <Navigate to={checklist.path} replace />;
+  }
+  const first = sections[0];
   return first ? (
     <Navigate to={first.path} replace />
   ) : (

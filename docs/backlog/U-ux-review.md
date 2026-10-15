@@ -361,7 +361,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-21 · Admin an owner can find their way around
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** P-10, P-13, P-14
 - **Spec:** [Settings](../spec/03-settings-rule-packs-modules.md); screens.md AdminDesk
@@ -370,8 +370,8 @@ Definition of done: see CLAUDE.md.
   - Admin's sections and Features' switches are grouped under headings: Rooms, Bar, Guests, Team, Money, Venue (today 26 sections and about 28 switches in one list).
   - Where two settings meet (drink tickets in Features → Choices and Bar POS; the Texting switch beside Guest and Marketing texts; approvals beside Ask for the PIN again), a one-line hint in each place says how they relate. Don't remove either place (spec 03 asks for both).
 - **Acceptance:**
-  - [ ] A new owner lands in Set up your venue; Features reads as five or six short groups.
-- **Notes:**
+  - [x] A new owner lands in Set up your venue; Features reads as five or six short groups.
+- **Notes:** Built Oct 15, 2026 (D133). The grouping is one table, `apps/staff/src/admin/groups.ts` (`SECTION_GROUP`, `MODULE_GROUP`), and spec 03 · Admin's groups: **Rooms** (Hours & prices, Rooms, Sounds & rules · Rooms & room clock, Ordering from the room, Packages & specials, Song system control, Room tablets), **Bar** (Menu, Bar POS, Bar mode, Kitchen · Alcohol controls & state rules, Bar screen & tickets, Bar tabs & quick sale, Bar mode, Kitchen & food), **Guests** (Phone & texts, Texts, Deposits & cancelling, Spam protection, Website · Online booking, Walk-in waitlist, Guest texts, Marketing texts, Website, Deposits on bookings), **Team** (Team, Console, Activity log · Team, time clock & tips, Bell), **Money** (Cash drawers, Payments, Card fee & gratuity, Disputes · Payments & checks, Reports & accounting, Keep the card behind the bar, Pay my share, Cash discount, Paid on outside card machine, Discount on a check), **Venue** (Venue, Features, Printers & devices, Safety, Licenses, Connections, Setup, About · Admin & settings, Devices & printers, Safety & ID records). "Finished" is `membership.setup` (pending while the venue has a `venue_onboarding` row and no `setup_completed_at`, O-02). Cautious defaults: the groups show in the ticket's order (Rooms, Bar, Guests, Team, Money, Venue) and items keep their old order inside a group; `/admin` after setup still opens the first section of the old flat order (Team for the owner) so existing links and tests keep working; until setup is finished a manager's `/admin` opens Admin → Setup (the checklist) since only the owner runs the wizard; Safety (occupancy and ID records) and Deposits sit under Venue and Guests rather than Rooms and Money; a section id the table doesn't name falls under Venue (a unit test keeps the table complete). Hints, new i18n keys `admin.relates.*` (nothing renamed or removed): drink tickets in Features → Choices and Bar POS; Texting in Choices and Admin → Texts, and beside Guest texts and Marketing texts; Approvals and Ask for the PIN again. Module names in Features are now `h4` under an `h3` group heading. No gate changed (owner-only, Can also open, modules refused on the server). No migration. Tests: `groups.test.ts` (unit) and the U-21 e2e at the end of `e2e/staff.spec.ts`; manual-test 31.21.
 
 ### U-22 · Every sheet and dialog works the same way
 

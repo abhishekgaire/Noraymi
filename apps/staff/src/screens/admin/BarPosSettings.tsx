@@ -129,6 +129,7 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
         </label>
       </div>
       <p className="small muted">{t("barPos.tickets.hint")}</p>
+      <p className="small muted relates">{t("admin.relates.ticketsInBarPos")}</p>
 
       <h3>{t("barPos.selfRun")}</h3>
       <div className="invite-fields">

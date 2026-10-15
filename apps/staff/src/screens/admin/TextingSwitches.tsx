@@ -89,6 +89,7 @@ export function TextingSwitches({ venueId, only }: { venueId: string; only?: "on
           <div>
             <h3>{t("texting.switch")}</h3>
             <p className="small muted">{t("texting.switch.hint")}</p>
+            <p className="small muted relates">{t("admin.relates.textingInChoices")}</p>
           </div>
           {main}
         </div>
@@ -109,6 +110,7 @@ export function TextingSwitches({ venueId, only }: { venueId: string; only?: "on
             <p className="small muted">
               {value.on ? t("texting.switch.hint") : t("texting.offNote")}
             </p>
+            <p className="small muted relates">{t("admin.relates.textingInTexts")}</p>
           </div>
           {main}
         </div>

@@ -62,6 +62,27 @@
   font-variant-caps: all-small-caps;
   color: var(--w4-muted);
 }
+/* The section list's six groups (U-21): a small label over each. */
+.admin-screen .admin-group + .admin-group {
+  margin-top: 12px;
+}
+.admin-screen .admin-group-name {
+  margin: 0;
+  padding: 4px 12px 2px;
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
+.admin-screen .module-group-name {
+  font-family: var(--w4-font-mono);
+  font-size: var(--w4-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  font-variant-caps: all-small-caps;
+  color: var(--w4-muted);
+}
 .admin-screen .admin-nav ul {
   list-style: none;
   margin: 0;
@@ -217,7 +238,8 @@
   border-radius: var(--w4-radius-tile);
   background: var(--w4-bg-row);
 }
-.admin-screen .module-head h3 {
+.admin-screen .module-head h3,
+.admin-screen .module-head h4 {
   margin: 0;
   font-family: var(--w4-font-body);
   font-size: var(--w4-text-base);

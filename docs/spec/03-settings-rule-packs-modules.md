@@ -320,6 +320,21 @@ A module can be on only while what it needs is on. Turning one off that others n
 
 **Menu order (P-13).** Below Choices, Admin → Features shows **Menu order**: the staff app's side menu entries (Lock aside, which stays last), each moved up or down, then **Save order**; **Use the app's order** goes back to spec 10's. It saves the `menuOrder` key, live at once, and `GET /v1/auth/me` hands it to everyone at the venue with their membership (`menu_order`), so the side menu on every desktop, bar computer and phone drawer follows it as soon as `settings.changed` arrives. It only places entries: each role still sees only what it may open and what the venue's modules show, an entry a switched-off feature hides keeps its place for when it's back on, and an entry the list doesn't name (one added to the app later) follows the named ones in the app's own order. The phone's tabs keep each role's own order (Pin note 4), and Set up your venue doesn't ask (the app's order until the owner moves something). Owners and managers save it (`admin.access`); the order is the venue's and never crosses venues.
 
+**Admin's groups (U-21, [D133](../decisions.md)).** Admin's section list and Admin → Features' switches (and Set up your venue's Choose your features) show under six headings, in this order, from one table in the staff app (`apps/staff/src/admin/groups.ts`); a heading with nothing under it isn't shown. Grouping only places things: who sees a section (role, owner-only sections, Can also open) and what a switch refuses on the server don't change.
+
+| Group | Admin sections | Features switches |
+| --- | --- | --- |
+| **Rooms** (Salas) | Hours & prices, Rooms, Sounds & rules | Rooms & room clock, Ordering from the room, Packages & specials, Song system control, Room tablets |
+| **Bar** (Barra) | Menu, Bar POS, Bar mode, Kitchen | Alcohol controls & state rules, Bar screen & tickets, Bar tabs & quick sale, Bar mode, Kitchen & food |
+| **Guests** (Clientes) | Phone & texts, Texts, Deposits & cancelling, Spam protection, Website | Online booking, Walk-in waitlist, Guest texts, Marketing texts, Website, Deposits on bookings |
+| **Team** (Equipo) | Team, Console, Activity log | Team, time clock & tips, Bell |
+| **Money** (Dinero) | Cash drawers, Payments, Card fee & gratuity, Disputes | Payments & checks, Reports & accounting, Keep the card behind the bar, Pay my share, Cash discount, Paid on outside card machine, Discount on a check |
+| **Venue** (Local) | Venue, Features, Printers & devices, Safety, Licenses, Connections, Setup, About | Admin & settings, Devices & printers, Safety & ID records |
+
+Within a group, sections and switches keep the order they had. Until Set up your venue is finished (Finish setup, [onboarding](17-onboarding.md)), `/admin` opens the wizard for the owner and Admin → Setup's checklist for a manager; afterwards it opens the first section the person may see, as before.
+
+**Where two settings meet (U-21).** Spec 03 keeps each of these in both places, and each place carries a one-line hint saying how they relate: **Drinks rung at the bar print a ticket** in Features → Choices and Admin → Bar POS ("The same switch as … change it in either place"); **Texting** in Features → Choices and Admin → Texts, and **Guest texts** and **Marketing texts** beside it in Features (Texting off stops every text whatever those features say; a guest text goes out only while Texting, its feature and its own switch are on); **Approvals** and **Ask for the PIN again** in Features → Choices (Approvals decides who says yes when someone needs a manager; Ask for the PIN again checks who is doing it).
+
 Event sales, Guests, loyalty & gift cards, and Multiple locations are phase 2 or later, so no phase 1 screen shows them. Kitchen & food comes into phase 1 for Sing Sing Astoria, the first venue to go live, as printed kitchen tickets with no kitchen screen or coursing ([D98](../decisions.md)); its design is in [Kitchen and food](16-kitchen.md), approved by the founder on Oct 9, 2026.
 
 Beta and rollout switches are separate from modules: `venue_flags (venue_id, flag, on, set_by)`, read by the API and the screens, with our own test venue first in line.

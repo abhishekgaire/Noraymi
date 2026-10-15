@@ -4392,4 +4392,24 @@ export const en = {
   "about.notSet": "Not set yet",
   "about.loading": "Loading…",
   "about.cantLoad": "Can't load About.",
+  // Admin's groups and where two settings meet (U-21; D133)
+  "admin.group.rooms": "Rooms",
+  "admin.group.bar": "Bar",
+  "admin.group.guests": "Guests",
+  "admin.group.team": "Team",
+  "admin.group.money": "Money",
+  "admin.group.venue": "Venue",
+  "admin.relates.ticketsInChoices":
+    "The same switch as Admin → Bar POS → Drink tickets: change it in either place.",
+  "admin.relates.ticketsInBarPos":
+    "The same switch as Admin → Features → Choices: change it in either place.",
+  "admin.relates.textingInChoices":
+    "Off stops every text, even with Guest texts or Marketing texts on. The same switch is in Admin → Texts, beside each text's own switch.",
+  "admin.relates.textingInTexts":
+    "The same switch as Admin → Features → Choices. Guest texts and Marketing texts are features there: a guest text goes out only while Texting, its feature and its own switch are all on.",
+  "admin.relates.textingInModule": "Its texts go out only while Texting, under Choices, is on too.",
+  "admin.relates.approvalsInChoices":
+    "Who says yes when someone needs a manager. Ask for the PIN again, below, is separate: the person doing it types their own PIN.",
+  "admin.relates.pinAgainInChoices":
+    "Checks who is doing it. Approvals, above, decides who says yes when someone needs a manager.",
 } as const;
