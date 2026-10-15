@@ -36,6 +36,7 @@ Where this page and the [spec](spec/README.md) differ, the spec wins. Examples u
 - **Waitlist.** Parties waiting for a room. An offer holds a room for 10 minutes, texts the party and shows a countdown. If it isn't claimed, the room goes to the next party that fits. The Board's drawer and the phone's Waitlist tab show the same rows.
 - **Walk-in.** A party with no booking. Leo M. in Room 5 was seated from the waitlist at 10:00 PM. "+ Walk-in" opens the check-in sheet with a free room, in a dialog over the board (D110).
 - **Rooms.** The board's name on staff screens: the side menu, its title and the phone's tab ("Salas" in Spanish). Never "Tonight" (D111). The phone's list of tonight's bookings is **Bookings** ("Reservas").
+- **More.** The fifth bottom tab on a staff phone ("Más"), and the ☰ list it opens: everything that isn't one of the role's four tabs, Lock last (U-19, D133). Never "Menu" for that tab.
 - **Wrap-up.** The prompts sent when a booked end is near and someone is booked next: the Please wrap up text, 10 minutes before the end, and the Board's alerts. The clock keeps billing until close-out.
 
 ## Orders and the bar

@@ -288,7 +288,8 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
         await page.goto(path);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
         if (width === 390 && path !== "/sign-in") {
-          await page.getByRole("button", { name: "Abrir el menú" }).click();
+          // More (U-19) is the phone's ☰ list, the fifth bottom tab.
+          await page.locator(".tabs").getByRole("button", { name: "Más" }).click();
         }
         expect(await clippedText(page), `${path} at ${width}px`).toEqual([]);
         expect(await brokenWords(page), `${path} at ${width}px`).toEqual([]);
@@ -297,7 +298,7 @@ test("Andy signs in, reads the venue's 10:41 PM, switches to Español and every 
     }
 
     // Lock ends the session on this screen and shows sign-in, in Spanish, with the lock notice.
-    // At 1280 the side menu is always open; at 390 it's the drawer behind "Abrir el menú" (checked above).
+    // At 1280 the side menu is always open; at 390 it's More's list behind "Más" (checked above).
     await page.goto("/tonight");
     await page.getByRole("button", { name: "Bloquear" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Iniciar sesión");
@@ -503,7 +504,12 @@ test("Diego's invite on his phone: a texted code, 1234 refused, his own PIN set"
     await expect(page.locator(".tabs")).toContainText("Salas");
     await expect(page.locator(".tabs")).toContainText("Reservas");
     await expect(page.locator(".tabs")).not.toContainText("Esta noche");
-    await expect(page.locator(".tabs")).toContainText("Alertas");
+    // Alerts on this phone sits under More (U-19), not on a tab.
+    await expect(page.locator(".tabs")).not.toContainText("Alertas");
+    await page.locator(".tabs").getByRole("button", { name: "Más" }).click();
+    await expect(
+      page.locator("#side-menu").getByRole("link", { name: "Alertas en este teléfono" }),
+    ).toBeVisible();
     for (const path of ["/setup", "/admin"]) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
@@ -1858,9 +1864,9 @@ test("V-09 · the walk-in dialog over Rooms, and Put a card on the tab saves the
     await expect(
       page.locator(".tabs").getByRole("link", { name: "Rooms", exact: true }),
     ).toHaveCount(1);
-    await expect(
-      page.locator(".tabs").getByRole("link", { name: "Bookings", exact: true }),
-    ).toBeVisible();
+    // A manager's four tabs and More (U-19): Bookings is under More.
+    await expect(page.locator(".tabs").getByRole("link")).toHaveCount(4);
+    await expect(page.locator(".tabs").getByRole("button", { name: "More" })).toBeVisible();
     if (review) await page.screenshot({ path: `${review}/rooms-tabs-390.png` });
     await listView(page);
     const room8 = await openRoom(page, "Room 8");
@@ -3243,7 +3249,9 @@ test("the staff phone: Andy's Bookings, booking actions by status, and a runner'
     // One "Rooms" (the board) and one "Bookings" (tonight's bookings), never two "Rooms" (D111).
     await expect(tabs.getByRole("link", { name: "Rooms", exact: true })).toHaveCount(1);
     await expect(tabs.getByRole("link", { name: "Tonight", exact: true })).toHaveCount(0);
-    await tabs.getByRole("link", { name: "Bookings", exact: true }).click();
+    // Bookings is under More on a manager's phone (U-19).
+    await tabs.getByRole("button", { name: "More" }).click();
+    await page.locator("#side-menu").getByRole("link", { name: "Bookings", exact: true }).click();
     await expect(page).toHaveURL(/\/today$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bookings");
     await expect(page.getByLabel("Room counts")).toHaveText(
@@ -3287,8 +3295,10 @@ test("the staff phone: Andy's Bookings, booking actions by status, and a runner'
       page.getByRole("dialog", { name: "Sam O." }).getByRole("button", { name: "Mark no-show" }),
     ).toBeVisible();
 
-    // Walk-in waitlist off: the Waitlist tab goes at once.
-    await expect(tabs.getByRole("link", { name: "Waitlist" })).toBeVisible();
+    // Walk-in waitlist off: Waitlist (under More on a manager's phone, U-19) goes at once.
+    await tabs.getByRole("button", { name: /^More/ }).click();
+    const moreList = page.locator("#side-menu");
+    await expect(moreList.getByRole("link", { name: "Waitlist" })).toBeVisible();
     const v = (await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'"))
       .rows[0]!.id;
     await db.query(
@@ -3299,7 +3309,7 @@ test("the staff phone: Andy's Bookings, booking actions by status, and a runner'
       "insert into venue_events (venue_id, type, entity_id, entity_version, audience) values ($1::uuid, 'settings.changed', $1::text, 0, 'venue')",
       [v],
     );
-    await expect(tabs.getByRole("link", { name: "Waitlist" })).toHaveCount(0);
+    await expect(moreList.getByRole("link", { name: "Waitlist" })).toHaveCount(0);
     await db.query(
       "update venue_modules set state = 'on' where venue_id = $1 and module_id = 'waitlist'",
       [v],
@@ -8384,7 +8394,9 @@ test("Tips to enter on Andy's phone: Ana R.'s $12.00 captures $74.50; his own $2
     stripeSeed();
     await page.setViewportSize({ width: 390, height: 844 });
     await signInAndy(page, request, db);
-    await page.locator(".tabs").getByRole("link", { name: "Tips to enter" }).click();
+    // Tips to enter is under More on a manager's phone (U-19).
+    await page.locator(".tabs").getByRole("button", { name: "More" }).click();
+    await page.locator("#side-menu").getByRole("link", { name: "Tips to enter" }).click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tips to enter");
     const slips = page.locator(".tips-to-enter .cards > li");
     await expect(slips).toHaveCount(3);
@@ -9409,7 +9421,8 @@ for (const width of [1280, 390]) {
       await page.getByRole("button", { name: "Pair", exact: true }).click();
       const tile = (name: RegExp) => page.getByRole("button", { name });
       const lockScreen = async () => {
-        if (width === 390) await page.getByRole("button", { name: "Open the menu" }).click();
+        if (width === 390)
+          await page.locator(".tabs").getByRole("button", { name: "More" }).click();
         // The bar POS has its own Lock too (U-07): either one locks.
         await page.getByRole("button", { name: "Lock", exact: true }).first().click();
         await expect(page.getByRole("heading", { level: 1 })).toHaveText("Staff sign-in");
@@ -9844,7 +9857,10 @@ test("My tips on a phone: Andy's Manager shift, and managers don't share", async
   try {
     await page.setViewportSize({ width: 390, height: 844 });
     await signInAndy(page, request, db);
-    await page.locator(".tabs").getByRole("link", { name: "My tips" }).click();
+    // My tips shows only to those who share in tips (U-19); a manager reaches it by its address.
+    await page.locator(".tabs").getByRole("button", { name: "More" }).click();
+    await expect(page.locator("#side-menu").getByRole("link", { name: "My tips" })).toHaveCount(0);
+    await page.goto("/my-tips");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("My tips");
     await expect(
       page.getByText("Managers don't share in the tip pool. Your shifts are below."),
@@ -9976,8 +9992,13 @@ for (const size of [
       const exceptions = page.getByRole("region", { name: "Comps, voids and refunds tonight" });
       await expect(exceptions).toContainText("Comp · Luis M. · Maya S.");
       await expect(exceptions).toContainText("Void · Tariq A. · Diego R. · Waiting for Andy C.");
-      if (size.width < 600)
-        await expect(page.locator(".tabs").getByRole("link", { name: "Reports" })).toBeVisible();
+      if (size.width < 600) {
+        // Reports is under More on a manager's phone (U-19).
+        await page.locator(".tabs").getByRole("button", { name: "More" }).click();
+        await expect(
+          page.locator("#side-menu").getByRole("link", { name: "Reports" }),
+        ).toBeVisible();
+      }
     } finally {
       await db.end();
     }
@@ -10497,7 +10518,9 @@ test("Offline codes: Andy's phone keeps the bar computer's codes and shows them 
     };
 
     await signInAndy(page, request, db);
-    await page.getByRole("link", { name: "Offline codes" }).click();
+    // Offline codes is under More on a manager's phone (U-19).
+    await page.locator(".tabs").getByRole("button", { name: /^More/ }).click();
+    await page.locator("#side-menu").getByRole("link", { name: "Offline codes" }).click();
     const card = page.getByRole("listitem", { name: "Bar computer" });
     await expect(card.getByRole("heading")).toHaveText("Bar computer · code now");
     await expect(card.getByTestId("code-bar_computer")).toHaveText(await expected());
@@ -10507,7 +10530,9 @@ test("Offline codes: Andy's phone keeps the bar computer's codes and shows them 
     // Our API stops answering: the phone still shows the code it kept.
     await page.route("**/v1/**", (route) => route.abort());
     await page.getByRole("link", { name: "Calls" }).click();
-    await page.getByRole("link", { name: "Offline codes" }).click();
+    // Offline codes is under More on a manager's phone (U-19).
+    await page.locator(".tabs").getByRole("button", { name: /^More/ }).click();
+    await page.locator("#side-menu").getByRole("link", { name: "Offline codes" }).click();
     await expect(page.getByRole("alert")).toHaveText(
       "Couldn't fetch the codes. The ones kept on this phone still work.",
     );
@@ -10766,6 +10791,8 @@ test("Help alert: Room 9 asks privately, the Board pins Manager needed · 1, And
     await expect(pin).toHaveText("Manager needed · 1");
     await page.setViewportSize({ width: 390, height: 844 });
 
+    // Incidents is under More on a manager's phone (U-19).
+    await page.locator(".tabs").getByRole("button", { name: /^More/ }).click();
     await page.getByRole("link", { name: "Incidents" }).first().click();
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("Incidents");
     const card = page.getByRole("listitem", { name: "Room 9 · A guest feels unsafe" });
@@ -13552,6 +13579,57 @@ test("U-18 · every alert opens its room: the board's line and the bell's, one b
     );
     await db.query("delete from bell_reads where venue_id = $1", [venue]);
     await db.query("update memberships set locale = 'en'");
+    await db.end();
+  }
+});
+
+/**
+ * The phone's tabs (U-19; spec 10 · rule 1, phone): a bartender's phone has five tabs (Bar POS,
+ * Rooms, Calls, Messages and More); More's list holds only what isn't a tab, the waiting bar
+ * orders show on More, Lock is last, and a pick or Esc closes it.
+ */
+test("U-19 · Maya's phone: five tabs, and More holds only what isn't a tab", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  try {
+    await signInMayaAtTheBar(page, request, db);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const tabs = page.locator(".tabs");
+    await expect(tabs.getByRole("link")).toHaveText([/^Bar POS/, /^Rooms/, /^Calls/, /^Messages/]);
+    await expect(tabs.locator(".tab")).toHaveCount(5);
+    for (const tab of await tabs.locator(".tab").all())
+      expect((await tab.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // Five tabs fit at 390: the bar never scrolls sideways.
+    expect(await tabs.evaluate((n) => n.scrollWidth <= n.clientWidth)).toBe(true);
+    // No ☰ in the top bar: More is the menu.
+    await expect(page.getByRole("button", { name: "Open the menu" })).toHaveCount(0);
+
+    const more = tabs.getByRole("button", { name: /^More/ });
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    // Bar orders is under More, so its waiting count shows on More.
+    await expect(more.locator(".badge")).toHaveText(/^\d+$/);
+    await more.click();
+    await expect(more).toHaveAttribute("aria-expanded", "true");
+    const links = page.locator("#side-menu .side-phone .menu-link");
+    await expect(links.last()).toBeVisible();
+    const names = (await links.allInnerTexts()).map((n) => n.trim());
+    expect(names.some((n) => /^Bar orders/.test(n))).toBe(true);
+    for (const name of ["Tips to enter", "Clock in and out", "My tips", "Alerts on this phone"])
+      expect(names).toContain(name);
+    for (const tab of [/^Bar POS/, /^Rooms/, /^Calls/, /^Messages/])
+      expect(names.some((n) => tab.test(n))).toBe(false);
+    expect(names.at(-1)).toBe("Lock");
+
+    // Esc closes the list; a pick goes there and closes it too.
+    await page.keyboard.press("Escape");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+    await more.click();
+    await page.locator("#side-menu").getByRole("link", { name: "Tips to enter" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tips to enter");
+    await expect(more).toHaveAttribute("aria-expanded", "false");
+  } finally {
     await db.end();
   }
 });

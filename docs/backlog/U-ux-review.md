@@ -303,7 +303,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-19 · The phone's tabs
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** P-13
 - **Spec:** [Bar POS and staff screens](../spec/10-staff-screens-bar-pos.md) · rule 1, phone
@@ -311,8 +311,20 @@ Definition of done: see CLAUDE.md.
   - At most 5 bottom tabs per role: home, then the role's most used (Rooms, Calls, Messages for a bartender), and **More**. More is the ☰ list holding only what isn't a tab (today up to 10–14 tabs that scroll sideways, and the ☰ repeats them: navigation.ts 181–229, Shell.tsx 194, 228–248).
   - **My tips** shows only with `tips.share` (navigation.ts:213 shows it to anyone when Team is on).
 - **Acceptance:**
-  - [ ] A bartender's phone has 5 tabs; nothing appears twice between the tabs and More.
+  - [x] A bartender's phone has 5 tabs; nothing appears twice between the tabs and More.
 - **Notes:**
+  - Built in `apps/staff/src/navigation.ts`: `phoneDestinations` (everything a phone may open, the old list), `phoneTabsByRole` (the table), `phoneTabs` (the first four of the role's row the person can open) and `phoneMore` (the side menu's entries in the venue's menu order, P-13, then the phone's own screens, Lock last; matched by path, so nothing shows twice). `layout/Shell.tsx` draws the four tabs and a **More** button ("☰ More" / "☰ Más") that opens the side menu's list above the tabs; the top bar's ☰ button is gone (More is the menu), and the drawer's separate "Alerts on this phone" link is now a More item. The desktop's side menu is unchanged (P-13 order, P-10 sections, module and permission gating). U-18's bands and the bell are untouched.
+  - The rows, picked from how each role works (founder's example for the bartender), recorded in spec 10 · rule 1 and screens.md Staff note 19:
+    - Bartender: Bar POS, Rooms, Calls, Messages, More (stand-ins: Tips to enter, Clock in and out).
+    - Front desk: Rooms, Bookings, Calls, Messages, More (stand-ins: Waitlist, Clock in and out).
+    - Runner (`staff`): Runs, Bookings, Calls, Waitlist, More (stand-ins: Clock in and out, My tips).
+    - Manager: Rooms, Approvals, Calls, Messages, More (stand-ins: Bookings, Incidents).
+    - Owner: Rooms, Approvals, Reports, Calls, More (stand-ins: Messages, Bookings).
+  - Cautious defaults: Calls stays a tab for every role (screens.md Staff note 19, "every staff phone gets Calls"); a switched-off feature or a missing permission lets the next name in the row take the place, so a phone keeps four tabs where it can; the rows are fixed in code, not a venue setting (the founder can ask for one). More shows the count of what waits under it (unread texts when Messages is under More, ringing bar orders when Bar orders is). Esc closes More's list, and picking an entry closes it.
+  - My tips now needs `tips.share` (bartender, front desk, runner by default), so managers and owners no longer see it in the menu; `/my-tips` itself still opens (its "Managers don't share" line stays) and its API is unchanged.
+  - A runner's More still lists Rooms (the board), as the ☰ drawer did before: the side menu's Rooms entry has no permission. Tips to enter under More follows the side menu's rule (`pos.use`), as the drawer did; the phone's own entry also needs bar tabs on.
+  - Tabs fit five at 390 px in English and Spanish (12 px labels that wrap between words, never inside one); the bar no longer scrolls sideways (`data-scroll` removed, so the layout tests catch an overflow).
+  - Tests: `navigation.test.ts` (the table, at most four, nothing twice, Lock last, menu order, stand-ins, My tips by `tips.share`); the e2e "U-19 · Maya's phone" at the end of staff.spec.ts; the phone e2e tests that clicked tabs now under More (Bookings, Waitlist, Tips to enter, Reports, Offline codes, Incidents, Alerts) open More first. Manual test 31.19.
 
 ### U-20 · One word for each thing
 

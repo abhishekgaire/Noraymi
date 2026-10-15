@@ -276,6 +276,9 @@ export const en = {
   "admin.needsPasskey": "Admin needs a passkey",
   "tabs.home": "Home",
   "tabs.alerts": "Alerts",
+  // More (U-19): the fifth bottom tab on a phone, the ☰ list of everything that isn't a tab.
+  "tabs.more": "More",
+  "tabs.more.waiting": "{count} waiting under More",
   // Badges and readers (M1-30): the Team badges column and the tap.
   "badge.signingIn": "Badge read · signing you in",
   "badge.failed": "That badge didn't work · try again, or tap your name, then your PIN",

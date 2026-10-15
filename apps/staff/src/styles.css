@@ -217,19 +217,17 @@ form {
 }
 .topbar {
   display: grid;
-  grid-template-columns: 44px 1fr auto auto;
+  /* No ☰ in the phone's top bar (U-19): the menu is the More tab at the foot. */
+  grid-template-columns: 1fr auto auto;
   grid-template-areas:
-    "menu venue clock bell"
-    "menu who who who"
-    "slot slot slot slot";
+    "venue clock bell"
+    "who who who"
+    "slot slot slot";
   column-gap: 12px;
   align-items: center;
   padding: 8px 16px;
   background: var(--w4-bg);
   border-bottom: 1px solid var(--w4-line);
-}
-.menu-button {
-  grid-area: menu;
 }
 /* A screen's own header items (V-04): the bar POS's title, staff chip, song queue and Wipe screen. */
 .screen-slot {
@@ -310,6 +308,10 @@ form {
 }
 .side li {
   margin: 4px 0;
+}
+/* A phone shows More's list (U-19), which leaves out the bottom tabs; a desktop the side menu. */
+.side-desktop {
+  display: none;
 }
 .menu-link {
   display: flex;
@@ -540,7 +542,11 @@ form {
     grid-template-areas: "venue slot who bell clock";
     min-height: var(--topbar-h);
   }
-  .menu-button {
+  /* The side menu on a desktop; More's list (U-19) only on a phone. */
+  .side-desktop {
+    display: block;
+  }
+  .side-phone {
     display: none;
   }
   .who {

@@ -7,7 +7,7 @@ import { useEvents } from "../events.js";
 import { ConnectionBanners, useConnection } from "../connection.js";
 import { banners, isOutageScreen } from "../connection-state.js";
 import { roleKey, useT } from "../i18n.js";
-import { menu, phoneTabs, visibleMenu } from "../navigation.js";
+import { menu, phoneMore, phoneTabs, visibleMenu } from "../navigation.js";
 import { useSession } from "../session.js";
 import { startTrialCapture } from "../trial-capture.js";
 import { WaitingStrip } from "../approvals/WaitingStrip.js";
@@ -125,18 +125,53 @@ function Frame({
         {unread}
       </span>
     ) : null;
-  const tabs = phoneTabs({
+  // The phone (U-19): at most four bottom tabs from the role's row, then More, the ☰ list of
+  // everything else (nothing in both).
+  const phone = {
     modules: membership.modules,
     permissions: membership.permissions,
     adminSections: membership.admin_sections ?? [],
     role: membership.role,
-  });
+    menuOrder: membership.menu_order,
+  };
+  const tabs = phoneTabs(phone);
+  const more = phoneMore(phone);
+  // What's waiting under More shows on the More tab, so nothing new hides behind it.
+  const moreWaiting =
+    (more.some((m) => m.id === "messages") ? unread : 0) +
+    (more.some((m) => m.id === "barOrders") ? waiting : 0);
+  const onLock = () => {
+    void lock().then(() => navigate("/sign-in", { replace: true }));
+  };
+  const item = (entry: { id: string; labelKey: MessageKey; path: string }) =>
+    entry.id === "lock" ? (
+      <li key={entry.path}>
+        <button type="button" className="menu-link" onClick={onLock}>
+          {t(entry.labelKey)}
+        </button>
+      </li>
+    ) : (
+      <li key={entry.path}>
+        <NavLink to={entry.path} className="menu-link">
+          {label(entry.id, entry.labelKey)} {badge(entry.id)}
+        </NavLink>
+      </li>
+    );
 
   useEffect(() => {
     document.title = `${membership.venue.name} · ${t("app.staff.name")}`;
   }, [membership.venue.name, t]);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
+  // Esc closes More's list on a phone with a keyboard.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   // A module switched on or off in Admin changes the menu and the tabs at once (M2-32).
   useEffect(
@@ -161,10 +196,6 @@ function Frame({
   const showReconnecting = !outageScreen && (!connected || connection.kind === "offline");
   // The "Time's up" strip (P-05; U-18): in the bands, on every signed-in screen.
   const timeUp = useTimeUp();
-
-  const onLock = () => {
-    void lock().then(() => navigate("/sign-in", { replace: true }));
-  };
 
   return (
     <TopBarContext.Provider value={topBar}>
@@ -194,16 +225,6 @@ function Frame({
           </div>
         )}
         <header className="topbar">
-          <button
-            type="button"
-            className="icon-button menu-button"
-            aria-label={menuOpen ? t("menu.close") : t("menu.open")}
-            aria-expanded={menuOpen}
-            aria-controls="side-menu"
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            ☰
-          </button>
           <div className="venue">{membership.venue.name}</div>
           {venueTime && (
             <div className="clock" aria-label={t("shell.now")}>
@@ -231,26 +252,9 @@ function Frame({
           )}
         </header>
         <nav id="side-menu" className="side" aria-label={t("menu.title")}>
-          <ul>
-            {entries.map((entry) =>
-              entry.id === "lock" ? (
-                <li key={entry.id}>
-                  <button type="button" className="menu-link" onClick={onLock}>
-                    {t(entry.labelKey)}
-                  </button>
-                </li>
-              ) : (
-                <li key={entry.id}>
-                  <NavLink to={entry.path} className="menu-link">
-                    {label(entry.id, entry.labelKey)} {badge(entry.id)}
-                  </NavLink>
-                </li>
-              ),
-            )}
-          </ul>
-          <NavLink to="/setup" className="menu-link phone-only">
-            {t("setup.title")}
-          </NavLink>
+          {/* The desktop's side menu, and on a phone More's list (U-19): only what isn't a tab. */}
+          <ul className="side-desktop">{entries.map(item)}</ul>
+          <ul className="side-phone">{more.map(item)}</ul>
           <LanguageSwitch />
         </nav>
         <main id="main" className="content">
@@ -273,12 +277,26 @@ function Frame({
             </ReadOnlyWhileOffline>
           </QueueProvider>
         </main>
-        <nav className="tabs" aria-label={t("menu.title")} data-scroll="x">
+        <nav className="tabs" aria-label={t("menu.title")}>
           {tabs.map((tab) => (
             <NavLink key={tab.id} to={tab.path} className="tab">
               {t(tab.labelKey)} {badge(tab.id)}
             </NavLink>
           ))}
+          <button
+            type="button"
+            className={menuOpen ? "tab more active" : "tab more"}
+            aria-expanded={menuOpen}
+            aria-controls="side-menu"
+            onClick={() => setMenuOpen((open) => !open)}
+          >
+            <span aria-hidden="true">☰</span> {t("tabs.more")}
+            {moreWaiting > 0 && (
+              <span className="badge" aria-label={t("tabs.more.waiting", { count: moreWaiting })}>
+                {moreWaiting}
+              </span>
+            )}
+          </button>
         </nav>
       </div>
     </TopBarContext.Provider>

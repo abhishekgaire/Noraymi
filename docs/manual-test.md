@@ -2066,3 +2066,13 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 6. Take the network away (the browser's offline switch): the bell shows its kept list, "Offline · as of 10:41 PM", with On it and Accept greyed.
 7. Spanish: the bell's lines read "Room 7 · Se necesita ya · 11 min de más" and "Room 10 · Se queda · 41 min de más"; the strip is "Se acabó el tiempo" with **Quitar todo**.
 
+### 31.19 The phone's tabs (U-19)
+
+1. Start the demo (`scripts/demo-start.sh`) and open the staff app on a phone, or a browser window under 1024 px wide (the browser's phone view at 390 × 844). Sign in as Maya (4071). The bottom bar has five tabs and doesn't scroll sideways: **Bar POS**, **Rooms**, **Calls**, **Messages** and **☰ More**. The top bar has no ☰ of its own. More shows a count while bar orders ring.
+2. Tap **More**: a list opens above the tabs with Bar orders (with its count), Song queue, Calendar, Tips to enter, Clock in and out, then Bookings, Waitlist, My tips and Alerts on this phone, and **Lock** last. None of Bar POS, Rooms, Calls or Messages is in it. Tap **Tips to enter**: it opens and the list closes. Open More again and press Esc (with a keyboard): it closes.
+3. In Admin → Features (as Andy on a laptop) move Calendar to the top of **Menu order**. On Maya's phone, More now lists Calendar first; Lock stays last.
+4. Lock, then sign in as Andy on the phone (a passkey, or his PIN on a paired screen): his tabs are **Rooms**, **Approvals**, **Calls**, **Messages** and **More**. Under More: Bar POS, Bar orders, Song queue, Calendar, Tips to enter, Clock in and out, Reports, Close the night, Incidents and Admin, then Bookings, Waitlist, Offline codes and Alerts on this phone, and Lock; no **My tips** (managers don't share in tips). The address `/my-tips` still opens his shifts.
+5. Diego (front desk) gets Rooms, Bookings, Calls, Messages and More; a runner gets Runs, Bookings, Calls, Waitlist and More; Abhishek (owner) gets Rooms, Approvals, Reports, Calls and More.
+6. In Admin → Features switch off **Guest texts**: Maya's Messages tab goes and **Tips to enter** takes its place; More no longer lists Tips to enter. Switch it back on.
+7. Spanish (Language under More): the tabs read Bar POS, Salas, Llamadas, Mensajes and **☰ Más**, and still fit without scrolling.
+
