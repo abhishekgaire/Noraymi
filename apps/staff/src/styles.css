@@ -3338,3 +3338,19 @@ a.song-count {
     grid-template-columns: 1fr;
   }
 }
+
+/* U-12 (D133): "Moved to Room 9 · Undo" for 10 seconds after a tab moves into a room. */
+.move-undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+.move-undo .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.move-tab .move-new-room {
+  width: 100%;
+}

@@ -43,7 +43,9 @@ import { RefundSheet } from "./RefundSheet.js";
 import { TipChangeSheet } from "./TipChangeSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
-import { MoveToRoom, RoomCardTap } from "./MoveTab.js";
+import { MoveToRoom, MoveUndo, RoomCardTap } from "./MoveTab.js";
+import { CheckInSheet } from "./CheckInSheet.js";
+import { Dialog } from "../layout/Dialog.js";
 import "./bar.css";
 import { RoomQrActions } from "./RoomQrActions.js";
 
@@ -220,6 +222,8 @@ export function Rail() {
   const readerList = useReaders(venueId);
   const readers = hasReaders(readerList);
   const timeZone = signedIn?.membership.venue.time_zone ?? "America/New_York";
+  // Move to a new room (U-12) seats a walk-in, so only where the venue has rooms.
+  const roomsOn = signedIn !== null && signedIn.membership.modules.rooms !== "off";
   const me = signedIn?.me.user;
   const meId = me?.id ?? "";
   // Sharing the terminal (M6-04): the locks, and who's on a break (M7-01: "Maya · on break" on every bar screen).
@@ -277,6 +281,17 @@ export function Rail() {
   /** Change tip (P-06) for a tab closed tonight: its check. */
   const [tipChanging, setTipChanging] = useState<string | null>(null);
   const [movingTab, setMovingTab] = useState<string | null>(null);
+  // U-12 (D133): Move to a new room's walk-in sheet for this tab, and the last move's Undo.
+  const [newRoomFor, setNewRoomFor] = useState<{ id: string; name: string } | null>(null);
+  const [undoMove, setUndoMove] = useState<{
+    readonly tabId: string;
+    readonly tabName: string;
+    readonly room: string;
+    readonly message: string;
+    readonly undoable: boolean;
+    readonly seated: boolean;
+    readonly n: number;
+  } | null>(null);
   const [holds, setHolds] = useState<readonly MovedHold[]>([]);
   const [pendingFixes, setPendingFixes] = useState<readonly PendingFix[]>([]);
   // A discount on the whole check (P-02), standing or waiting for approval.
@@ -564,6 +579,7 @@ export function Rail() {
     setShare(null);
     setRefunding(null);
     setMovingTab(null);
+    setUndoMove(null);
     setWarnUnsent(null);
     setPicked(next);
   };
@@ -1316,6 +1332,66 @@ export function Rail() {
                 {notice}
               </p>
             )}
+            {undoMove && (
+              <MoveUndo
+                key={undoMove.n}
+                venueId={venueId}
+                tabId={undoMove.tabId}
+                tabName={undoMove.tabName}
+                room={undoMove.room}
+                message={undoMove.message}
+                undoable={undoMove.undoable}
+                seated={undoMove.seated}
+                offline={!connected || connection.kind === "offline"}
+                onUndone={(message) => {
+                  // Back on the tab, every drink on it again.
+                  pick({ kind: "tab", id: undoMove.tabId });
+                  setNotice(message);
+                  void load();
+                }}
+              />
+            )}
+            {newRoomFor && (
+              <Dialog onClose={() => setNewRoomFor(null)}>
+                <CheckInSheet
+                  venueId={venueId}
+                  timeZone={timeZone}
+                  target={{ kind: "walk_in", roomId: null, roomName: null }}
+                  onClose={() => setNewRoomFor(null)}
+                  onDone={(line) => {
+                    setNewRoomFor(null);
+                    setNotice(line);
+                    void load();
+                  }}
+                  moveTab={{
+                    tabId: newRoomFor.id,
+                    tabName: newRoomFor.name,
+                    onMoved: (moved) => {
+                      const tabId = newRoomFor.id;
+                      const tabName = newRoomFor.name;
+                      setNewRoomFor(null);
+                      pick({ kind: "room", id: moved.roomId });
+                      setUndoMove({
+                        tabId,
+                        tabName,
+                        room: moved.room,
+                        message: moved.message,
+                        undoable: moved.undoable,
+                        seated: true,
+                        n: Date.now(),
+                      });
+                      void load();
+                    },
+                    onStayed: (message) => {
+                      setNewRoomFor(null);
+                      setMovingTab(null);
+                      setNotice(message);
+                      void load();
+                    },
+                  }}
+                />
+              </Dialog>
+            )}
             {refunding ? (
               <RefundSheet
                 key={refunding}
@@ -1600,10 +1676,23 @@ export function Rail() {
                     tabId={tab.id}
                     rooms={rooms}
                     onClose={() => setMovingTab(null)}
-                    onMoved={(message, roomId) => {
-                      // The room it moved into, with the moved drinks on its check.
+                    offline={!connected || connection.kind === "offline"}
+                    onNewRoom={
+                      roomsOn ? () => setNewRoomFor({ id: tab.id, name: tab.name }) : undefined
+                    }
+                    onMoved={(message, roomId, undoable) => {
+                      // The room it moved into, with the moved drinks on its check, and Undo (U-12).
+                      const room = rooms.find((r) => r.room_id === roomId)?.name ?? "";
                       pick({ kind: "room", id: roomId });
-                      setNotice(message);
+                      setUndoMove({
+                        tabId: tab.id,
+                        tabName: tab.name,
+                        room,
+                        message,
+                        undoable,
+                        seated: false,
+                        n: Date.now(),
+                      });
                       void load();
                     }}
                   />

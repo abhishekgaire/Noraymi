@@ -289,7 +289,19 @@ export interface MovedToRoom {
   readonly lines: number;
   /** released: the room has a card, so the hold is being canceled; kept: it guarantees the room. */
   readonly hold: "released" | "kept" | "none";
+  /**
+   * Whether Undo can put it back (U-12, D133): not once the hold is being canceled, since a canceled
+   * hold can't come back onto the tab.
+   */
+  readonly undoable: boolean;
 }
+
+/**
+ * How long Undo stands after a move (U-12, D133): the screen offers it for 10 seconds; the server takes
+ * it for 15, so an Undo tapped at 9.9 seconds over a slow connection still lands.
+ */
+export const TAB_MOVE_UNDO_SECONDS = 10;
+const TAB_MOVE_UNDO_GRACE_SECONDS = 5;
 
 /** Move tab to a room (`POST /tabs/{t}/move-to-room`). One transaction: the caller's. */
 export async function moveTabToRoom(
@@ -424,7 +436,203 @@ export async function moveTabToRoom(
     room: room.name,
     lines: lines.length,
     hold,
+    undoable: hold !== "released",
   };
+}
+
+export interface UndoMoveInput {
+  readonly tabId: string;
+  readonly userId: string;
+  readonly now: Temporal.Instant;
+}
+
+export interface UndoneMove {
+  readonly tab_id: string;
+  readonly room_check_id: string;
+  readonly room: string;
+  readonly lines: number;
+}
+
+const undoRefused = (reason: string, message: string) =>
+  new ApiError("version_conflict", message, { details: { reason } });
+
+/**
+ * Undo a move into a room (`POST /tabs/{t}/undo-move`; U-12, D133): within the undo window, by the
+ * person who moved it, while nothing has happened on the room's check since. Every moved line goes back
+ * as a transfer (a `transfer_out` on the room's check pointing at its `transfer_in`, and a `transfer_in`
+ * on the tab, "Moved back from Room 9"), so the record keeps both moves and the audit log has both, each
+ * row by the person who did it. The tab opens again with its hold, which stops guaranteeing the room.
+ * Refused, with nothing changed, when:
+ *  - the window has passed (`undo_expired`), or someone else moved it (`forbidden`);
+ *  - anything was added to, taken off or paid on the room's check since (`room_changed`), or it is
+ *    presented or being paid (`room_paying`);
+ *  - the hold is being canceled because the room has a card (`hold_released`): it can't come back;
+ *  - the drinks would go onto a tab that's cut off, or after the alcohol window (the same checks as a
+ *    send, `409 cut_off` or `alcohol_closed`).
+ * One transaction: the caller's. The room's session is untouched: a party seated for the move stays.
+ */
+export async function undoTabMove(
+  c: Queryable,
+  venueId: string,
+  input: UndoMoveInput,
+): Promise<UndoneMove> {
+  const tab = (
+    await c.query<{
+      check_id: string;
+      name: string;
+      state: string;
+      payment_id: string | null;
+      moved_to: string | null;
+      closed_at: string | null;
+      closed_by: string | null;
+      cut_at: string | null;
+      cut_by: string | null;
+      cut_reason: string | null;
+    }>(
+      `select t.check_id, t.name, t.state, t.payment_id, t.moved_to_check_id as moved_to,
+              to_json(t.closed_at) #>> '{}' as closed_at, t.closed_by,
+              to_json(t.cut_off_at) #>> '{}' as cut_at, split_part(u.name, ' ', 1) as cut_by,
+              t.cut_off_reason as cut_reason
+         from tabs t left join users u on u.id = t.cut_off_by
+        where t.venue_id = $1 and t.id = $2 for update of t`,
+      [venueId, input.tabId],
+    )
+  ).rows[0];
+  if (!tab) throw new ApiError("not_found", "no such tab");
+  if (tab.state !== "closed" || !tab.moved_to || !tab.closed_at)
+    throw new ApiError("invalid_request", "this tab hasn't moved into a room", {
+      details: { reason: "not_moved" },
+    });
+  if (tab.closed_by !== input.userId)
+    throw new ApiError("forbidden", "only whoever moved the tab can undo it", {
+      details: { reason: "not_yours" },
+    });
+  const since = input.now.since(tab.closed_at).total("seconds");
+  if (since > TAB_MOVE_UNDO_SECONDS + TAB_MOVE_UNDO_GRACE_SECONDS)
+    throw undoRefused("undo_expired", "it's too late to undo: move the drinks one by one");
+
+  const roomCheckId = tab.moved_to;
+  const room = (
+    await c.query<{ status: string; name: string | null; session_id: string | null }>(
+      `select k.status, r.name, k.room_session_id as session_id
+         from checks k
+         left join room_sessions s on s.venue_id = k.venue_id and s.id = k.room_session_id
+         left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+        where k.venue_id = $1 and k.id = $2 for update of k`,
+      [venueId, roomCheckId],
+    )
+  ).rows[0];
+  if (!room || !["open", "reopened"].includes(room.status))
+    throw undoRefused("room_paying", "the room's check is presented or paid: it can't be undone");
+  const roomName = room.name ?? "the room";
+
+  // The drinks this move brought in, still whole: the room's transfer_in lines from this tab.
+  const movedIds = new Set(
+    (
+      await c.query<{ id: string }>(
+        `select id from check_lines where venue_id = $1 and check_id = $2 and kind = 'transfer_in'
+            and moved_check_id = $3`,
+        [venueId, roomCheckId, tab.check_id],
+      )
+    ).rows.map((r) => Number(r.id)),
+  );
+  const lines = (await movableLines(c, venueId, roomCheckId)).filter((l) => movedIds.has(l.id));
+  const tabOut = await c.query<{ n: string }>(
+    `select count(*) as n from check_lines o
+      where o.venue_id = $1 and o.check_id = $2 and o.kind = 'transfer_out' and o.moved_check_id = $3
+        and not exists (select 1 from check_lines b where b.venue_id = o.venue_id
+                          and b.check_id = o.check_id and b.kind = 'transfer_in' and b.id > o.id
+                          and b.moved_check_id = $3)`,
+    [venueId, tab.check_id, roomCheckId],
+  );
+  if (lines.length !== Number(tabOut.rows[0]!.n))
+    throw undoRefused("room_changed", "a moved drink was changed on the room's check");
+  // Anything newer on the room's check than the move (a drink, a void, a comp, a song) stops it.
+  const newest = Math.max(0, ...movedIds);
+  const later = await c.query(
+    "select 1 from check_lines where venue_id = $1 and check_id = $2 and id > $3 limit 1",
+    [venueId, roomCheckId, newest],
+  );
+  if (movedIds.size > 0 && later.rowCount)
+    throw undoRefused("room_changed", "something was added to the room's check since the move");
+  // Nothing paid or being paid on it, beyond the deposits and moved holds that follow its lines.
+  const paying = await c.query(
+    `select 1 from payment_allocations where venue_id = $1 and check_id = $2
+        and state in ('in_progress', 'captured') and kind = 'payment' and not follows_lines limit 1`,
+    [venueId, roomCheckId],
+  );
+  if (paying.rowCount)
+    throw undoRefused("room_paying", "something is paid on the room's check: it can't be undone");
+
+  // The hold: it comes back only if it is still standing as the room's guarantee.
+  let holdAllocation: string | null = null;
+  if (tab.payment_id) {
+    const alloc = await c.query<{ id: string }>(
+      `select id from payment_allocations where venue_id = $1 and check_id = $2 and payment_id = $3
+          and state = 'in_progress' and follows_lines`,
+      [venueId, roomCheckId, tab.payment_id],
+    );
+    holdAllocation = alloc.rows[0]?.id ?? null;
+    if (!holdAllocation) {
+      const status = (
+        await c.query<{ status: string }>(
+          "select status from payments where venue_id = $1 and id = $2",
+          [venueId, tab.payment_id],
+        )
+      ).rows[0]?.status;
+      const canceling = await c.query(
+        "select 1 from jobs where venue_id = $1 and dedupe_key = $2",
+        [venueId, `${TAB_CANCEL_HOLD_KIND}:${tab.payment_id}`],
+      );
+      if (status === "authorized" || canceling.rowCount)
+        throw undoRefused(
+          "hold_released",
+          "the tab's hold is being released, so the tab can't come back",
+        );
+    }
+  }
+
+  // The same checks as a send: alcohol doesn't go back onto a cut-off tab, or after the window.
+  await refuseAlcohol(c, venueId, lines, {
+    checkId: tab.check_id,
+    sessionId: null,
+    cutOff: tab.cut_at ? { at: tab.cut_at, by: tab.cut_by, reason: tab.cut_reason } : null,
+    by: input.userId,
+    now: input.now,
+  });
+
+  for (const l of lines)
+    await transfer(c, venueId, l, l.qty, {
+      fromCheckId: roomCheckId,
+      toCheckId: tab.check_id,
+      outReason: `Moved back to ${barTab(tab.name)}`,
+      inReason: `Moved back from ${roomName}`,
+      by: input.userId,
+      approvedBy: null,
+      at: input.now,
+    });
+  if (holdAllocation)
+    await c.query(
+      "update payment_allocations set state = 'released' where venue_id = $1 and id = $2",
+      [venueId, holdAllocation],
+    );
+
+  await moveTab(c, venueId, input.tabId, "open");
+  await c.query(
+    `update tabs set moved_to_check_id = null, closed_at = null, closed_by = null
+      where venue_id = $1 and id = $2`,
+    [venueId, input.tabId],
+  );
+  // Its check takes drinks again: it was settled at $0 by the move, never finalized.
+  await c.query(
+    `update checks set status = 'open', paid_at = null, version = version + 1
+      where venue_id = $1 and id = $2 and status = 'paid'`,
+    [venueId, tab.check_id],
+  );
+  await emitEvent(c, { venueId, type: "tab.updated", entityId: input.tabId });
+  for (const check of [tab.check_id, roomCheckId])
+    await emitEvent(c, { venueId, type: "check.updated", entityId: check, entityVersion: 0 });
+  return { tab_id: input.tabId, room_check_id: roomCheckId, room: roomName, lines: lines.length };
 }
 
 export interface MoveLineInput {

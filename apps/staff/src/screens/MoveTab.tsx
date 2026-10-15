@@ -19,14 +19,51 @@ export interface RoomInUse {
   } | null;
 }
 
-const newKey = (what: string) => `${what}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+export const newKey = (what: string) =>
+  `${what}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+/** What a move answers (M6-13), with whether Undo can put it back (U-12). */
+export interface MoveAnswer {
+  readonly room: string;
+  readonly hold: "released" | "kept" | "none";
+  readonly undoable: boolean;
+}
+
+/** "Moved to Room 9", with what happened to the hold. */
+export function movedLine(t: ReturnType<typeof useT>["t"], r: MoveAnswer): string {
+  const moved = t("moveTab.moved", { room: r.room });
+  return r.hold === "released"
+    ? `${moved} · ${t("moveTab.holdReleased", { room: r.room })}`
+    : r.hold === "kept"
+      ? `${moved} · ${t("moveTab.holdKept", { room: r.room })}`
+      : moved;
+}
+
+/** A move's refusal in words (M6-13): a cut-off room with its reason, the closed window, or the server's. */
+export function moveRefusal(
+  t: ReturnType<typeof useT>["t"],
+  e: unknown,
+  room: string,
+): { error: string; reason: string | null } {
+  if (e instanceof ApiCallError && e.code === "cut_off") {
+    const cut = e.details["cut_off"] as { reason?: string | null } | undefined;
+    return { error: t("moveTab.cutOff", { room }), reason: cut?.reason ?? null };
+  }
+  if (e instanceof ApiCallError && e.code === "alcohol_closed")
+    return { error: t("moveTab.closedWindow"), reason: null };
+  return { error: e instanceof ApiCallError ? e.message : t("fix.failed"), reason: null };
+}
 
 export function MoveToRoom(props: {
   venueId: string;
   tabId: string;
   rooms: readonly RoomInUse[];
-  onMoved: (message: string, roomId: string) => void;
+  onMoved: (message: string, roomId: string, undoable: boolean) => void;
   onClose: () => void;
+  /** Move to a new room (U-12): opens the walk-in sheet; absent where the venue has no rooms. */
+  onNewRoom?: (() => void) | undefined;
+  /** The bar computer is offline: nothing moves. */
+  offline?: boolean;
 }) {
   const { t } = useT();
   const [busy, setBusy] = useState(false);
@@ -39,29 +76,17 @@ export function MoveToRoom(props: {
     setError(null);
     setReason(null);
     try {
-      const r = await api<{ room: string; hold: "released" | "kept" | "none" }>(
+      const r = await api<MoveAnswer>(
         "POST",
         `/v1/venues/${props.venueId}/tabs/${props.tabId}/move-to-room`,
         { session_id: room.session!.id },
         { idempotencyKey: newKey("move") },
       );
-      const moved = t("moveTab.moved", { room: r.room });
-      props.onMoved(
-        r.hold === "released"
-          ? `${moved} · ${t("moveTab.holdReleased", { room: r.room })}`
-          : r.hold === "kept"
-            ? `${moved} · ${t("moveTab.holdKept", { room: r.room })}`
-            : moved,
-        room.room_id,
-      );
+      props.onMoved(movedLine(t, r), room.room_id, r.undoable);
     } catch (e) {
-      if (e instanceof ApiCallError && e.code === "cut_off") {
-        setError(t("moveTab.cutOff", { room: room.name }));
-        const cut = e.details["cut_off"] as { reason?: string | null } | undefined;
-        if (cut?.reason) setReason(cut.reason);
-      } else if (e instanceof ApiCallError && e.code === "alcohol_closed")
-        setError(t("moveTab.closedWindow"));
-      else setError(e instanceof ApiCallError ? e.message : t("fix.failed"));
+      const why = moveRefusal(t, e, room.name);
+      setError(why.error);
+      setReason(why.reason);
     } finally {
       setBusy(false);
     }
@@ -70,6 +95,25 @@ export function MoveToRoom(props: {
   return (
     <section className="move-tab" aria-label={t("moveTab.button")}>
       <h3>{t("moveTab.button")}</h3>
+      {/* U-12 (D133): seat the party in a free room and the tab goes with them, in one flow. */}
+      {props.onNewRoom && (
+        <>
+          <button
+            type="button"
+            className="primary move-new-room"
+            disabled={busy || props.offline}
+            onClick={props.onNewRoom}
+          >
+            {t("moveTab.newRoom")}
+          </button>
+          <p className="small muted">{t("moveTab.newRoomHint")}</p>
+        </>
+      )}
+      {props.offline && (
+        <p className="small muted" role="status">
+          {t("moveTab.offline")}
+        </p>
+      )}
       <p className="small muted">{t("moveTab.hint")}</p>
       {inUse.length === 0 && <p className="muted">{t("moveTab.none")}</p>}
       <ul className="rail-list">
@@ -78,7 +122,7 @@ export function MoveToRoom(props: {
             <button
               type="button"
               className="secondary move-room"
-              disabled={busy}
+              disabled={busy || props.offline}
               onClick={() => void move(room)}
             >
               <span data-guest-text>{room.name}</span>
@@ -107,6 +151,94 @@ export function MoveToRoom(props: {
         {t("closeTab.back")}
       </button>
     </section>
+  );
+}
+
+/** How long Undo shows after a move (U-12, D133); the server takes it a little longer for a slow network. */
+export const UNDO_MOVE_MS = 10_000;
+
+/**
+ * "Moved to Room 9 · Undo" (U-12, D133): for 10 seconds after a move, Undo puts every drink back on the
+ * tab (`POST /tabs/{t}/undo-move`, audited like the move). The server refuses it, with nothing changed,
+ * once anything happened on the room's check, the hold is being released, or the window has passed.
+ */
+export function MoveUndo(props: {
+  venueId: string;
+  tabId: string;
+  tabName: string;
+  room: string;
+  message: string;
+  undoable: boolean;
+  /** A party seated for the move stays seated: Undo says so. */
+  seated: boolean;
+  offline: boolean;
+  onUndone: (message: string) => void;
+}) {
+  const { t } = useT();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(props.undoable);
+  useEffect(() => {
+    if (!props.undoable) return;
+    const timer = window.setTimeout(() => setOpen(false), UNDO_MOVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [props.undoable]);
+
+  const undo = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("POST", `/v1/venues/${props.venueId}/tabs/${props.tabId}/undo-move`, undefined, {
+        idempotencyKey: newKey("undo-move"),
+      });
+      const back = t("moveTab.undone", { name: props.tabName });
+      props.onUndone(
+        props.seated ? `${back} · ${t("moveTab.stillSeated", { room: props.room })}` : back,
+      );
+    } catch (e) {
+      setOpen(false);
+      const reason = e instanceof ApiCallError ? e.details["reason"] : null;
+      setError(
+        e instanceof ApiCallError && e.code === "cut_off"
+          ? t("moveTab.undoCutOff", { name: props.tabName })
+          : e instanceof ApiCallError && e.code === "alcohol_closed"
+            ? t("moveTab.closedWindow")
+            : reason === "undo_expired"
+              ? t("moveTab.undoExpired", { room: props.room })
+              : reason === "room_changed" || reason === "room_paying"
+                ? t("moveTab.undoRoomChanged", { room: props.room })
+                : reason === "hold_released"
+                  ? t("moveTab.undoHoldReleased")
+                  : reason === "not_yours"
+                    ? t("moveTab.undoNotYours")
+                    : e instanceof ApiCallError
+                      ? e.message
+                      : t("fix.failed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="move-undo" role="status">
+      <span className="small">{props.message}</span>
+      {open && (
+        <button
+          type="button"
+          className="secondary move-undo-button"
+          disabled={busy || props.offline}
+          onClick={() => void undo()}
+        >
+          {t("moveTab.undo")}
+        </button>
+      )}
+      {error && (
+        <p className="error small" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

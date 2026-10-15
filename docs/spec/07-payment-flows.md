@@ -122,7 +122,7 @@ In bar mode, a queued song costs nothing. When staff or an adapter mark it start
 
 ### Moving a tab into a room
 
-Move tab to a room, on the tab, lists the rooms in use. Every line moves as a transfer in one transaction: a `transfer_out` line on the tab and a `transfer_in` line on the room's check, which reads "Moved from Jess P.'s bar tab". The tab closes as "Moved to Room 9". A move runs the same checks as a send, so alcohol can't move onto a cut-off room, and where rooms carry holds the room's hold is raised first.
+Move tab to a room, on the tab, lists the rooms in use, with **Move to a new room** first: the walk-in sheet seats the party, then the tab moves into the new room ([D133](../decisions.md), U-12; [Staff screens](10-staff-screens-bar-pos.md) · Move tab to a room). Every line moves as a transfer in one transaction: a `transfer_out` line on the tab and a `transfer_in` line on the room's check, which reads "Moved from Jess P.'s bar tab". The tab closes as "Moved to Room 9". A move runs the same checks as a send, so alcohol can't move onto a cut-off room, and where rooms carry holds the room's hold is raised first.
 
 The tab's hold is canceled once the room has a payment method:
 
@@ -131,6 +131,8 @@ The tab's hold is canceled once the room has a payment method:
 - **A card tapped for the room,** for a walk-in with no saved card, such as Room 5: a SetupIntent through the reader (`process_setup_intent`) saves it without charging, with the guest's consent read out and stored as for a tab.
 
 Until then the hold stays on the card as the room's guarantee for the moved lines: its allocation follows them onto the room's check, up to the hold, and the room tab shows the hold with the tab's name. Settling the room any other way cancels it ([Money rules](05-money-rules.md), rule 12).
+
+**Undo** (U-12, [D133](../decisions.md)): for 10 seconds after a move (15 on the server), whoever moved the tab can put it back. Every moved line returns as a transfer (a `transfer_out` on the room's check pointing at its `transfer_in`, and a `transfer_in` on the tab), the tab's check is open again, and a hold that was guaranteeing the room stops doing so; both checks end where they were, to the cent. It's refused, with nothing changed, once the room's check has anything newer than the move, is presented, or has a payment that isn't a deposit or a moved hold; once the tab's hold is being canceled (it can't come back); and, as a move, alcohol can't go back onto a cut-off tab or after the window closes.
 
 ### Refunds
 

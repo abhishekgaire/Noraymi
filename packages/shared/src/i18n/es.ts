@@ -808,6 +808,8 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "checkIn.hours": "{hours} h",
   "checkIn.confirm": "Registrar llegada",
   "checkIn.confirmWalkIn": "Sentarlos",
+  "checkIn.confirmMoveTab": "Sentarlos y mover la cuenta",
+  "checkIn.moveTabTitle": "Mover la cuenta de {name} a una sala nueva",
   "checkIn.cancel": "Cancelar",
   "checkIn.done": "{room} · código de sala {code} · cuenta #{number}",
   "checkIn.textNotSent": "El código de sala no se envió por mensaje · díselo al anfitrión",
@@ -2668,6 +2670,22 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "moveTab.holdKept":
     "La retención sigue en la tarjeta para {room} hasta que se pase una tarjeta para la sala.",
   "moveTab.roomHold": "Retención {amount} · {name}",
+  "moveTab.newRoom": "Mover a una sala nueva",
+  "moveTab.newRoomHint":
+    "Sienta al grupo en una sala libre, y todas las bebidas de esta cuenta van con ellos.",
+  "moveTab.offline": "No se mueve nada mientras la computadora de la barra está sin conexión.",
+  "moveTab.undo": "Deshacer",
+  "moveTab.undone": "De vuelta en la cuenta de {name}",
+  "moveTab.stillSeated": "{room} sigue ocupada",
+  "moveTab.undoExpired": "Ya no se puede deshacer: las bebidas se quedan en {room}.",
+  "moveTab.undoRoomChanged":
+    "No se puede deshacer: algo cambió en la cuenta de {room} desde que se movió.",
+  "moveTab.undoHoldReleased":
+    "No se puede deshacer: la retención de la cuenta ya se está liberando.",
+  "moveTab.undoCutOff":
+    "No se puede deshacer: la cuenta de {name} tiene el alcohol cortado, así que el alcohol no puede volver a ella.",
+  "moveTab.undoNotYours": "Solo quien movió la cuenta puede deshacerlo.",
+  "moveTab.tabStayed": "El grupo está sentado, pero la cuenta se quedó en la barra.",
   "roomCard.button": "Pasar una tarjeta para {room}",
   "roomCard.waiting":
     "Acerque, inserte o deslice la tarjeta en el lector de la barra. No se cobra nada.",
