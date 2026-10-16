@@ -32,6 +32,7 @@ Each venue setting is a versioned document checked against the venue's rule pack
 | `menuOrder` | The order of the staff app's side menu (P-13, Admin → Features → Menu order): the entries' ids first to last; empty (the default) is the app's own order from [spec 10](10-staff-screens-bar-pos.md) rule 1 |
 | `pinAgain` | Ask for the PIN again (P-10, the owner's alone, Admin → Features → Choices): the actions on which staff in a PIN or badge session type their own PIN again before the server runs them, from no sale, void, comp, discount, refund, reprint a receipt, open a tab and change tip. Unsaved, it's no sale alone, as before ([Tenancy and access](02-tenancy-access.md) · PINs) |
 | `taxExempt` | Tax-exempt checks (P-15, Admin → Features → Choices, shown while Tax-exempt sales is on): `stillTaxed`, the tax categories that stay taxed on a check made tax exempt. Unsaved, it reads `["drink"]`, the cautious default until the accountant answers (spec 14); each exemption keeps the list as it stood when it was given. |
+| `inventory` | Inventory (P-16, Admin → Features → Choices, shown while Inventory is on): `autoEightySix`, whether a sale that takes an item's stock count to zero 86's it (the same 86 staff set by hand) until the count comes back above zero. Unsaved, it reads `true`. |
 
 The money and time shapes:
 
@@ -282,8 +283,9 @@ A new version needs two people on our side to approve it in the Console, is sign
 | Kitchen & food | Bar screen & tickets, and a paired kitchen printer and the allergy notice ([Kitchen and food](16-kitchen.md)) |
 | Bar mode | Bar tabs & quick sale |
 | Marketing texts | Guest texts |
+| Inventory | Reports & accounting (Reports → Stock is its screen) |
 
-Cash discount needs nothing; its rate is still `pay.cardFee` ([D124](../decisions.md)). Discount on a check (`check_discount`, P-02) needs nothing either: every plan includes it and it starts on (a venue with no row of its own reads as Payments & checks), and the owner can turn it off; off refuses a new discount, while one already on an open check can still be removed. The bell (`bell`, P-11) needs nothing either: every plan includes it, it starts on (a venue with no row of its own reads as Admin), and the owner can turn it off in Admin → Features or Set up your venue's step 9; off hides the bell and its routes answer `404 module_off`, while the menu badges stay. Tax-exempt sales (`tax_exempt`, P-15) needs nothing: every plan includes it, it starts off (which sales an exemption covers is the accountant's question, spec 14), and the owner turns it on in Admin → Features or Set up your venue's step 7; off refuses a new exemption (`404 module_off`), while one already on an open check can still be removed.
+Cash discount needs nothing; its rate is still `pay.cardFee` ([D124](../decisions.md)). Discount on a check (`check_discount`, P-02) needs nothing either: every plan includes it and it starts on (a venue with no row of its own reads as Payments & checks), and the owner can turn it off; off refuses a new discount, while one already on an open check can still be removed. The bell (`bell`, P-11) needs nothing either: every plan includes it, it starts on (a venue with no row of its own reads as Admin), and the owner can turn it off in Admin → Features or Set up your venue's step 9; off hides the bell and its routes answer `404 module_off`, while the menu badges stay. Tax-exempt sales (`tax_exempt`, P-15) needs nothing: every plan includes it, it starts off (which sales an exemption covers is the accountant's question, spec 14), and the owner turns it on in Admin → Features or Set up your venue's step 7; off refuses a new exemption (`404 module_off`), while one already on an open check can still be removed. Inventory (`inventory`, P-16) needs Reports & accounting, where Reports → Stock lives: every plan includes it, it starts off, and the owner turns it on in Admin → Features or Set up your venue's menu step; off answers its routes `404 module_off` and no sale, void or close moves a count, while the counts and their ledger stay.
 
 A module can be on only while what it needs is on. Turning one off that others need lists them ("These turn off with it: …") and turns them off too after a confirm. Turning off Bar screen & tickets while Ordering from the room is on asks: **"Room orders would have nowhere to ring. Turn off Ordering from the room too?"**, followed by "These turn off with it: …" when Kitchen & food goes too.
 
@@ -303,6 +305,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Bar screen & tickets | Bar orders, the room-order cards on the bar POS, tickets | Runs | — | — |
 | Bar tabs & quick sale | New tab, bar tabs and Quick sale on the bar POS | Tips to enter | — | — |
 | Kitchen & food | Food on the bar POS, Send to kitchen, Station in Admin → Menu, kitchen tickets (Admin → Kitchen stays, where the Console allows the module) | Food runs | Food on the room page, the room tablets, the menu page and the menu PDF; the allergy notice | — |
+| Inventory | Reports → Stock (the counts, Receive, Count, Adjust and Stock by date), Admin → Features → Choices → Inventory; sales and voids stop moving counts and nothing 86's at zero | — | — | — |
 | Bar mode | Song queue (the KJ screen) and "Song queue · N" on the bar POS; the Up next TV | — | "Sing at the bar" and the singer's queue page | You're up next |
 | Packages & specials | Packages on the staff menus | — | Packages and happy-hour lines on the menu page and PDF | — |
 | Song system control | Admin → Song system (phase 1 runs every system as `none`) | — | — | — |
@@ -326,7 +329,7 @@ A module can be on only while what it needs is on. Turning one off that others n
 | Group | Admin sections | Features switches |
 | --- | --- | --- |
 | **Rooms** (Salas) | Hours & prices, Rooms, Sounds & rules | Rooms & room clock, Ordering from the room, Packages & specials, Song system control, Room tablets |
-| **Bar** (Barra) | Menu, Bar POS, Bar mode, Kitchen | Alcohol controls & state rules, Bar screen & tickets, Bar tabs & quick sale, Bar mode, Kitchen & food |
+| **Bar** (Barra) | Menu, Bar POS, Bar mode, Kitchen | Alcohol controls & state rules, Bar screen & tickets, Bar tabs & quick sale, Bar mode, Kitchen & food, Inventory |
 | **Guests** (Clientes) | Phone & texts, Texts, Deposits & cancelling, Spam protection, Website | Online booking, Walk-in waitlist, Guest texts, Marketing texts, Website, Deposits on bookings |
 | **Team** (Equipo) | Team, Console, Activity log | Team, time clock & tips, Bell |
 | **Money** (Dinero) | Cash drawers, Payments, Card fee & gratuity, Disputes | Payments & checks, Reports & accounting, Keep the card behind the bar, Pay my share, Cash discount, Paid on outside card machine, Discount on a check, Tax-exempt sales |

@@ -554,6 +554,8 @@ export {
 export type { RefundRow, RefundStatus } from "./refunds.js";
 export { alertRefund, alertVoidAfterCash } from "./owner-alerts.js";
 export type { OwnerAlertKind } from "./owner-alerts.js";
+export { holdStockOuts, moveStock, stockForLine } from "./stock.js";
+export type { StockLevelRow, StockMoveKind } from "./stock.js";
 export { currentPolicy, policyHash, publishPolicy, type PolicyVersion } from "./policies.js";
 export { openShiftOf, openShifts, rebuildShift, recordPunch, ShiftError } from "./shifts.js";
 export type { ShiftPunch, ShiftRefusal, ShiftRow, VenueTime as ShiftVenueTime } from "./shifts.js";

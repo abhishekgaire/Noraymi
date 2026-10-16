@@ -809,7 +809,7 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("18 on · 5 off")).toBeVisible();
+    await expect(page.getByText("18 on · 6 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -896,12 +896,12 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("16 on · 7 off")).toBeVisible();
+    await expect(page.getByText("16 on · 8 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("18 on · 5 off")).toBeVisible();
+    await expect(page.getByText("18 on · 6 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -14105,6 +14105,71 @@ test("U-22 · an Admin confirm is a dialog too, and a phone shows a sheet as a b
     expect(Math.round(box.y + box.height)).toBe(844);
     await expectEscAndTrap(page, sheet);
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * P-16 · Reports → Stock: with Inventory on, Andy starts counting Jäger Bomb with a low level of 2,
+ * counts 3 on the shelf, can't adjust without a reason, adjusts −1 for a dropped bottle, receives 4,
+ * and Stock by date shows tonight's received and adjusted.
+ */
+test("P-16 · Stock: count an item, Count, Adjust with a reason, Receive, and Stock by date", async ({
+  page,
+  request,
+}) => {
+  const db = await dbClient();
+  const venueId = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  const clean = async () => {
+    await db.query("delete from stock_moves where venue_id = $1", [venueId]);
+    await db.query("delete from stock_levels where venue_id = $1", [venueId]);
+    await db.query("delete from venue_modules where venue_id = $1 and module_id = 'inventory'", [
+      venueId,
+    ]);
+  };
+  try {
+    await clean();
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'inventory', true, 'on')`,
+      [venueId],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/reports");
+    const card = page.getByRole("region", { name: "Stock", exact: true });
+    await expect(card.getByText("Nothing is counted yet. Choose an item to start.")).toBeVisible();
+    await card.getByRole("combobox", { name: "Item" }).selectOption({ label: "Jäger Bomb" });
+    await card.getByLabel("Tell the manager at (blank: never)").fill("2");
+    await card.getByRole("button", { name: "Start counting" }).click();
+    await expect(card.getByText(/Jäger Bomb · On hand 0 · Low at 2/)).toBeVisible();
+
+    await card.getByRole("button", { name: "Count · Jäger Bomb" }).click();
+    await card.getByLabel("How many are there now").fill("3");
+    await card.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(card.getByText("Saved · Jäger Bomb: 3 on hand")).toBeVisible();
+
+    await card.getByRole("button", { name: "Adjust · Jäger Bomb" }).click();
+    await card.getByLabel("Change, + or −").fill("-1");
+    await card.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(card.getByRole("alert")).toHaveText("Say why the count changed");
+    await card.getByLabel("Reason", { exact: true }).fill("Dropped a bottle");
+    await card.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(card.getByText("Saved · Jäger Bomb: 2 on hand")).toBeVisible();
+    await expect(card.getByText("Low", { exact: true })).toBeVisible();
+
+    await card.getByRole("button", { name: "Receive · Jäger Bomb" }).click();
+    await card.getByLabel("How many came in").fill("4");
+    await card.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(card.getByText("Saved · Jäger Bomb: 6 on hand")).toBeVisible();
+
+    const table = card.getByRole("table", { name: "Stock by date" });
+    await expect(table.getByRole("row", { name: /Jäger Bomb/ })).toHaveText(
+      /Jäger Bomb\s*6\s*0\s*4\s*\+2/,
+    );
+  } finally {
+    await clean();
     await db.end();
   }
 });

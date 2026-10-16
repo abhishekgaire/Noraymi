@@ -1707,6 +1707,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 30.13 Menu order
 - [ ] 30.14 Activity log and About
 - [ ] 30.15 Tax-exempt check: Room 9 tax $14.02, on the Z report with its certificate
+- [ ] 30.16 Inventory: Jäger Bomb counted, a sale takes it down, a void not made puts it back, 86'd at zero
 
 **Fewer taps (U)**
 - [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
@@ -2050,6 +2051,16 @@ Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip 
 4. Close the night's X report lists **Tax-exempt sales $322.00** with "Room 9 · [organization] · Certificate [number]"; the printed X and Z reports carry the same lines, and Reports → the sales-tax quarter's CSV has an "Exempt:" row with the certificate.
 5. On a bar tab, **Make tax exempt** then **Remove tax exempt** before payment: the next total is taxed again. With the switch off in Admin → Features, **Make tax exempt** disappears and the server refuses it (`tax-exempt.int.test.ts` checks it); an exemption already standing can still be removed.
 6. With Spanish chosen: **Marcar exenta de impuestos**, **Número del certificado de exención**.
+
+### 30.16 Inventory (P-16)
+
+1. Sign in as Abhishek (the owner). Admin → Features → **Inventory** is off by default (also a switch in Set up your venue's menu step); it needs Reports & accounting. Turn it on. Under Choices, **Inventory** shows "86 an item when a sale takes its count to zero", ticked.
+2. Reports → **Stock**: "Nothing is counted yet. Choose an item to start." Choose **Jäger Bomb**, type 2 in "Tell the manager at", and tap **Start counting**. Tap **Count**, type 3, **Save**: "Saved · Jäger Bomb: 3 on hand". Tap **Adjust**, type -1 and **Save** with no reason: "Say why the count changed"; add "Dropped a bottle" and save: 2 on hand, marked **Low**.
+3. Step 2's adjustment took the count to its low level, so the managers' and owner's phones got "Low stock · Jäger Bomb: 2 left" (once per crossing, from a sale or an adjustment). On the bar POS as Maya (`4071`), ring one Jäger Bomb on Room 9: Stock reads 1 (it updates by itself). Void it as **not made**: back to 2. Ring one and void it as **made** (waste): it stays at 1.
+4. Ring one more so the count reaches 0: Jäger Bomb shows **86'd tonight** on every staff screen and the guest menu at once. **Receive** 6: it's back on sale. With the Choices box unticked, a sale to zero leaves it on sale.
+5. Unplug the bar computer's network (section 13), ring a Jäger Bomb, plug back in: the round lands as asked to wait, and the count moves only when it's accepted, once.
+6. **Stock by date** (from and to, tonight by default): on hand, used, received and adjusted (counts and adjustments together). Admin → Activity log shows each stock change. With the switch off in Admin → Features, Stock disappears from Reports, the server refuses its routes and sales stop moving counts (`stock.int.test.ts` checks it).
+7. With Spanish chosen: **Existencias**, **Recibir**, **Contar**, **Ajustar**.
 
 
 ---

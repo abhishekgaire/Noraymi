@@ -285,7 +285,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-16 · Inventory
 
-- **Status:** todo
+- **Status:** done
 - **Size:** L
 - **Depends on:** menu, 86
 - **Spec:** [Data model](../spec/04-data-model.md)
@@ -294,7 +294,15 @@ Definition of done: see CLAUDE.md.
   - A low-stock level per item alerts the manager; at zero the item is 86'd automatically (a setting).
   - Reports → Stock: on hand, used, received and adjusted by date. Audited.
 - **Acceptance:**
-  - [ ] Counts stay right through send, void and offline replay; auto-86 at zero; EN and ES; tests.
+  - [x] Counts stay right through send, void and offline replay; auto-86 at zero; EN and ES; tests.
+- **Notes:**
+  - Built: migration 0169 adds `stock_levels` (one per item, or per variant when sizes are counted apart; a variant's own level wins) and `stock_moves` (the ledger: sale, void, receive, count, adjust; one move per check line, unique), both with forced RLS, the restore wall, the closed-night guard on moves, and audited. `packages/db/src/stock.ts`: `addCheckLine` calls `stockForLine` for every line, so every selling path (Accept, the bar POS, a quick sale, a replayed offline round at its Accept) takes the count down once and a void not made puts it back (following a line moved between checks); `moveStock` writes the ledger, 86's at zero, lifts that 86 when the count comes back above zero, and pushes "Low stock" once per crossing of `low_at`; `holdStockOuts` keeps an item 86'd at zero out through the next night after the close lifts every 86 (`nights/close.ts`).
+  - Routes (`apps/api/src/routes/stock.ts`, module `inventory`, owners and managers, action `reports.view`): `GET /stock`, `PUT /stock/{item}` (start or stop counting, the low level), `POST /stock/{item}/receive|count|adjust` (adjust needs a reason), `GET /stock/report?from=&to=` (on hand, used, received, adjusted; 93 days at most). Screen: Reports → Stock (`ReportsStock.tsx`), Admin → Features → Choices → Inventory (`InventoryChoices.tsx`), and the switch in Set up your venue's menu step. EN and ES.
+  - Module `inventory` (Inventory): every plan, off by default, needs Reports & accounting (its screen lives there); off answers `404 module_off` and no sale, void or close moves a count. Setting `inventory.autoEightySix` (default on, as the ticket asks).
+  - Cautious defaults: a **made** void (waste) doesn't put stock back (the drink was poured) and a comp moves nothing; practice (training) checks never move stock; counts are whole units and may go below zero (showing what was sold past it); the auto-86 fires only when a sale takes the count from above zero to zero, so staff can still put it back on by hand; the low-stock push goes to every manager and owner; only owners and managers change counts. Not built (not asked): low stock in the bell (P-11), pour cost and recipes (blueprint K7).
+  - Spec: spec 04 (Inventory paragraph; the `made` flag), spec 03 (the module, its need, what off hides, the `inventory` key, the Bar group), glossary (Stock; Made), blueprint (counts and the auto-86 now phase 1). No decision changed.
+  - Tests: `stock.int.test.ts` (off and refused; Receive/Count/Adjust and validation; sale, void not made, made void; off moves nothing; replayed round counts once at Accept; auto-86, low push, close hold, back on at Receive; the setting off; the report; the audit log; stopping), the venue-wall and principal suites (new route bodies), settings and seed key counts, and the P-16 browser test.
+  - Checks: `pnpm check` lint, i18n, typecheck, unit (1371), integration (1489, with `stock.int.test.ts`) and the migration linter pass (the module dependency table fixed and rerun). Browser (isolated stack): the new P-16 test, Admin → Features (18 on · 6 off), P-09, setup.staff and onboard pass.
 
 ### P-17 · Kitchen screen
 

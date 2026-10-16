@@ -383,7 +383,7 @@ K codes are the ranked gaps in the [competitive review](archive/review-competiti
 - Song-system adapters, the KaraFun adapter first.
 - Korean and Chinese screens.
 - Packages and add-ons sold in the booking, prepaid (K3).
-- Inventory counts, automatic 86 and pour-cost data (K7).
+- Pour-cost data (K7). Inventory counts and the automatic 86 came into phase 1 as the Inventory module, off by default (P-16).
 - The native-app decision for offline cards (K10), and with a native app, one handheld that takes the order and the card (K15).
 - Booking conversion: codes, split deposits and abandoned-booking follow-up (K12).
 - Guests extending or moving to a free room themselves (K17).

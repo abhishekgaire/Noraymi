@@ -1,6 +1,7 @@
 import type pg from "pg";
 import { Temporal } from "@west4/shared";
 import { alertVoidAfterCash } from "./owner-alerts.js";
+import { stockForLine } from "./stock.js";
 import { withVenue } from "./tenancy.js";
 import type { Queryable } from "./tenancy.js";
 
@@ -144,6 +145,18 @@ export async function addCheckLine(
     checkId,
   ]);
   const id = Number(r.rows[0]!.id);
+  // Inventory (P-16): a sale takes its count down, a void not made puts it back.
+  await stockForLine(c, venueId, checkId, {
+    id,
+    kind: line.kind,
+    qty: line.qty,
+    sourceId: line.sourceId ?? null,
+    reversesId: line.reversesId ?? null,
+    made: line.made ?? null,
+    businessDate: r.rows[0]!.business_date,
+    addedBy: line.addedBy ?? null,
+    at: line.addedAt ?? Temporal.Now.instant().toString(),
+  });
   // A void after cash was paid on the check alerts the owner (M8-19), whichever path wrote it;
   // a meal voided with its parts alerts once, at the whole amount (K-12).
   if (line.kind === "void" && line.partOfId == null)

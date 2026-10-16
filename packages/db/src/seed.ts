@@ -617,6 +617,8 @@ export function mapSeedSettings(
     pinAgain: s["pinAgain"],
     // Tax-exempt checks (P-15): absent, so drinks stay taxed on an exempt check, the cautious default.
     taxExempt: s["taxExempt"],
+    // Inventory (P-16): absent, so a sale that takes a count to zero 86's the item.
+    inventory: s["inventory"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
@@ -1017,6 +1019,9 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "check_discounts",
       // A tax-exempt check (P-15) names its check.
       "check_tax_exemptions",
+      // Inventory (P-16): the stock ledger names check lines and menu items.
+      "stock_moves",
+      "stock_levels",
       // A tip changed after paying (P-06) names its payment and approval.
       "tip_changes",
       // A saved-card question names its reader (M6-12).

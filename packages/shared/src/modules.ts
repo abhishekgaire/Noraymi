@@ -31,6 +31,7 @@ export type ModuleId =
   | "check_discount"
   | "bell"
   | "tax_exempt"
+  | "inventory"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -361,6 +362,16 @@ export const modules: readonly ModuleDef[] = [
       website: [],
       texts: [],
     },
+  },
+  // Inventory (P-16): a stock count per menu item or variant, Reports → Stock. Every plan allows it,
+  // off until the owner turns it on; it needs Reports & accounting, where its screen lives.
+  {
+    id: "inventory",
+    core: false,
+    phase1: true,
+    needs: ["reports"],
+    allowedOff: true,
+    hides: { staffApp: ["reports.stock"], staffPhone: [], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

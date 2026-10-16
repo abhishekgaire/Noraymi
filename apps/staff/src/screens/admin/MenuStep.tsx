@@ -7,6 +7,7 @@ import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { uploadPhoto } from "../../upload.js";
 import { AllergyNotice } from "./Kitchen.js";
+import { ModuleSwitch } from "./MoneyStep.js";
 
 /**
  * Set up your venue's step 8, the menu (O-10; spec 17 · Step details 8). Three ways in, all
@@ -66,6 +67,8 @@ export function MenuStep({
   if (!venueId) return null;
   return (
     <AdminDraftProvider venueId={venueId}>
+      {/* Inventory (P-16): off by default, the owner's switch as in Admin → Features. */}
+      <ModuleSwitch venueId={venueId} id="inventory" />
       <MenuStepBody venueId={venueId} registerSave={registerSave} onSaved={onSaved} />
     </AdminDraftProvider>
   );

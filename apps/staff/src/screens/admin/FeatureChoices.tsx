@@ -6,6 +6,7 @@ import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { TextingSwitches } from "./TextingSwitches.js";
 import { PinAgainChoices } from "./PinAgainChoices.js";
+import { InventoryChoices } from "./InventoryChoices.js";
 import { TaxExemptChoices } from "./TaxExemptChoices.js";
 
 /**
@@ -143,6 +144,12 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
           "on" && (
           <li className="module" aria-label={t("taxExempt.choices")}>
             <TaxExemptChoices venueId={venueId} />
+          </li>
+        )}
+        {(state.status === "signedIn" ? (state.membership.modules ?? {}) : {})["inventory"] ===
+          "on" && (
+          <li className="module" aria-label={t("stock.choices")}>
+            <InventoryChoices venueId={venueId} />
           </li>
         )}
       </ul>

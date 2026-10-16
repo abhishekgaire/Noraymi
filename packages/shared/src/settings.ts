@@ -486,6 +486,14 @@ export const taxExemptSchema = z
   .strict();
 export const TAX_EXEMPT_DEFAULTS: z.infer<typeof taxExemptSchema> = { stillTaxed: ["drink"] };
 
+/**
+ * Inventory (P-16; module inventory): `autoEightySix` 86's an item (or the variant counted) the
+ * moment a sale takes its count to zero, until the count comes back up or the night closes with
+ * it still at zero. On unless the venue turns it off.
+ */
+export const inventorySchema = z.object({ autoEightySix: z.boolean() }).strict();
+export const INVENTORY_DEFAULTS: z.infer<typeof inventorySchema> = { autoEightySix: true };
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -607,6 +615,7 @@ export const settingsSchemas = {
   menuOrder: menuOrderSchema,
   pinAgain: pinAgainSchema,
   taxExempt: taxExemptSchema,
+  inventory: inventorySchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -676,6 +685,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   menuOrder: MENU_ORDER_DEFAULTS,
   pinAgain: PIN_AGAIN_DEFAULTS,
   taxExempt: TAX_EXEMPT_DEFAULTS,
+  inventory: INVENTORY_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

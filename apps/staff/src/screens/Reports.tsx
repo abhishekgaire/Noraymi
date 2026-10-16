@@ -7,6 +7,7 @@ import { useT } from "../i18n.js";
 import "./desk.css";
 import { ReportsMonth } from "./ReportsMonth.js";
 import { ReportsStaffActions } from "./ReportsStaffActions.js";
+import { ReportsStock } from "./ReportsStock.js";
 import { useSession } from "../session.js";
 
 /**
@@ -219,6 +220,7 @@ export function Reports() {
         tonight={tonight ?? ""}
         timeZone={signedIn?.membership.venue.time_zone ?? "America/New_York"}
       />
+      <ReportsStock venueId={venueId} tonight={tonight ?? ""} />
       <div className="desk-cols two">
         <section className="card desk-card" aria-labelledby="trend-title">
           <h2 id="trend-title">{t("reports.trends")}</h2>

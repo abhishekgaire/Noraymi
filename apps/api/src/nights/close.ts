@@ -1,5 +1,6 @@
 import {
   emitEvent,
+  holdStockOuts,
   nightClose,
   postingDate,
   recordNightClose,
@@ -122,6 +123,8 @@ export async function closeNight(
       venueId,
       now.toString(),
     ]);
+  // Inventory (P-16): an item 86'd at zero stays out through the next night until it's counted back.
+  await holdStockOuts(c, venueId, date);
   await emitEvent(c, { venueId, type: "menu.changed", entityId: venueId });
   await emitEvent(c, { venueId, type: "night.closed", entityId: venueId });
   return {

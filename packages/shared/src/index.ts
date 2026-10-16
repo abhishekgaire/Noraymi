@@ -71,6 +71,8 @@ export {
   taxCategories,
   taxExemptSchema,
   TAX_EXEMPT_DEFAULTS,
+  inventorySchema,
+  INVENTORY_DEFAULTS,
   PIN_AGAIN_DEFAULTS,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,

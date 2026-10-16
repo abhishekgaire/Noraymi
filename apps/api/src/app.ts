@@ -30,6 +30,7 @@ import { unmatchedRoutes } from "./routes/unmatched.js";
 import { exportRoutes } from "./routes/exports.js";
 import { taxQuarterRoutes } from "./routes/tax-quarter.js";
 import { reportRoutes } from "./routes/reports.js";
+import { stockRoutes } from "./routes/stock.js";
 import { monthReportRoutes } from "./routes/month-report.js";
 import { glanceRoutes } from "./routes/glance.js";
 import { aboutFromEnv, activityRoutes } from "./routes/activity.js";
@@ -440,6 +441,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       exportRoutes(scope, { clock, email: () => options.email ?? { allowList: null } });
       taxQuarterRoutes(scope, { clock });
       reportRoutes(scope, { clock });
+      stockRoutes(scope, { clock });
       monthReportRoutes(scope, { clock });
       glanceRoutes(scope, { clock });
       // Admin → Activity log and About (P-14).

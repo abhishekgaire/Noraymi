@@ -64,6 +64,7 @@ export const MODULE_GROUP: Readonly<Record<ModuleId, AdminGroup>> = {
   bar_screen: "bar",
   bar_mode: "bar",
   kitchen: "bar",
+  inventory: "bar",
   alcohol: "bar",
   website: "guests",
   online_booking: "guests",

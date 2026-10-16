@@ -544,6 +544,27 @@
   justify-content: space-between;
   text-align: start;
 }
+/* Stock (P-16): each counted item with its four actions; the counts by date as a table. */
+.reports .stock-levels > li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--w4-line, rgba(127, 127, 127, 0.25));
+}
+.reports .stock-levels .actions button {
+  min-height: 44px;
+}
+.reports .stock-report {
+  width: 100%;
+  border-collapse: collapse;
+}
+.reports .stock-report th,
+.reports .stock-report td {
+  padding: 6px 8px;
+  text-align: end;
+}
+.reports .stock-report th[scope="row"],
+.reports .stock-report thead th:first-child {
+  text-align: start;
+}
 /* Reports: the three numbers as the canvas's figure cards, the trend as columns. */
 .reports.desk .desk-cols {
   margin-bottom: 12px;
