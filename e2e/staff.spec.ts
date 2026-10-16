@@ -781,7 +781,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 18 on and 8 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 18 on and 9 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -809,7 +809,7 @@ test("Admin → Features: 18 on and 8 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("18 on · 8 off")).toBeVisible();
+    await expect(page.getByText("18 on · 9 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -896,12 +896,12 @@ test("Admin → Features: 18 on and 8 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("16 on · 10 off")).toBeVisible();
+    await expect(page.getByText("16 on · 11 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("18 on · 8 off")).toBeVisible();
+    await expect(page.getByText("18 on · 9 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -4582,6 +4582,83 @@ test("P-15 · Tax exempt: refused without a certificate, then standing on Room 9
     await expect(exempt.getByTestId("tax-exempt-standing")).toHaveCount(0);
   } finally {
     await db.query("delete from venue_modules where venue_id = $1 and module_id = 'tax_exempt'", [
+      venueId,
+    ]);
+    await db.query(
+      `delete from venue_settings where venue_id = $1 and key = 'approvals'
+          and value = '{"mode":"none"}'::jsonb`,
+      [venueId],
+    );
+    await db.end();
+  }
+});
+
+/**
+ * P-19 · a missed sale on tonight's date: with Missed sales on and approvals set to none, Andy marks
+ * Jess P.'s tab as a sale from Thursday's night; tonight is refused; the mark stands in English and
+ * Spanish, and he removes it before payment.
+ */
+test("P-19 · Missed sale: tonight refused, then from the night of Sep 24 on Jess P.'s tab, EN and ES, then removed", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const venueId = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  try {
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'missed_sale', true, 'on')
+       on conflict (venue_id, module_id) do update set state = 'on', allowed = true`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select $1, 'approvals', coalesce(max(version), 0) + 1, '{"mode":"none"}', '2026-09-01'
+         from venue_settings where venue_id = $1 and key = 'approvals'`,
+      [venueId],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInAndy(page, request, db);
+    await page.goto("/bar");
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    await page.getByRole("button", { name: "Add a missed sale" }).click();
+    const missed = page.getByRole("region", { name: "Missed sale", exact: true });
+    await missed.getByLabel("From the night of").fill("2026-09-25");
+    await missed.getByLabel("Reason").fill("Rang on paper, printer down");
+    await missed.getByRole("button", { name: "Mark as a missed sale" }).click();
+    await expect(missed.getByRole("alert")).toHaveText("Choose a night before tonight");
+    await missed.getByLabel("From the night of").fill("2026-09-24");
+    await missed.getByRole("button", { name: "Mark as a missed sale" }).click();
+    await expect(missed.getByRole("status")).toHaveText("Missed sale · counts on tonight's date");
+    await expect(missed.getByTestId("missed-sale-standing")).toContainText(
+      "From the night of 2026-09-24 · Rang on paper, printer down",
+    );
+    const report = await page.request.get(`/v1/venues/${venueId}/nights/2026-09-25/report`);
+    expect((await report.json()).missed_sales.checks).toMatchObject([
+      { where: "Jess P.", from_date: "2026-09-24" },
+    ]);
+
+    await db.query("update memberships set locale = 'es'");
+    await page.reload();
+    await page
+      .getByRole("list", { name: /Cuentas/ })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const venta = page.getByRole("region", { name: "Venta olvidada", exact: true });
+    await expect(venta.getByTestId("missed-sale-standing")).toContainText(
+      "De la noche del 2026-09-24",
+    );
+    await venta.getByRole("button", { name: "Quitar venta olvidada" }).click();
+    await expect(venta.getByRole("status")).toHaveText("Ya no es una venta olvidada");
+    await expect(venta.getByTestId("missed-sale-standing")).toHaveCount(0);
+  } finally {
+    await db.query("update memberships set locale = 'en'");
+    await db.query("delete from venue_modules where venue_id = $1 and module_id = 'missed_sale'", [
       venueId,
     ]);
     await db.query(

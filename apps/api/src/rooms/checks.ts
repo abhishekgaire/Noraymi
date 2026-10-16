@@ -21,6 +21,7 @@ import { sessionViews } from "./sessions.js";
 import { workOut } from "./finalize.js";
 import { discountView } from "./discount.js";
 import { taxExemptView } from "./tax-exempt.js";
+import { missedSaleView } from "../tabs/missed-sale.js";
 import { savedCardFor } from "../payments/card-on-file.js";
 import { checkPayments } from "./guest-bill.js";
 import { cashPricer } from "../payments/surcharge.js";
@@ -260,6 +261,8 @@ export async function checkView(c: Queryable, venueId: string, id: string, now: 
     ...(await discountView(c, venueId, id, discountCents)),
     // A tax-exempt check (P-15): its organization and certificate, or one waiting for approval.
     ...(await taxExemptView(c, venueId, id)),
+    // A missed sale (P-19): the earlier night it came from and why, or one waiting for approval.
+    ...(await missedSaleView(c, venueId, id)),
     lines: found.lines.map((l) => {
       const m = moved.get(l.id);
       return m

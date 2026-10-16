@@ -339,10 +339,11 @@ Definition of done: see CLAUDE.md.
 
 ### P-19 · A missed sale on tonight's date
 
-- **Status:** todo
+- **Status:** done
 - **Size:** S
 - **Depends on:** M7 (closed nights)
 - **Spec:** [Money rules](../spec/05-money-rules.md) · rule 16
 - **Build:** **Add a missed sale** for managers: a sale rung up tonight with "From the night of <date>" and a reason; it counts on tonight's date (closed nights never reopen, D88), and reports show which night it came from. Approval per the setting; audited. Replaces the old register's past-dated Manual Ticket.
 - **Acceptance:**
-  - [ ] It lands on tonight's Z with its earlier date shown; a closed night's totals don't change; EN and ES; tests.
+  - [x] It lands on tonight's Z with its earlier date shown; a closed night's totals don't change; EN and ES; tests.
+- **Notes:** Module **Missed sales** (`missed_sale`, in the Team group since Money already holds eight switches, every plan, off by default; Admin → Features and Set up your venue's step 7). `POST /v1/venues/{v}/checks/{c}/missed-sale` (`{ from_date, reason }`; `refunds.request`, so owners and managers) marks a bar tab opened tonight "From the night of <date>"; it waits for approval per the venue's setting (approval kind `missed_sale`), then writes `check_missed_sales` (migration 0172: forced RLS, restore wall, audited, closed-night guard on its own business date, `from_date < business_date`, one standing per check). `.../missed-sale/remove` takes it off while the tab is open, even with the switch off. The tab's lines are ordinary lines of tonight's date, so it counts tonight and an earlier (closed) night never changes; the X/Z report (`missed_sales`, `apps/api/src/tabs/missed-sale.ts`) and its printout list each with the night it came from, the reason and its sales before tax and gratuity. Staff: `MissedSalePanel.tsx` on the rail's tab, the report in Close the night. Cautious defaults: bar tabs only (not room checks or quick sales, which finalize at Pay); any earlier date is accepted (no limit on how far back, which no venue fact sets); the request is refused for tonight or a later date. Tests: `tabs/missed-sale.int.test.ts` (off refused, bartender refused, validation, approval, audit log, tonight's Z and print lines, the earlier night unchanged, a closed night refusing a row, remove), the principal suite, and the e2e "P-19 · Missed sale" (EN and ES). Manual test 30.19.

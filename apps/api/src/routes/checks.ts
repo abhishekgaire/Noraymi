@@ -7,6 +7,7 @@ import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
 import { giveDiscount, removeDiscount } from "../rooms/discount.js";
 import { askTaxExempt, removeTaxExempt } from "../rooms/tax-exempt.js";
+import { askMissedSale, removeMissedSale } from "../tabs/missed-sale.js";
 import { fixLine } from "../rooms/fix.js";
 import { finalizeCheck } from "../rooms/finalize.js";
 import { parseHeldCard, returnHeldCard, takeHeldCard } from "../rooms/held-card.js";
@@ -420,6 +421,65 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       const by = personOf(request.principal as { kind: string; userId?: string });
       await request.inVenue((c) =>
         removeTaxExempt(c, request.venueId!, { checkId, userId: by, now: options.clock.now() }),
+      );
+      return { status: "removed" };
+    },
+  );
+
+  // A missed sale on tonight's date (P-19): the Missed sales switch's; owners and managers (the same
+  // people as a refund) mark a bar tab opened tonight with the earlier night it came from and a
+  // reason, approved per the venue's setting. Taking it off works while the tab is open, even with
+  // the switch off.
+  const missedSaleBody = z
+    .object({ from_date: z.string().max(10), reason: z.string().max(200) })
+    .strict();
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/missed-sale",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "missed_sale",
+        action: "refunds.request",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = missedSaleBody.safeParse(request.body ?? {});
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "a missed sale needs { from_date, reason }: the night it came from (YYYY-MM-DD) and why",
+        );
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      const answer = await request.inVenue((c) =>
+        askMissedSale(c, request.venueId!, {
+          checkId,
+          fromDate: parsed.data.from_date,
+          reason: parsed.data.reason,
+          userId: by,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          now: options.clock.now(),
+        }),
+      );
+      return reply.code(answer.status === "approved" ? 201 : 202).send(answer);
+    },
+  );
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/missed-sale/remove",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        action: "refunds.request",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      await request.inVenue((c) =>
+        removeMissedSale(c, request.venueId!, { checkId, userId: by, now: options.clock.now() }),
       );
       return { status: "removed" };
     },

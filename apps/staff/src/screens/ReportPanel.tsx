@@ -18,6 +18,17 @@ interface Report {
   readonly gratuity: { readonly total_cents: number };
   readonly counts: { readonly rooms: number; readonly bar_tabs: number };
   readonly payments: Readonly<Record<string, number>>;
+  /** Missed sales (P-19): earlier nights' sales rung up on this one; absent on a Z report stored before them. */
+  readonly missed_sales?: {
+    readonly sales_cents: number;
+    readonly checks: readonly {
+      readonly check: string;
+      readonly where: string;
+      readonly from_date: string;
+      readonly reason: string;
+      readonly sales_cents: number;
+    }[];
+  };
   /** Tax-exempt checks (P-15); absent on a Z report stored before them. */
   readonly tax_exempt?: {
     readonly sales_cents: number;
@@ -119,6 +130,29 @@ export function ReportPanel({ venueId, date: night }: { venueId: string; date: s
           </div>
         ))}
       </dl>
+      {(report.missed_sales?.checks.length ?? 0) > 0 && (
+        <>
+          <h3>{t("report.missedSales")}</h3>
+          <ul className="tips-shares" data-testid="report-missed-sales">
+            {report.missed_sales!.checks.map((x) => (
+              <li key={x.check} className="row">
+                <span>
+                  {t("report.missedSaleCheck", {
+                    where: x.where,
+                    date: x.from_date,
+                    reason: x.reason,
+                  })}
+                </span>
+                <span>{m(x.sales_cents)}</span>
+              </li>
+            ))}
+            <li className="row">
+              <span>{t("report.missedSales")}</span>
+              <span>{m(report.missed_sales!.sales_cents)}</span>
+            </li>
+          </ul>
+        </>
+      )}
       {(report.tax_exempt?.checks.length ?? 0) > 0 && (
         <>
           <h3>{t("report.taxExempt")}</h3>

@@ -491,6 +491,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
         organization: "x",
         certificate_no: "x",
       },
+      "POST /v1/venues/:venueId/checks/:checkId/missed-sale": {
+        from_date: "2026-09-24",
+        reason: "x",
+      },
       "POST /v1/venues/:venueId/checks/:checkId/card-tap": {
         reader_id: "00000000-0000-4000-8000-000000000044",
         consent_text_version: "00000000-0000-4000-8000-000000000047",

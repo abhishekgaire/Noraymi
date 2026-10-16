@@ -31,6 +31,7 @@ export type ModuleId =
   | "check_discount"
   | "bell"
   | "tax_exempt"
+  | "missed_sale"
   | "inventory"
   | "kitchen_screen"
   | "guest_screen"
@@ -401,6 +402,17 @@ export const modules: readonly ModuleDef[] = [
     needs: [],
     allowedOff: true,
     hides: { staffApp: ["guestScreen", "pos.guestScreen"], staffPhone: [], website: [], texts: [] },
+  },
+  // A missed sale on tonight's date (P-19; Money rules 16): a manager rings up an earlier night's
+  // missed sale on a bar tab marked with that night and a reason; it counts tonight. Every plan
+  // allows it, off until the owner turns it on.
+  {
+    id: "missed_sale",
+    core: false,
+    phase1: true,
+    needs: [],
+    allowedOff: true,
+    hides: { staffApp: ["tab.missedSale"], staffPhone: [], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

@@ -1025,6 +1025,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "check_discounts",
       // A tax-exempt check (P-15) names its check.
       "check_tax_exemptions",
+      // A missed sale (P-19) names its check.
+      "check_missed_sales",
       // Inventory (P-16): the stock ledger names check lines and menu items.
       "stock_moves",
       "stock_levels",

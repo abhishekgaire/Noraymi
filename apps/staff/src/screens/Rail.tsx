@@ -47,6 +47,7 @@ import { TipChangeSheet } from "./TipChangeSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
 import { TaxExemptPanel, type PendingTaxExempt, type TaxExemptView } from "./TaxExemptPanel.js";
+import { MissedSalePanel, type MissedSaleView, type PendingMissedSale } from "./MissedSalePanel.js";
 import { MoveToRoom, MoveUndo, RoomCardTap } from "./MoveTab.js";
 import { CheckInSheet } from "./CheckInSheet.js";
 import { Dialog } from "../layout/Dialog.js";
@@ -325,6 +326,11 @@ export function Rail() {
     standing: TaxExemptView | null;
     pending: PendingTaxExempt | null;
   }>({ standing: null, pending: null });
+  // A missed sale (P-19), standing or waiting for approval.
+  const [missed, setMissed] = useState<{
+    standing: MissedSaleView | null;
+    pending: PendingMissedSale | null;
+  }>({ standing: null, pending: null });
   /** The sent drink tapped on the tab, for Void, Comp or Move (M6-15). */
   const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -528,17 +534,21 @@ export function Rail() {
         pending_discount?: PendingDiscount | null;
         tax_exempt?: TaxExemptView | null;
         pending_tax_exempt?: PendingTaxExempt | null;
+        missed_sale?: MissedSaleView | null;
+        pending_missed_sale?: PendingMissedSale | null;
       }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
       setLineState({ checkId, lines: v.lines });
       setHolds(v.holds ?? []);
       setPendingFixes(v.pending_fixes ?? []);
       setDiscount({ standing: v.discount ?? null, pending: v.pending_discount ?? null });
       setExempt({ standing: v.tax_exempt ?? null, pending: v.pending_tax_exempt ?? null });
+      setMissed({ standing: v.missed_sale ?? null, pending: v.pending_missed_sale ?? null });
     } catch {
       setLineState({ checkId, lines: [] });
       setHolds([]);
       setDiscount({ standing: null, pending: null });
       setExempt({ standing: null, pending: null });
+      setMissed({ standing: null, pending: null });
     }
   }, [venueId, checkId]);
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
@@ -2059,6 +2069,19 @@ export function Rail() {
                     pending={exempt.pending}
                     open={fixOpen}
                     folded
+                    onDone={() => void load()}
+                  />
+                )}
+                {/* A missed sale (P-19): a bar tab marked with the earlier night it came from. */}
+                {tab && checkId && (
+                  <MissedSalePanel
+                    key={`missed-sale-${checkId}`}
+                    venueId={venueId}
+                    checkId={checkId}
+                    missed={missed.standing}
+                    pending={missed.pending}
+                    open={fixOpen}
+                    canChange={canRefund}
                     onDone={() => void load()}
                   />
                 )}

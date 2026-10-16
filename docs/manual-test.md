@@ -1710,6 +1710,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 30.16 Inventory: Jäger Bomb counted, a sale takes it down, a void not made puts it back, 86'd at zero
 - [ ] 30.17 Kitchen screen: a paired kitchen display shows sent food within 3 seconds, Done tells the bar (Food up), offline it keeps its tickets
 - [ ] 30.18 Guest screen: the bar computer's second window (or a paired guest display) follows the bar POS within a second, one check at a time, idle shows the venue's name, EN and ES
+- [ ] 30.19 Missed sale: a manager marks a tab "From the night of" an earlier night with a reason (tonight refused), approved per the setting; it lands on tonight's Z with its earlier date, the earlier night unchanged, EN and ES
 
 **Fewer taps (U)**
 - [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
@@ -2085,6 +2086,14 @@ Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip 
 7. Admin → Printers & devices → pair a **Guest screen** (it sits under Bar). On a tablet or a private window, enter the pairing code on the sign-in screen: it opens the guest screen straight away, the venue's name. Its row in Admin shows **Shows the check from** "The bar computer (the only one)"; pick the front-desk computer and ring a check there: the paired screen follows the front desk instead.
 8. Unplug the guest screen's network: it goes back to the venue's name with "Offline · reconnecting" and never keeps a check. With Guest screen off in Admin → Features it reads "Guest screen is off · Admin → Features" and the server refuses its routes (`guest-screen.int.test.ts` checks it).
 
+
+### 30.19 A missed sale on tonight's date (P-19)
+
+1. Start the demo with `scripts/demo-start.sh` and sign in as the owner. Admin → Features → **Missed sales** (under Team) is off by default. Turn it on.
+2. Sign in as the manager and open the bar POS. Tap the tab **Jess P.**: **Add a missed sale** shows under the tab's lines. (Signed in as a bartender, it doesn't show; the server refuses a bartender too.)
+3. Tap it, choose tonight's date (Sep 25) and type a reason, then **Mark as a missed sale**: "Choose a night before tonight". Choose Sep 24 instead: it waits for approval per Admin → Approvals (on the approver's phone, the manager's PIN at the register, or at once with none). Once approved, the tab reads "From the night of 2026-09-24 · <your reason>".
+4. Close the night's report (the running X report) lists it under **Missed sales** with the night it came from and the tab's sales; tonight's net sales already include it, and the Sep 24 report doesn't change. Close the tab, close the night: the Z report and its printout show the same.
+5. Switch the staff app to Español: "Venta olvidada · De la noche del 2026-09-24". On another open tab, mark one and tap **Remove missed sale** before paying: it's gone from the report. With Missed sales off in Admin → Features, the button disappears and the server refuses a new one (`missed-sale.int.test.ts` checks it).
 
 ---
 

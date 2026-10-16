@@ -9,6 +9,7 @@ import {
 import type { Temporal } from "@west4/shared";
 import { venueClock } from "../rooms/assignment.js";
 import { exemptSales } from "../rooms/tax-exempt.js";
+import { missedSalesOfNight } from "../tabs/missed-sale.js";
 import { nightTips, type NightTips } from "../tips/pool.js";
 
 /**
@@ -96,6 +97,22 @@ export interface NightReport extends SalesReport {
       readonly asked_by: string | null;
       readonly approved_by: string | null;
       readonly exempt_sales_cents: number;
+    }[];
+  };
+  /**
+   * Missed sales (P-19): earlier nights' sales rung up on this night, counted in its totals, each
+   * with the night it came from and why. Absent on a Z report stored before P-19.
+   */
+  readonly missed_sales?: {
+    readonly sales_cents: number;
+    readonly checks: readonly {
+      readonly check: string;
+      readonly where: string;
+      readonly from_date: string;
+      readonly reason: string;
+      readonly asked_by: string | null;
+      readonly approved_by: string | null;
+      readonly sales_cents: number;
     }[];
   };
 }
@@ -445,6 +462,7 @@ export async function computeReport(
     adjustments,
     log,
     tax_exempt: await exemptOfNight(c, venueId, date),
+    missed_sales: await missedSalesOfNight(c, venueId, date),
   };
 }
 
@@ -499,6 +517,12 @@ export function reportPrintLines(r: NightReport, money: (cents: number) => strin
       out.push(
         `  ${x.where} · ${x.organization} · Cert ${x.certificate_no}  ${money(x.exempt_sales_cents)}`,
       );
+  }
+  // Missed sales (P-19): counted in tonight's sales above; each with the night it came from.
+  if (r.missed_sales && r.missed_sales.checks.length > 0) {
+    amt("Missed sales", r.missed_sales.sales_cents);
+    for (const x of r.missed_sales.checks)
+      out.push(`  ${x.where} · From the night of ${x.from_date}  ${money(x.sales_cents)}`);
   }
   amt("Gratuity", r.gratuity.total_cents);
   out.push("PAYMENTS");

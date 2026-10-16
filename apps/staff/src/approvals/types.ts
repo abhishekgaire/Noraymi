@@ -55,6 +55,7 @@ export const approvalKinds = [
   "discount",
   "tip_change",
   "tax_exempt",
+  "missed_sale",
 ] as const;
 
 export function kindKey(kind: string) {
