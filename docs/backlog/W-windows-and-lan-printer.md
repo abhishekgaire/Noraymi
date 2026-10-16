@@ -22,7 +22,7 @@ Definition of done: see CLAUDE.md.
 
 ### W-01 · The desktop app on a Windows bar computer
 
-- **Status:** doing (built and tested here; waits only on CI's `desktop-windows` job going green after the push, then done)
+- **Status:** done (CI's `Desktop app on Windows` job green on Oct 16, 2026)
 - **Size:** M
 - **Depends on:** M3-14, M4-13, M1-29
 - **Spec:** [Devices and printing](../spec/09-devices-printing-offline.md) · Tickets, The desktop app
