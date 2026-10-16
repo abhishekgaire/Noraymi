@@ -52,3 +52,20 @@ export function staffWebPreferences(preload: string) {
     backgroundThrottling: false,
   } as const;
 }
+
+/** The staff app's screens that open in a window of their own: the guest screen (P-18) and the kitchen screen (P-17). */
+const SCREEN_PATHS: ReadonlySet<string> = new Set(["/guest-screen", "/kitchen-screen"]);
+
+/**
+ * A window.open the staff window may follow (P-18): one of the screens above on our own origin,
+ * nothing else. The guest screen goes full screen on the second monitor when there is one.
+ */
+export function screenWindowFor(
+  url: string,
+  allowed: ReadonlySet<string>,
+): { readonly path: string; readonly secondMonitor: boolean } | null {
+  if (!isAllowedUrl(url, allowed)) return null;
+  const { pathname, username, password } = new URL(url);
+  if (username || password || !SCREEN_PATHS.has(pathname)) return null;
+  return { path: pathname, secondMonitor: pathname === "/guest-screen" };
+}

@@ -781,7 +781,7 @@ test("Abhishek's Admin → Team: Diego to Español behind the passkey, Andy has 
  * have nowhere to ring…": Keep it on changes nothing; Turn off turns both off,
  * and they come back on in order.
  */
-test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
+test("Admin → Features: 18 on and 8 off, no phase 2 modules, and the Bar screen & tickets confirm", async ({
   page,
   request,
 }) => {
@@ -809,7 +809,7 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("18 on · 6 off")).toBeVisible();
+    await expect(page.getByText("18 on · 8 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -896,12 +896,12 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("16 on · 8 off")).toBeVisible();
+    await expect(page.getByText("16 on · 10 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("18 on · 6 off")).toBeVisible();
+    await expect(page.getByText("18 on · 8 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -7336,6 +7336,63 @@ test("the kitchen screen: sent food shows within 3 seconds, Done tells the bar",
     await screen("off");
     await db.query("delete from kitchen_tickets");
     await kitchen.restore();
+    await db.end();
+  }
+});
+
+/** P-18 · Guest screen: the bar computer's second monitor follows the bar POS within a second. */
+test("the guest screen: follows the register within a second, never shows the check before, EN and ES", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const venue = (
+    await db.query<{ name: string }>("select name from venues where slug = 'west4karaoke'")
+  ).rows[0]!.name;
+  const module = (state: "on" | "off") =>
+    db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state)
+       select id, 'guest_screen', true, $1 from venues where slug = 'west4karaoke'
+       on conflict (venue_id, module_id) do update set state = $1, allowed = true`,
+      [state],
+    );
+  try {
+    await module("on");
+    await signInMayaAtTheBar(page, request, db);
+    await expect(page.getByRole("button", { name: "Open the guest screen" })).toBeVisible();
+    // The bar computer's second window: nobody signed in there, idle it shows the venue's name.
+    const guest = await page.context().newPage();
+    await guest.goto("/guest-screen");
+    await expect(guest.getByRole("heading", { name: venue })).toBeVisible();
+
+    const tabs = page.getByRole("list", { name: "Bar tabs" });
+    await tabs.getByRole("button", { name: /Jess P\./ }).click();
+    const check = guest.getByRole("main", { name: "Your check" });
+    await expect(check.getByRole("heading", { name: "Jess P." })).toBeVisible({ timeout: 1_000 });
+    await expect(check.getByRole("list", { name: "Totals" })).toContainText("Total");
+    await expect(check.getByRole("list", { name: "Totals" })).toContainText(/Tax/);
+
+    await tabs.getByRole("button", { name: /Hana K\./ }).click();
+    await expect(check.getByRole("heading", { name: "Hana K." })).toBeVisible({ timeout: 1_000 });
+    await expect(check.getByText("Jess P.")).toHaveCount(0);
+
+    await guest.getByRole("button", { name: "Español" }).click();
+    const cuenta = guest.getByRole("main", { name: "Tu cuenta" });
+    await expect(cuenta.getByRole("heading", { name: "Hana K." })).toBeVisible();
+    await expect(cuenta).toContainText(/Impuesto/);
+    await guest.getByRole("button", { name: "English" }).click();
+
+    // Leaving the bar POS clears the screen back to the venue's name.
+    await page
+      .getByRole("link", { name: /^Bar orders/ })
+      .first()
+      .click();
+    await expect(guest.getByRole("heading", { name: venue })).toBeVisible({ timeout: 2_000 });
+    await guest.close();
+  } finally {
+    await module("off");
+    await db.query("delete from guest_screens");
     await db.end();
   }
 });
@@ -13936,7 +13993,9 @@ test("U-21: Admin opens Set up your venue until it's finished, then six groups w
     ]);
     const bar = page.getByRole("region", { name: "Bar", exact: true });
     await expect(bar.getByRole("group", { name: "Bar screen & tickets · State" })).toBeVisible();
-    await expect(bar.getByRole("heading", { level: 4 })).toHaveCount(5);
+    // Alcohol, Bar screen & tickets, Bar tabs & quick sale, Bar mode, Kitchen & food, Kitchen screen,
+    // Guest screen (P-18) and Inventory.
+    await expect(bar.getByRole("heading", { level: 4 })).toHaveCount(8);
     await expect(page.getByText("Always on", { exact: true })).toHaveCount(6);
 
     // Where two settings meet, a hint in each place.

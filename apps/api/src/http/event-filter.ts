@@ -55,6 +55,8 @@ export function visibleTo(
         );
       if (p.deviceKind === "up_next_display") return DISPLAY_TYPES.has(event.type);
       if (p.deviceKind === "kitchen_display") return KITCHEN_TYPES.has(event.type);
+      // A guest display (P-18) faces guests: it hears nothing and reads its register's check alone.
+      if (p.deviceKind === "guest_display") return false;
       if (p.deviceKind === "printer") return false;
       // bar computer or front desk
       if (sub.locked) return RING_STATE_TYPES.has(event.type);

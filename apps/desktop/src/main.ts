@@ -12,6 +12,7 @@ import {
   BrowserWindow,
   ipcMain,
   safeStorage,
+  screen,
   session,
   type IpcMainInvokeEvent,
 } from "electron";
@@ -26,6 +27,7 @@ import {
   allowedOriginsFrom,
   isAllowedUrl,
   isTrustedSender,
+  screenWindowFor,
   staffWebPreferences,
 } from "./security.js";
 import {
@@ -427,7 +429,24 @@ function createWindow(): BrowserWindow {
       void window.loadURL(setupPage({ current: staffUrl, error: false }));
     }
   });
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  // The guest screen (P-18) and the kitchen screen open in a window of their own, the guest screen
+  // full screen on the second monitor; any other new window is refused.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    const opens = screenWindowFor(url, allowed);
+    if (!opens) return { action: "deny" };
+    const primary = screen.getPrimaryDisplay();
+    const second = opens.secondMonitor
+      ? screen.getAllDisplays().find((d) => d.id !== primary.id)
+      : undefined;
+    return {
+      action: "allow",
+      overrideBrowserWindowOptions: {
+        autoHideMenuBar: true,
+        ...(second ? { ...second.bounds, fullscreen: true } : { width: 1024, height: 768 }),
+        webPreferences: staffWebPreferences(path.join(here, "preload.cjs")),
+      },
+    };
+  });
   window.webContents.on("will-attach-webview", (event) => event.preventDefault());
   // An installed app nobody has pointed anywhere yet asks for the server address first.
   if (staffServer.from === "default" && app.isPackaged)

@@ -574,6 +574,9 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       clock,
       authenticators: [headerAuthenticator],
       staffRateLimit: { max: 1_000_000, windowMs: 60_000 },
+      // A route's own lower limit (Twilio's check: 20 a minute) would answer 429 before the
+      // principal check once the cast outgrows it (P-18 added the guest display).
+      rateLimitFloor: 1_000_000,
       moduleCacheMs: 0,
     },
     close: async () => {

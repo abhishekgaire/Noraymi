@@ -111,6 +111,11 @@ export function SignIn() {
         navigate("/kitchen-screen", { replace: true });
         return;
       }
+      // A guest display (P-18) faces guests: it opens the guest screen.
+      if (found?.kind === "guest_display") {
+        navigate("/guest-screen", { replace: true });
+        return;
+      }
       setDevice(found);
       if (isShared(found)) {
         try {
@@ -337,6 +342,10 @@ export function SignIn() {
       const paired = await claimDevice(pairCode.trim());
       if (paired.kind === "kitchen_display") {
         navigate("/kitchen-screen", { replace: true });
+        return;
+      }
+      if (paired.kind === "guest_display") {
+        navigate("/guest-screen", { replace: true });
         return;
       }
       setDevice(paired);

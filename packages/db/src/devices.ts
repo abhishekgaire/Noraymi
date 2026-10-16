@@ -13,7 +13,8 @@ export type DeviceKind =
   | "staff_phone"
   | "up_next_display"
   | "mic_outlet"
-  | "kitchen_display";
+  | "kitchen_display"
+  | "guest_display";
 export const deviceKinds: readonly DeviceKind[] = [
   "bar_computer",
   "front_desk",
@@ -26,6 +27,7 @@ export const deviceKinds: readonly DeviceKind[] = [
   "up_next_display",
   "mic_outlet",
   "kitchen_display",
+  "guest_display",
 ];
 
 /** Pairing codes: 8 characters from an alphabet without look-alikes, good for 10 minutes (M1-15 notes; flagged for the founder). */
@@ -76,6 +78,8 @@ export interface DeviceListRow extends DeviceRow {
   readonly network_port: number | null;
   /** The computers that may relay a network printer; null for any bar computer (W-04). */
   readonly relay_device_ids: string[] | null;
+  /** A guest display's register (P-18): the computer whose check it shows; null for the only bar computer. */
+  readonly follows_device_id: string | null;
 }
 
 const COLS =
@@ -172,7 +176,7 @@ export async function listDevices(client: Queryable, venueId: string): Promise<D
             d.disabled_at::text, d.revoked_at::text, d.created_at::text,
             h.last_seen_at::text, (h.last_seen_at is not null and h.offline_since is null) as online,
             h.clock_skew_ms, h.app_version, h.network, d.station, d.protocol, d.command_set,
-            d.host_device_id, d.network_address, d.network_port, d.relay_device_ids
+            d.host_device_id, d.network_address, d.network_port, d.relay_device_ids, d.follows_device_id
        from devices d left join device_heartbeats h on h.venue_id = d.venue_id and h.device_id = d.id
       where d.venue_id = $1 and not d.sandbox order by d.kind, d.name`,
     [venueId],

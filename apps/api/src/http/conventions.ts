@@ -38,6 +38,8 @@ export interface ConventionsOptions {
   readonly authenticators?: readonly Authenticator[];
   /** Per venue on staff routes; the default is 600 a minute. */
   readonly staffRateLimit?: { max: number; windowMs: number };
+  /** Tests only (the principal and wall suites): no route's own limit below this, so calling a route as every principal isn't rate-limited. */
+  readonly rateLimitFloor?: number;
   /** Whether the database is wired (tests of pure conventions may leave it out). */
   readonly db: boolean;
   /** Read-only Admin over our unpaid plan (M8-15); absent without a database. */
@@ -122,7 +124,8 @@ export const conventionsPlugin = fp(async (app: FastifyInstance, options: Conven
     );
     if (!staffRoute && !spec.rateLimit) return;
     const limit = spec.rateLimit || options.staffRateLimit || { max: 600, windowMs: 60_000 };
-    route.config = { ...route.config, rateLimit: { max: limit.max, timeWindow: limit.windowMs } };
+    const max = Math.max(limit.max, options.rateLimitFloor ?? 0);
+    route.config = { ...route.config, rateLimit: { max, timeWindow: limit.windowMs } };
   });
 
   await app.register(rateLimit, {

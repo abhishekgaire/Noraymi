@@ -33,6 +33,7 @@ export type ModuleId =
   | "tax_exempt"
   | "inventory"
   | "kitchen_screen"
+  | "guest_screen"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -389,6 +390,17 @@ export const modules: readonly ModuleDef[] = [
       website: [],
       texts: [],
     },
+  },
+  // Guest screen (P-18): the check being rung up at a register, shown to the guest on a bar
+  // computer's second monitor or a paired guest display; idle, the venue's name. Every plan allows
+  // it, off until the owner turns it on.
+  {
+    id: "guest_screen",
+    core: false,
+    phase1: true,
+    needs: [],
+    allowedOff: true,
+    hides: { staffApp: ["guestScreen", "pos.guestScreen"], staffPhone: [], website: [], texts: [] },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },

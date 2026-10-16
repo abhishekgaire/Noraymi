@@ -1,0 +1,95 @@
+/* The guest screen (P-18): faces the guest across the bar, so large type and nothing to tap but the language. */
+.guest-screen {
+  position: relative;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24px 16px;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+.guest-lang {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  min-height: 44px;
+  min-width: 44px;
+}
+.guest-idle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.guest-idle h1 {
+  font-size: clamp(2rem, 7vw, 5rem);
+  margin: 0;
+}
+.guest-check {
+  width: 100%;
+  max-width: 760px;
+  margin: 32px auto 0;
+  font-size: clamp(1.1rem, 2.4vw, 1.6rem);
+}
+.guest-check-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.guest-check-head h1 {
+  margin: 0;
+  font-size: 1.6em;
+}
+.guest-check-head span,
+.guest-options {
+  color: var(--muted);
+}
+.guest-sub {
+  margin: 16px 0 4px;
+  font-size: 1em;
+  color: var(--muted);
+}
+.guest-lines {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.guest-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+}
+.guest-lines li > span:last-child {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.guest-totals {
+  border-top: 1px solid var(--line);
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.guest-strong {
+  font-weight: 700;
+  font-size: 1.25em;
+}
+.guest-cash {
+  color: var(--accent);
+}
+.guest-training {
+  padding: 6px 12px;
+  border: 1px solid var(--notice);
+  color: var(--notice);
+  border-radius: 8px;
+  text-align: center;
+}
+.guest-note {
+  margin: 16px auto 0;
+  color: var(--muted);
+  text-align: center;
+}

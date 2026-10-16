@@ -3,7 +3,7 @@ import { t, type Locale, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { cashPriceFor } from "../payments/surcharge.js";
 import { workOut } from "../rooms/finalize.js";
-import { money, receiptModel, receiptTime, type ReceiptLine } from "./model.js";
+import { money, receiptModel, receiptTime, type ReceiptLine, type ReceiptModel } from "./model.js";
 
 /**
  * The bill before paying (P-01; Payment flows · Room close-out; Devices, printing, offline): what a
@@ -18,12 +18,25 @@ import { money, receiptModel, receiptTime, type ReceiptLine } from "./model.js";
  */
 const FINALIZED = new Set(["finalized", "partly_paid", "paid"]);
 
-export async function billLines(
+/**
+ * A check as the bill shows it (P-01), shared with the guest screen (P-18): the receipt model (a
+ * presented check's finalized revision, or an open check worked out now by packages/rules), the tab
+ * or room, the party size and, with the cash discount on, the cash price of the total and of what's
+ * left to pay (null when off, or when nothing is left).
+ */
+export async function billParts(
   c: Queryable,
   venueId: string,
   checkId: string,
   input: { now: Temporal.Instant; locale: Locale },
-): Promise<{ lines: string[]; totalCents: number; dueCents: number }> {
+): Promise<{
+  m: ReceiptModel;
+  tab: string | null;
+  party: number | null;
+  timeZone: string;
+  cashTotalCents: number | null;
+  cashDueCents: number | null;
+}> {
   const found = await checkById(c, venueId, checkId);
   if (!found) throw new ApiError("not_found", "no such check");
   const worked = FINALIZED.has(found.check.status)
@@ -44,29 +57,48 @@ export async function billLines(
       [venueId, checkId],
     )
   ).rows[0]!;
-  const L = input.locale;
-  const row = (l: ReceiptLine) => `${l.label}  ${money(l.amount_cents)}`;
   const cashPrice = async (amount: number) => {
     if (amount <= 0) return null;
-    const cash = await cashPriceFor(c, venueId, {
+    return cashPriceFor(c, venueId, {
       checkId,
       amountCents: amount,
       businessDate: found.check.business_date,
       extraOtherCents: worked ? worked.roomTimeCents + worked.minSpendCents : 0,
     });
-    return cash === null ? null : row({ label: t(L, "printBill.cashPrice"), amount_cents: cash });
   };
-  const cashTotal = await cashPrice(m.total_cents);
-  const cashDue = m.amount_due_cents !== m.total_cents ? await cashPrice(m.amount_due_cents) : null;
-  const where = m.room ?? (f.tab ? t(L, "printBill.tab", { name: f.tab }) : null);
+  const cashTotalCents = await cashPrice(m.total_cents);
+  const cashDueCents =
+    m.amount_due_cents !== m.total_cents ? await cashPrice(m.amount_due_cents) : null;
+  return { m, tab: f.tab, party: f.party, timeZone: f.time_zone, cashTotalCents, cashDueCents };
+}
+
+export async function billLines(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+  input: { now: Temporal.Instant; locale: Locale },
+): Promise<{ lines: string[]; totalCents: number; dueCents: number }> {
+  const { m, tab, party, timeZone, cashTotalCents, cashDueCents } = await billParts(
+    c,
+    venueId,
+    checkId,
+    input,
+  );
+  const L = input.locale;
+  const row = (l: ReceiptLine) => `${l.label}  ${money(l.amount_cents)}`;
+  const cash = (cents: number | null) =>
+    cents === null ? null : row({ label: t(L, "printBill.cashPrice"), amount_cents: cents });
+  const cashTotal = cash(cashTotalCents);
+  const cashDue = cash(cashDueCents);
+  const where = m.room ?? (tab ? t(L, "printBill.tab", { name: tab }) : null);
   const lines = [
     ...(m.training ? [t(L, "training.band")] : []),
     m.venue,
     ...(m.address ? [m.address] : []),
     t(L, "printBill.title"),
     where ? `${m.number} · ${where}` : m.number,
-    ...(f.party ? [t(L, "printBill.guests", { n: f.party })] : []),
-    t(L, "printBill.printedAt", { time: receiptTime(input.now.toString(), f.time_zone) }),
+    ...(party ? [t(L, "printBill.guests", { n: party })] : []),
+    t(L, "printBill.printedAt", { time: receiptTime(input.now.toString(), timeZone) }),
     "",
     ...m.lines.map(row),
     ...m.totals.map(row),

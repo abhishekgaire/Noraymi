@@ -53,6 +53,8 @@ const patchBody = z
     cash_drawer_id: z.string().uuid().nullable().optional(),
     /** Training mode for this device, such as a new hire's phone (M7-03): everything rung on it is practice. */
     training: z.boolean().optional(),
+    /** A guest display's register (P-18): the bar or front-desk computer whose check it shows. */
+    follows_device_id: z.string().uuid().nullable().optional(),
   })
   .strict();
 const isInstant = (s: string): boolean => {
@@ -282,7 +284,7 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
       if (!parsed.success)
         throw new ApiError(
           "invalid_request",
-          "send { name?, room_id?, cash_drawer_id?, training? }",
+          "send { name?, room_id?, cash_drawer_id?, training?, follows_device_id? }",
         );
       const updated = await request.inVenue(async (c) => {
         const row = await updateDevice(c, request.venueId!, request.params.d, {
@@ -311,6 +313,23 @@ export function devicesRoutes(app: FastifyInstance, options: DevicesOptions): vo
             request.params.d,
             parsed.data.cash_drawer_id,
           ]);
+        }
+        if (row && parsed.data.follows_device_id !== undefined) {
+          if (row.kind !== "guest_display")
+            throw new ApiError("invalid_request", "only a guest screen follows a computer");
+          if (parsed.data.follows_device_id) {
+            const register = await c.query(
+              `select 1 from devices where venue_id = $1 and id = $2 and revoked_at is null
+                  and kind in ('bar_computer', 'front_desk')`,
+              [request.venueId, parsed.data.follows_device_id],
+            );
+            if (register.rowCount === 0)
+              throw new ApiError("not_found", "no such bar or front-desk computer");
+          }
+          await c.query(
+            "update devices set follows_device_id = $3 where venue_id = $1 and id = $2",
+            [request.venueId, request.params.d, parsed.data.follows_device_id],
+          );
         }
         return row;
       });

@@ -25,7 +25,8 @@ type Kind =
   | "staff_phone"
   | "up_next_display"
   | "mic_outlet"
-  | "kitchen_display";
+  | "kitchen_display"
+  | "guest_display";
 
 interface Device {
   readonly id: string;
@@ -47,6 +48,8 @@ interface Device {
   readonly network_address?: string | null;
   readonly network_port?: number | null;
   readonly relay_device_ids?: string[] | null;
+  /** A guest screen's register (P-18); null follows the only bar computer. */
+  readonly follows_device_id?: string | null;
 }
 
 /** The spec's order of places: bar, front desk, rooms, around the venue, people. */
@@ -59,6 +62,7 @@ const KIND_ORDER: readonly Kind[] = [
   "room_tablet",
   "up_next_display",
   "kitchen_display",
+  "guest_display",
   "router",
   "mic_outlet",
   "staff_phone",
@@ -75,6 +79,7 @@ const whereKey: Record<Kind, MessageKey> = {
   room_tablet: "devices.where.rooms",
   up_next_display: "devices.where.bar",
   kitchen_display: "devices.where.kitchen",
+  guest_display: "devices.where.bar",
   router: "devices.where.around",
   mic_outlet: "devices.where.rooms",
   staff_phone: "devices.where.people",
@@ -128,6 +133,22 @@ export function Devices() {
       setError((e as ApiCallError)?.message ?? t("shell.error.title"));
     }
   };
+
+  /** A guest screen's register (P-18): the bar or front-desk computer whose check it shows. */
+  const follow = async (d: Device, to: string | null) => {
+    setError(null);
+    try {
+      await api("PATCH", `/v1/venues/${venueId}/devices/${d.id}`, { follows_device_id: to });
+      await load();
+      const name = devices?.find((x) => x.id === to)?.name ?? t("devices.follows.only");
+      setNote({ id: d.id, key: "devices.follows.saved", name });
+    } catch (e) {
+      setError((e as ApiCallError)?.message ?? t("shell.error.title"));
+    }
+  };
+  const registers = (devices ?? []).filter(
+    (x) => x.kind === "bar_computer" || x.kind === "front_desk",
+  );
 
   const revoke = async (d: Device) => {
     setConfirming(null);
@@ -215,9 +236,30 @@ export function Devices() {
                       ) : (
                         <div className="tile-name">{d.name}</div>
                       )}
+                      {d.kind === "guest_display" && (
+                        <label className="small">
+                          {t("devices.follows")}{" "}
+                          <select
+                            aria-label={t("devices.follows.for", { name: d.name })}
+                            value={d.follows_device_id ?? ""}
+                            onChange={(e) => void follow(d, e.target.value || null)}
+                          >
+                            <option value="">
+                              {registers.filter((x) => x.kind === "bar_computer").length === 1
+                                ? t("devices.follows.only")
+                                : t("devices.follows.choose")}
+                            </option>
+                            {registers.map((x) => (
+                              <option key={x.id} value={x.id}>
+                                {x.name}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       {note?.id === d.id && (
                         <div className="small" role="status">
-                          {t(note.key)}
+                          {t(note.key, note.name ? { name: note.name } : undefined)}
                         </div>
                       )}
                     </td>

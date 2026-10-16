@@ -48,6 +48,18 @@ describe("visibleTo, per principal", () => {
     expect(visibleTo(sub, ev({ type: "kitchen.ticket_done" }))).toBe(true);
     expect(visibleTo(sub, ev({ type: "order.ringing" }))).toBe(false);
   });
+  it("a guest display (P-18) hears no event at all", () => {
+    const screen: Principal = {
+      kind: "device",
+      deviceId: "d9",
+      venueId: V,
+      deviceKind: "guest_display",
+    };
+    const sub: Subscription = { principal: screen, venueId: V };
+    expect(visibleTo(sub, ev({ type: "order.ringing" }))).toBe(false);
+    expect(visibleTo(sub, ev({ type: "check.updated" }))).toBe(false);
+    expect(visibleTo(sub, ev({ type: "settings.changed" }))).toBe(false);
+  });
   it("a room tablet on Room 9's channel never receives an event for another room", () => {
     const sub: Subscription = { principal: tablet, venueId: V, roomId: "room-9" };
     expect(visibleTo(sub, ev({ type: "order.ready", room_id: "room-9" }))).toBe(true);

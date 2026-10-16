@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, ApiCallError } from "../api.js";
 import { useT } from "../i18n.js";
 import { AddDrinks, type DraftLine } from "./AddDrinks.js";
@@ -54,14 +54,19 @@ export function QuickSale({
   ringRequest,
   refresh,
   onChanged,
+  onSale,
 }: {
   venueId: string;
   ringRequest: { variantId: string; n: number; optionIds?: readonly string[] } | null;
   refresh: number;
   onChanged: () => void;
+  /** The sale's check once Pay made it, null while drinks are only rung (the guest screen, P-18). */
+  onSale?: (checkId: string | null) => void;
 }) {
   const { t, money } = useT();
   const [sale, setSale] = useState<Sale | null>(null);
+  const saleCheck = sale?.check_id ?? null;
+  useEffect(() => onSale?.(saleCheck), [saleCheck, onSale]);
   const [paid, setPaid] = useState(false);
   const [cash, setCash] = useState<Taken | null>(null);
   const [error, setError] = useState<string | null>(null);

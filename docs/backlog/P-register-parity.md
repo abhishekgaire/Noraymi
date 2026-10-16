@@ -322,13 +322,20 @@ Definition of done: see CLAUDE.md.
 
 ### P-18 · A screen for the guest at the bar
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** W-01
 - **Spec:** [Devices, printing, offline](../spec/09-devices-printing-offline.md)
 - **Build:** Module **Guest-facing screen** (off by default): a second monitor on a bar computer (a desktop-app window) or a paired device shows the check being rung up (lines, tax, gratuity, total, the cash price) and, when idle, the venue's name.
 - **Acceptance:**
-  - [ ] It follows the register within a second and never shows another check; EN and ES; tests.
+  - [x] It follows the register within a second and never shows another check; EN and ES; tests.
+- **Notes:**
+  - Built: module `guest_screen` ("Guest screen", off by default, every plan, needs nothing, Admin → Features under Bar). Migration 0171 adds device kind `guest_display` (its own principal, hears no events), `devices.follows_device_id` and `guest_screens` (one row per register: the check open there, whether the person's unsent drinks show, a version; forced RLS, restore wall, not audited because it's screen state like heartbeats).
+  - Routes (`apps/api/src/routes/guest-screen.ts`, logic in `apps/api/src/receipts/guest-screen.ts`): `POST /v1/venues/:venueId/guest-screen/showing` from the bar POS (staff on a bar or front-desk computer; a locked computer may only clear it; a phone or unpaired browser answers `following: false`) and `GET …/guest-screen?lang=&since=` for a paired guest display (follows the computer Admin picked, else the venue's only bar computer), a bar computer's own window, or staff on it. The amounts are the printed bill's: `bill.ts` now shares `billParts` (receipt model worked out by packages/rules, cash price with the cash discount on); unsent drinks are priced through `orderItemsFor`, as a round would be.
+  - Staff app: `/guest-screen` (no shell, no PIN; a paired guest display opens it from sign-in and sends heartbeats), **Open the guest screen** on the bar POS, the bar POS tells the screen which check is open (tab, room, quick sale once Pay made it) and again on every reload, Admin → Printers & devices → **Shows the check from** on a guest screen's row. EN and ES with a toggle on the screen itself (kept per browser, separate from the staff language). The desktop app now opens `/guest-screen` (full screen on the second monitor when there is one) and `/kitchen-screen` in windows of their own; before, it refused every new window, so P-17's "Open the kitchen screen" only worked in a browser.
+  - "Within a second": shared screens have no event socket yet (M6-28), so the screen asks twice a second with the last answer's fingerprint (register version + unsent-drinks version) and gets `unchanged` unless something moved, and in full every 5 seconds (room time and the like). "Never another check": a screen reads only its register's row, each answer carries one check whole, and offline or on an error it drops back to the venue's name instead of keeping a check.
+  - Cautious defaults: a register silent for 3 minutes (closed, crashed) reads as idle; leaving the bar POS inside the app clears the screen at once, a closed or reloaded browser only through that 3-minute rule or the next bar POS load. The tab's name and the card's brand and last four show (as on the receipt); no phone numbers. Spec 09, 03, 04 and the glossary updated (the spec had no section for this screen). Tests: `guest-screen.int.test.ts` (off, follow, unsent, switch, second register and Admin's choice, phone and locked computer, 3-minute idle, EN/ES, venue wall), the event-filter and desktop window unit tests, the e2e "the guest screen: follows the register within a second…". Hand test: manual-test 30.18.
+  - Found by the full `pnpm check --e2e` and fixed here: two e2e counts out of date since P-16/P-17 (Admin → Features now "18 on · 8 off", the Bar group's 8 modules), and the principal suite tripping Twilio's check route's own 20-a-minute limit (429) once the cast grew; the security suites now pass `rateLimitFloor` so a route's own limit can't answer before the principal check. Full run: lint, i18n, typecheck, unit 1374, integration 1503 and db-lint pass; e2e 265 passed, the 3 failures above fixed and rerun green.
 
 ### P-19 · A missed sale on tonight's date
 

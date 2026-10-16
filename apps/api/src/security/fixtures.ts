@@ -46,7 +46,8 @@ export function cast(c: Cast): NamedPrincipal[] {
       | "room_tablet"
       | "printer"
       | "up_next_display"
-      | "kitchen_display",
+      | "kitchen_display"
+      | "guest_display",
     n: number,
   ): Principal => ({ kind: "device", deviceId: uuid(n), venueId: c.venueA, deviceKind });
   const owner = { userId: c.ownerA, membershipId: c.membershipA };
@@ -89,6 +90,7 @@ export function cast(c: Cast): NamedPrincipal[] {
     { name: "a printer", principal: device("printer", 8) },
     { name: "the Up next display", principal: device("up_next_display", 9) },
     { name: "a kitchen display", principal: device("kitchen_display", 64) },
+    { name: "a guest display", principal: device("guest_display", 66) },
     {
       name: "our support staff",
       principal: { kind: "support", staffId: uuid(10), grantId: uuid(11), venueId: c.venueA },

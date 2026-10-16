@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedOriginsFrom, isAllowedUrl, isTrustedSender } from "./security.js";
+import { allowedOriginsFrom, isAllowedUrl, isTrustedSender, screenWindowFor } from "./security.js";
 
 describe("the desktop app's walls", () => {
   const allowed = allowedOriginsFrom({
@@ -52,5 +52,21 @@ describe("the staff window", () => {
       sandbox: true,
       backgroundThrottling: false,
     });
+  });
+
+  it("opens the guest screen (on the second monitor) and the kitchen screen in windows of their own, nothing else (P-18)", () => {
+    const allowed = allowedOriginsFrom({ STAFF_URL: "https://staff.west4.example" });
+    expect(screenWindowFor("https://staff.west4.example/guest-screen", allowed)).toEqual({
+      path: "/guest-screen",
+      secondMonitor: true,
+    });
+    expect(screenWindowFor("https://staff.west4.example/kitchen-screen", allowed)).toEqual({
+      path: "/kitchen-screen",
+      secondMonitor: false,
+    });
+    expect(screenWindowFor("https://staff.west4.example/bar", allowed)).toBeNull();
+    expect(screenWindowFor("https://evil.example/guest-screen", allowed)).toBeNull();
+    expect(screenWindowFor("https://user:pw@staff.west4.example/guest-screen", allowed)).toBeNull();
+    expect(screenWindowFor("javascript:alert(1)", allowed)).toBeNull();
   });
 });

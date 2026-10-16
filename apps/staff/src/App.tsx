@@ -14,6 +14,7 @@ import { Rooms } from "./screens/admin/Rooms.js";
 import { Menu } from "./screens/admin/Menu.js";
 import { BarOrders } from "./screens/BarOrders.js";
 import { KitchenScreen } from "./screens/KitchenScreen.js";
+import { GuestScreen } from "./screens/GuestScreen.js";
 import { SongQueue } from "./screens/SongQueue.js";
 import { Runs } from "./screens/Runs.js";
 import { ChimeLoop } from "./chime.js";
@@ -145,6 +146,8 @@ export function StaffRoutes() {
       <Route path="/invite/:token" element={<Invite />} />
       {/* The kitchen screen (P-17): a paired kitchen display or a bar computer's second window, no shell. */}
       <Route path="/kitchen-screen" element={<KitchenScreen />} />
+      {/* The guest screen (P-18): a paired guest display or a bar computer's second monitor, no shell. */}
+      <Route path="/guest-screen" element={<GuestScreen />} />
       <Route element={<Shell />}>
         <Route index element={<HomeRedirect />} />
         <Route path="/tonight" element={<Tonight />} />

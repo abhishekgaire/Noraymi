@@ -30,6 +30,7 @@ import { ReplayedOrders } from "./ReplayedOrders.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { TopBarItems } from "../layout/TopBar.js";
 import { NoSaleButton } from "./NoSaleButton.js";
+import { GuestScreenLink, useGuestScreen } from "./GuestScreenLink.js";
 import { CutOffTab } from "./CutOff.js";
 import { QuickSale } from "./QuickSale.js";
 import { OfflineCashSale, type CashLineSource } from "./OfflineCashSale.js";
@@ -288,6 +289,8 @@ export function Rail() {
   const [find, setFind] = useState("");
   const [filter, setFilter] = useState<"all" | "mine" | "rooms">("all");
   const [picked, setPicked] = useState<Picked>({ kind: "quick" });
+  // The quick sale's check once Pay made it (the guest screen, P-18).
+  const [quickCheck, setQuickCheck] = useState<string | null>(null);
   const [newTab, setNewTab] = useState(false);
   /** Close tab (M6-08): the picked tab's close panel is open. */
   const [closingTab, setClosingTab] = useState<string | null>(null);
@@ -784,6 +787,17 @@ export function Rail() {
   );
   const tab = picked?.kind === "tab" ? tabs.find((x) => x.id === picked.id) : undefined;
   const room = picked?.kind === "room" ? rooms.find((r) => r.room_id === picked.id) : undefined;
+  // Guest screen (P-18): the check open here, with the person's unsent drinks on it, follows on the
+  // guest's screen; every reload of the rail tells it to look again.
+  useGuestScreen(
+    venueId,
+    {
+      checkId:
+        picked?.kind === "quick" ? quickCheck : (tab?.check_id ?? room?.session?.check_id ?? null),
+      draft: picked !== null,
+    },
+    tabs,
+  );
   // What's on it: the drinks, songs and fixes, not the computed room time, tax and gratuity.
   // A sent drink can be fixed on an open tab nobody is closing, moving or splitting, or on a room in use.
   const fixOpen = tab
@@ -880,6 +894,8 @@ export function Rail() {
         {venueId && <SongQueueLink venueId={venueId} />}
         {/* No sale (U-07): this station's drawer in two taps, the PIN again when the owner asks. */}
         {venueId && <NoSaleButton venueId={venueId} />}
+        {/* Guest screen (P-18): the bar computer's second monitor. */}
+        <GuestScreenLink />
         <button
           type="button"
           className="secondary"
@@ -1568,6 +1584,7 @@ export function Rail() {
                 ringRequest={ringRequest}
                 refresh={draftRefresh}
                 onChanged={() => void load()}
+                onSale={setQuickCheck}
               />
             ) : !tab && !room ? (
               <p className="muted">{t("rail.pickFirst")}</p>

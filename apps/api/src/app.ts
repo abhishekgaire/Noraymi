@@ -55,6 +55,7 @@ import { closuresRoutes } from "./routes/closures.js";
 import { modulesRoutes } from "./routes/modules.js";
 import { kitchenRoutes } from "./routes/kitchen.js";
 import { kitchenScreenRoutes } from "./routes/kitchen-screen.js";
+import { guestScreenRoutes } from "./routes/guest-screen.js";
 import { ModuleGate } from "./http/module-gate.js";
 import { PermissionGate } from "./http/permission-gate.js";
 import { permissionsRoutes } from "./routes/permissions.js";
@@ -144,6 +145,8 @@ export interface AppOptions {
   readonly idKeys?: IdKeyStore;
   readonly authenticators?: readonly Authenticator[];
   readonly staffRateLimit?: { max: number; windowMs: number };
+  /** Tests only: no route's own rate limit below this (the principal and wall suites). */
+  readonly rateLimitFloor?: number;
   /** The relay's and the tail's poll interval; tests use a short one. */
   readonly eventsPollMs?: number;
   /** How long a container trusts its copy of a venue's module states. */
@@ -249,6 +252,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
         : []),
     ],
     ...(options.staffRateLimit ? { staffRateLimit: options.staffRateLimit } : {}),
+    ...(options.rateLimitFloor ? { rateLimitFloor: options.rateLimitFloor } : {}),
     db: config !== undefined,
     ...(gate ? { moduleGate: gate } : {}),
     ...(permissions ? { permissionGate: permissions } : {}),
@@ -493,6 +497,7 @@ export function buildApp(options: AppOptions = {}): FastifyInstance {
       modulesRoutes(scope, { gate: gate!, clock });
       kitchenRoutes(scope, { clock });
       kitchenScreenRoutes(scope, { clock });
+      guestScreenRoutes(scope, { clock });
       permissionsRoutes(scope, { gate: permissions! });
       adminSectionRoutes(scope, { clock, gate: permissions! });
       devicesRoutes(scope, { clock, micSigner: micSigner(config.auth.secretKey) });

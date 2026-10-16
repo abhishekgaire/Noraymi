@@ -1015,6 +1015,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "plan_subscribe_attempts",
       // Kitchen screen (P-17): a kitchen ticket names its order or check and its print job.
       "kitchen_tickets",
+      // Guest screen (P-18): what a register shows names the register, its check and its person.
+      "guest_screens",
       "print_jobs",
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",

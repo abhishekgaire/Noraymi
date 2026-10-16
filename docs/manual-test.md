@@ -1709,6 +1709,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 30.15 Tax-exempt check: Room 9 tax $14.02, on the Z report with its certificate
 - [ ] 30.16 Inventory: Jäger Bomb counted, a sale takes it down, a void not made puts it back, 86'd at zero
 - [ ] 30.17 Kitchen screen: a paired kitchen display shows sent food within 3 seconds, Done tells the bar (Food up), offline it keeps its tickets
+- [ ] 30.18 Guest screen: the bar computer's second window (or a paired guest display) follows the bar POS within a second, one check at a time, idle shows the venue's name, EN and ES
 
 **Fewer taps (U)**
 - [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
@@ -2072,6 +2073,17 @@ Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip 
 5. On the bar orders screen tap **Open the kitchen screen**: the same tickets open in a second window of the bar computer.
 6. Unplug the kitchen screen's network: it reads "Offline · showing tickets from <time>" and keeps the tickets. Tap **Done** on one: it leaves the screen and the band counts "1 Done waiting to send". Plug back in: the Done reaches the bar.
 7. Untick the Choices box and send more food: it shows on the kitchen screen and nothing prints in the kitchen. With Kitchen screen off in Admin → Features, the kitchen screen reads "Kitchen screen is off", the server refuses its routes and the kitchen printer prints every ticket again (`kitchen-screen.int.test.ts` checks it).
+
+### 30.18 Guest screen (P-18)
+
+1. Start the demo with `scripts/demo-start.sh` and sign in as the owner. Admin → Features → **Guest screen** is off by default. Turn it on.
+2. Sign in at the bar computer as a bartender and open the bar POS: **Open the guest screen** sits in the top row. Tap it: a second window opens (in the desktop app, full screen on the second monitor when one is plugged in) showing only the venue's name, with no PIN pad.
+3. On the bar POS tap the tab **Jess P.**: within a second the guest screen shows "Jess P.", the check number, each line, tax, gratuity where there is one, the total and Left to pay. Ring two drinks without sending them: they show under **Being rung up** with their prices.
+4. Tap another tab: the guest screen shows only that tab, never a line of Jess P.'s. Tap **Quick sale** and ring a drink: it shows under Being rung up with "Subtotal so far"; tap Pay: the sale's tax and total show. With the cash discount on (Admin → Payments), "Cash price" shows under the total.
+5. On the guest screen tap **Español**: the words turn Spanish ("Tu cuenta", "Impuesto…"); tap **English** to go back.
+6. Leave the bar POS (tap Bar orders): the guest screen goes back to the venue's name.
+7. Admin → Printers & devices → pair a **Guest screen** (it sits under Bar). On a tablet or a private window, enter the pairing code on the sign-in screen: it opens the guest screen straight away, the venue's name. Its row in Admin shows **Shows the check from** "The bar computer (the only one)"; pick the front-desk computer and ring a check there: the paired screen follows the front desk instead.
+8. Unplug the guest screen's network: it goes back to the venue's name with "Offline · reconnecting" and never keeps a check. With Guest screen off in Admin → Features it reads "Guest screen is off · Admin → Features" and the server refuses its routes (`guest-screen.int.test.ts` checks it).
 
 
 ---
