@@ -55,6 +55,10 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 27. [Printable checklist](#27-printable-checklist)
 28. [Practice night at Sing Sing from your laptop](#28-practice-night-at-sing-sing-from-your-laptop)
 29. [Onboard Sing Sing yourself (Set up your venue)](#29-onboard-sing-sing-yourself-set-up-your-venue)
+30. [Register features (P tickets)](#30-register-features-p-tickets)
+31. [Fewer taps (U)](#31-fewer-taps-u)
+
+**Already tested the older sections?** The October work changed how many screens look. The older sections now point to the newer walkthroughs ("see 31.10") where a screen changed; section 31 is the quickest way to check everything new, and section 29 is the whole onboarding of a new venue.
 
 ---
 
@@ -76,7 +80,9 @@ The app's own logs are in the `.demo-logs` folder (`api.log`, `staff.log`, `gues
 
 The start script prints two **invite links**, one for Abhishek (owner) and one for Andy (manager).
 
-To test the kitchen (section 11), start it as `scripts/demo-start.sh --sing-sing` instead: it also makes Sing Sing, a second demo venue with Kitchen & food on, and prints its own invite links.
+To test the kitchen (section 11), start it as `scripts/demo-start.sh --sing-sing` instead: it also makes Sing Sing, a second demo venue with Kitchen & food on, and prints its own invite links. Sing Sing is also the demo's example of a venue that works differently: no card readers (cards on its own outside machine), tabs without a card, a cash discount and approvals by a manager's PIN. Many tests in sections 30 and 31 use it.
+
+To test onboarding a brand-new venue (section 29), start it as `scripts/demo-start.sh --onboard`: Sing Sing is then made empty, as our Console makes a new customer's venue, and you set it up yourself.
 
 To run a practice night with bar PCs and phones on a shop's Wi-Fi, see section 28 (`scripts/demo-start.sh --lan`).
 
@@ -123,7 +129,7 @@ At West 4, approvals are decided on the approver's own phone (the default; a ven
 
 1. Open an **Incognito window** (Cmd + Shift + N), or a second Chrome profile.
 2. Repeat 0.2 with Andy's invite link and `andy@demo.west4.local`.
-3. In Andy's window, open **Phone alerts** (the phone tab; **Alerts on this phone** in the side menu) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
+3. In Andy's window, open **Alerts on this phone** (in the side menu on a laptop; under **☰ More** at phone size, U-19; the screen is called **Phone alerts**, U-20) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
 
 Do the same for Abhishek's window: requests from Andy himself go to Abhishek.
 
@@ -141,7 +147,9 @@ Bartenders and front-desk staff sign in with a name and PIN on a **paired** shar
 1. As Abhishek, open **Admin → Printers & devices** and make a pairing code (choose the bar computer or the front-desk computer).
 2. In another Chrome profile or Incognito window, open http://localhost:5173/sign-in and press **Pair this screen**.
 3. Type the code in "Pairing code from Admin → Devices" and press **Pair**.
-4. Name tiles appear. Tap **Maya S.** and type `4071`. She lands on her bar home (Bar POS). Diego (`6358`) lands on Rooms.
+4. The sign-in screen appears, with the venue's name and **3 on shift** beside it (P-12). At West 4, which has badge readers, it leads with "Tap your badge on the reader", then "**No badge? Tap your name, then your PIN**" and the name tiles. At a venue with no badge reader (the Sing Sing demo) it leads with "**Tap your name, then your PIN**" and the tiles (U-20; 31.20 step 8).
+5. Tap **Maya S.** and type `4071`. She lands on her bar home (Bar POS). Diego (`6358`) lands on Rooms. Someone not on the clock may be asked to clock in first (15.3); an owner or manager off the clock goes straight in (U-14).
+6. To hand the screen to the next person, press **Lock** (in the side menu, and on the bar POS's top bar beside **No sale** and **Wipe screen**, U-07). The sign-in screen also has **Time clock** for clocking in and out without opening the app (31.14).
 
 A pairing code works only once. **Revoke** in Admin → Printers & devices signs that screen out at once ("Revoke {name}? It signs out at once and has to be paired again.").
 
@@ -151,7 +159,7 @@ Tip: a Chrome window can only be one paired screen at a time. Use one profile fo
 
 1. In Chrome, press **Cmd + Option + I** to open the developer tools.
 2. Press **Cmd + Shift + M** for the device toolbar, and pick an iPhone at the top.
-3. Reload. The bottom of the screen shows the phone tabs: Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Incidents, Tips to enter, Clock in and out, My tips, Reports, Offline codes, Alerts and Admin. Which ones you see depends on who's signed in.
+3. Reload. The bottom of the screen shows **five tabs** that never scroll sideways: four chosen for the person's role, then **☰ More**, which lists everything else (Bookings, Waitlist, Tips to enter, Clock in and out, My tips, Reports, Offline codes, Alerts on this phone, Admin…) and **Lock** last. For example Maya (bartender): Bar POS, Rooms, Calls, Messages, More; Andy (manager): Rooms, Approvals, Calls, Messages, More. The whole table is in 31.19.
 
 Use the phone size for the guest pages too.
 
@@ -271,7 +279,9 @@ Copy the id next to "Room 9". (The easier way into Room 9 as the host is its hos
 
 1. Open **Rooms**.
 2. You should see:
-   - The clock at **10:41 PM**.
+   - The clock at **10:41 PM**, and beside it "**Fri night**" (hover it for "Business date Fri, Sep 25"; U-20). In Spanish: "Viernes noche".
+   - Above the counts, for an owner or manager signed in with a passkey: **Sales so far**, **Open checks**, **Rooms in use** and **On the clock** (P-12, see 30.12).
+   - The **Bell** in the top bar (P-11, see 30.11).
    - "**8 in use · 3 open · 2 cleaning · 1 out of service**".
    - "**93 inside**" with "**77 in rooms · 16 waiting**".
    - "**Limit not set · Admin → Safety**". The app never invents an occupancy limit.
@@ -302,6 +312,7 @@ Check each tile's words and money:
 
 - Wait one minute: the times and money move by one minute.
 - Room 10 also reads "Stay on by the minute until we close at 4 AM".
+- A room with a booking due within the hour also shows it (U-09): Room 3 reads "**Arriving · Jae & co. 11:00**", and Rooms 2, 7 and 8 show theirs too. Tapping such a room offers **Check in {name}** (31.9).
 
 ### 1.3 Alerts, most urgent first
 
@@ -311,10 +322,12 @@ The alerts band at the top should list, in this order:
 2. Pink: Room 9 called for another mic.
 3. Amber: Room 3, 4 min left, Jae & co. at 11:00.
 4. Lime: Room 11 is free all night, and Amara B. (7) has waited 26 min.
-5. Grey: Rooms 6 and 13 need cleaning; Nadia K. and Chris P. are waiting.
+5. Grey: "Rooms 6 and 13 need cleaning (8 and 5 min)"; Nadia K. and Chris P. are waiting.
 6. Grey: Sam O. running 15 late, held until 10:45.
 
 Press **Show all {count}**, then **Show only the {count} most urgent**. The waitlist name must be **Nadia K.**, never "Priya K.".
+
+Tap the words of an alert (not its buttons): that room's side panel opens (U-18). The same goes for a room line in the Bell and the **Time's up** strip on a bar computer (31.18).
 
 ### 1.4 Timeline and list
 
@@ -324,15 +337,15 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 ### 1.5 The room side panel
 
-1. Tap Room 9's tile. A side panel opens with **Tab & close out**, **Move**, **Report a fault**, **Damage fee**, party size, the ID chip, **Scan ID**, the cut-off button and the faults.
+1. Tap Room 9's tile. A side panel opens with **Tab so far** (once, in its box), **Present & pay**, **Add drinks** and **Tab & close out →** (U-10), then **Move**, **Report a fault**, **Damage fee**, party size, the ID chip, **Scan ID**, the cut-off button and the faults. **Add drinks** opens the add-drinks panel right there; tap it again to close it. **Present & pay** is walked in 31.10.
 2. Press **Tab & close out →**. You should see "161 min · $2.00 a minute", Room time so far **$322.00**, Drinks **$158.00**, Tab so far **$480.00**, "Deposit $120.00 · comes off at settle-up", and "Before tax and gratuity". The ringing margaritas are **not** on the tab yet.
 
 ### 1.6 Phone layout
 
 1. Switch Andy's window to iPhone size (0.5).
-2. The tabs show (Bookings, Rooms, Calls, Waitlist, Messages, Approvals, Alerts, Admin…). There is one **Rooms** (the board) and no Tonight; **Bookings** is tonight's bookings.
+2. Andy's tabs read **Rooms**, **Approvals**, **Calls**, **Messages** and **☰ More** (U-19). There is one **Rooms** (the board) and no Tonight. **Bookings** (tonight's bookings) is under More. **+ Walk-in** is in the board's header (U-09).
 3. On Bookings, Sam O. offers **Check in**. **Mark no-show** shows only from 10:45. Marcus T. offers neither.
-4. Sign in as Maya on a phone-size paired screen: she has no Approvals tab.
+4. Sign in as Maya on a phone-size paired screen: her tabs are Bar POS, Rooms, Calls, Messages and More, with no Approvals.
 
 ---
 
@@ -342,8 +355,8 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 **Who:** Diego or Andy. **When:** move the clock to 10:44 PM (`2026-09-26T02:44:00Z`) and reload.
 
-1. In "Arriving", Sam O. reads "10:30 PM · Room 2". Press **Check in**.
-2. Party: 3 guests. You should see "**3 guests · Fridays bill at least 4**" and "**Deposit applied −$40.00**".
+1. In "Arriving", Sam O. reads "10:30 PM · Room 2". Press **Check in**. (Or tap Room 2's tile: its panel's main button is **Check in Sam O.**, U-09. Arriving also has **Find a booking** by name, 31.9.)
+2. Party: 3 guests. There's a **Note (optional)** field too (P-04, 30.4). You should see "**3 guests · Fridays bill at least 4**" and "**Deposit applied −$40.00**".
 3. Fill **IDs checked**, then check in.
 4. The result line reads "Room 2 · room code {code} · check #{n}". The code has 5 characters.
 5. Open **Messages**: a Room code text went to Sam with a join link.
@@ -356,6 +369,8 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 3. Press **Mark no-show** on Sam O. Room 2 becomes free.
 
 ### 2.3 Walk-in
+
+There are two ways in: **+ Walk-in** on a free room's panel, or **+ Walk-in** in the board's header (every layout, U-09), which picks the room for you: the smallest free room that fits the party, as the waitlist's Offer does. The rooms show as chips with their size ("fits 6–12"); a room too small is greyed with the reason. The header way is walked in 31.9; the steps below use the room's own button.
 
 1. On Room 11, press **+ Walk-in**: a dialog "Walk-in · Room 11" opens over the board, which stays visible behind it. **Seat them** and **Cancel** stay at the dialog's foot while you scroll it. Step 5 reads "No deposit" at West 4.
 2. Press **Esc**: the dialog closes, nothing is seated, and **+ Walk-in** has the focus again. Open it again; **Tab** never leaves the dialog. On a phone it's a full-height sheet from the bottom.
@@ -371,7 +386,7 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
    - When the room's check is paid, the room screen shows "**Give the card back**" ("Hand the guest their card: M. TORRES ···· 4242") with **Returned**: "Card given back".
    - A card not given back is listed on Close the night: "Cards still behind the bar · {count}".
    - Set it back to **Take a deposit**.
-7. A note and a prepaid block (P-04): + Walk-in on a free room, 4 guests, type **Note (optional)** `Nia's birthday · cake at 11`, keep **2 h**, press **Prepaid block** and **Seat them**. The dialog still fits a laptop screen with no scroll. The tile shows the note; the room panel and DeskRoom show the note and "**Prepaid block · 2 h**", and room time reads $80.00 at once (2 h at $40.00) and stays $80.00 until the 2 hours are up, then counts on by the minute. Without Prepaid block (Pay as you go, the default) it bills as before. A booking's check-in has the Note too.
+7. A note and a prepaid block (P-04, also 30.4): + Walk-in on a free room, 4 guests, type **Note (optional)** `Nia's birthday · cake at 11`, keep **2 h**, press **Prepaid block** and **Seat them**. The dialog still fits a laptop screen with no scroll. The tile shows the note; the room panel and DeskRoom show the note and "**Prepaid block · 2 h**", and room time reads $80.00 at once (2 h at $40.00) and stays $80.00 until the 2 hours are up, then counts on by the minute. Without Prepaid block (Pay as you go, the default) it bills as before. A booking's check-in has the Note too.
 8. A package at the start (P-04): in Admin → Menu, add a package with **Room time included** `2 h` (for example "Party pack", $90.00, 2 sodas). + Walk-in: a **Package** select appears; pick Party pack: How long shows 2 h and Prepaid block, both locked. Seat them: the tab has the package's sodas, and room time is the rest of $90.00 (the package's price divided across its 2 h at the room's rate and the sodas, largest remainder). The package doesn't show under Add package on a running tab. With **Packages & specials** off (Admin → Features) the Package select is gone.
 
 ### 2.4 The waitlist (staff side)
@@ -433,8 +448,10 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 
 ### 3.5 Cleaning and notes
 
-1. Room 6 reads "Needs cleaning · left 10:33 PM (8 min)". Press **Mark clean**: it becomes Open.
+1. Room 6 reads "**Needs cleaning** · left 10:33 PM (8 min)". Press **Mark clean**: it becomes Open. (The app uses one word for this everywhere: Needs cleaning and Mark clean, U-20.)
 2. Room 6's **Room notes** read "TV remote goes missing. Check under the couch."
+3. After a room's check is paid, the paid screen has **Mark clean** too, and after the receipt the screen goes back to Rooms with that room's panel open on **Mark clean** (U-10, 31.10).
+4. At the end of the night, Close the night has **Mark all rooms clean** (U-15, 31.15).
 
 ### 3.6 Lost and found
 
@@ -447,6 +464,7 @@ Press **Show all {count}**, then **Show only the {count} most urgent**. The wait
 1. Open **Calls** (phone tab). Room 9's "Another mic, please" is there, and on the board.
 2. As Diego, press **On it**: it disappears on every screen.
 3. A call about the TV offers **Log as a fault**.
+4. Away from Rooms and Calls (for example on Time clock), the call is in the **Bell** with its own **On it** (U-18, 31.18).
 
 ---
 
@@ -551,6 +569,12 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 4. Picking the "too drunk" reason offers Andy "Cut off Room 1?".
 5. **Record an ID checked here** makes Room 1 read "ID ✓ 4 of 4".
 
+### 5.9 A venue without runners: We run our own orders (U-11)
+
+A venue where the bartender carries the drinks can turn on **We run our own orders** (Admin → Bar POS → Room orders; off by default). Then Bar orders' column reads **Ready** instead of Ready for a runner, and each Ready card has **Delivered**: Accept, Ready, Delivered on one screen, no phone. Accept is still the sale; Delivered still never charges. Walk it in 31.11, then turn it off again.
+
+Away from Bar orders, a ringing order also shows in the **Bell** with **Accept** (31.18).
+
 ---
 
 ## 6. Comps, voids and approvals
@@ -573,13 +597,17 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 
 **Rules to check:** comps and voids up to $25 each and $75 a shift need only a reason. Over that, a manager approves on their own phone. Nobody approves their own request.
 
+**The fix panel (U-22):** on a sent line, **Rang it wrong** also picks **Not made**, and **VOID · take the sale back** is the main (filled) button with **COMP** beside it as the second choice.
+
+**Other ways a venue decides approvals** (Admin → Features → Choices → **Approvals**, D124): **On the manager's phone** (the default, the steps above), **Manager's PIN at the register**, or no approval beyond what each role may do. With the manager's PIN, the dialog **Needs a manager's PIN** opens right where the request is made: the manager on the clock is picked, they type their PIN and press **Approve** or **Decline**; **Later** leaves it on a strip at the top. Walk it in 31.8 (Sing Sing's demo uses this way). Separately, **Ask for the PIN again for** (same place) makes the person asking type their own PIN again before a No sale, Void, Comp, Discount and so on (30.10).
+
 ### 6.3 A discount on a whole check (P-02)
 
 **Who:** Maya, then Andy.
 
 1. On Jess P.'s tab (bar POS) or Room 9 (DeskRoom), press **Discount the check**. Pick **Amount**, type `5.00`, tap **Regular guest**, press **Give discount**. It reads "**Discount on · $5.00 off**"; the Fix panel's "left this shift" drops by $5; the tab's total drops by $5.00 plus its tax.
 2. Press **Remove discount**: the total and the limit come back.
-3. On Room 9, **Discount the check** with **Percent** `10` and a reason. It's over $25, so it reads "**Waiting for Andy**"; Andy's phone shows **Discount**. He approves and Room 9 reads "10% off · −$… · reason".
+3. On Room 9, **Discount the check** with **Percent** `10` (or tap the **10%** chip, which fills it in one tap, U-22) and a reason. It's over $25, so it reads "**Waiting for Andy**"; Andy's phone shows **Discount**. He approves and Room 9 reads "10% off · −$… · reason".
 4. Present Room 9: the bill's subtotal is 10% lower, the tax is on the lower subtotal, and the 20% gratuity is on what's left. The receipt prints one line "**Discount · 10%**". The X report lists **Discounts**, and Reports → exceptions lists it with Maya and Andy.
 5. Admin → Features → **Discount on a check** off: **Discount the check** disappears; a discount already on an open check still shows **Remove discount**.
 
@@ -631,6 +659,9 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 - Tabs in this order: Hana K. ($43.55, Cut off), Jess P. ($32.66), Luis M. ($63.15), Tariq A. ($86.01, Waiting for Andy), Seat 6 · blue jacket ($13.07). Then room tabs: Room 9, Room 12, VIP room.
 - Ringing room orders across the top, each with **Accept**. Accepting Room 5 makes its tab $72.00.
 - The words are "Ask the room to wait" and "Back to the sale", never "Hold", for a room order.
+- The top bar has, after the song queue, **No sale** (only on a screen paired to a drawer), **Wipe screen** and **Lock** (U-07, 31.7).
+- On the left, **Closed tonight** lists tonight's closed tabs and paid quick sales ("Quick sale #…"), each with **Change tip**, and **Refund** for a manager. The find box searches them too (U-22, 31.22).
+- On a tab, the screen reads top to bottom: **Repeat round**, the round being rung, **Send** and **Send & close**, then **On the tab** and the total, Split, Move, **Print the check** and **Close tab** (U-04, 31.4). Sending at the bar reads **Send 1** (or Send 3), then "**Sent · on Jess P.'s tab**" (U-20).
 
 ### 8.2 Repeat round
 
@@ -640,16 +671,18 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 
 ### 8.3 Quick sale
 
-1. Press **Quick sale**, add a Bud Light, pay in cash. "Logged to Maya · bar drawer".
-2. A $9 sale on the reader offers tips of $1/$2/$3; a $30 sale offers $5.40/$6.00/$6.60. (Finishing a reader payment needs training mode, 0.10.)
+1. Press **Quick sale**, add a Bud Light, **Pay for 1**, pay in cash (**Exact** takes it in one tap). "Logged to Maya · bar drawer".
+2. Pay by card: the reader panel comes first with **Bar S710** already picked, so **Send $… to the reader** is one tap (U-01). There's no tip field: the reader asks the guest for the tip on its own screen (U-06). A $9 sale on the reader offers tips of $1/$2/$3; a $30 sale offers $5.40/$6.00/$6.60. (Finishing a reader payment needs training mode, 0.10.)
 3. Picking a singer (Kira) gives her 1 song credit.
+4. At a venue with no readers that takes cards on its own machine (Sing Sing), the pay panel shows **Outside card machine** first, with the amount filled in, then Cash (31.1). Where a cash discount is on, the panel shows **Card $… · Cash $…** and the cash buttons use the cash price (31.2).
+5. After paying, the sale is in **Closed tonight** with **Change tip** (31.22).
 
 ### 8.4 New tab
 
 1. Press **New tab**, tick **Read to guest ✓**, type a label, press **Open**.
 2. The consent line reads "We'll hold $50 on this card and add to it as you order…".
 3. The card tap needs training mode in the demo. Tapping Jess's card again reopens her existing tab.
-4. A tab without a card (P-03): West 4 opens tabs on a card, so New tab offers no other way. In the Sing Sing demo (`--sing-sing`, Maya's PIN 4071), or after ticking **Open a tab without a card** in Admin → Bar POS → Tabs, New tab also shows **Or open it without a card**: type a name, press **Open without a card**. The tab opens at once with "No card on this tab", takes a round, and **Close tab** offers cash, another card and the outside card machine, never Close to the card. Close the night lists it first, marked "No card on this tab".
+4. A tab without a card (P-03, 30.3): West 4 opens tabs on a card, so New tab offers no other way. Where the venue ticks **Open a tab without a card** (Admin → Bar POS → Tabs, or Set up your venue step 7; on in the Sing Sing demo), New tab leads with the name (U-05): the guest's first name and label chips (Seat 1 to 8, Standing, By the stage, Window), then **Open**. The tab opens at once with "No card on this tab". Where the venue also has readers, **Hold a card instead** brings back the consent line and Read to guest ✓. Walk it in 31.5.
 
 ### 8.5 Holds, splitting, closing
 
@@ -658,17 +691,23 @@ Close every bar-screen window. Within a short time the board and Maya's phone re
 - Split Jess's tab in 2: $16.33 + $16.33. Pay one in cash, leave, come back: "**Partly paid · $16.33 of $32.66**". Luis split in 4: $15.79 × 3 and $15.78. **Stop splitting · charge the rest to Visa ··4417**.
 - Hana's $43.55 on another card: her hold on ··5120 is released. Seat 6's $13.07 in cash: the drawer opens and the tab closes.
 - **Reopen** a closed tab from "Closed tonight": it reads "Paid … · no hold". Adding a drink offers **Charge the saved card** (needs a Yes on the reader or Andy's approval).
+- **Close tab** with drinks rung but not sent: it doesn't open; it says "1 not sent · Send them first or Send & close". **Send & close** sends them and opens Close tab (U-04).
+- After the receipt, the screen goes straight back to **Quick sale**, nothing picked, reading "Tab closed · {name} · Paid …" (U-04; after cash, the change stays in view until **Done**). Walk it in 31.4.
+- A tab without a card closes in cash, on the outside card machine or a reader, never Close to the card, and can be split like a card tab (U-03, 31.3). Close the night lists open cardless tabs first, marked "No card on this tab".
+- A tab paid on the outside card machine (or a held card still waiting for its slip) can have its tip changed later from Closed tonight with **Change tip** (P-06, 30.6).
 
 ### 8.6 Move a tab into a room
 
 1. Move Jess P.'s tab to Room 9. Lines read "Moved from Jess P.'s bar tab"; the tab reads "Moved to Room 9"; her hold is released.
 2. Room 9 now presents at subtotal $510.00, tax $45.26, gratuity $102.00, total **$657.26**, **$537.26** left.
 3. Moving 2 × Modelo onto Hana's tab is refused (she's cut off).
+4. **Move to a new room** is the first button on Move tab to a room (U-12): it opens the walk-in sheet, seats the party and moves the tab in one go. After any move into a room, **Undo** shows for 10 seconds and puts the tab back to the cent. Walk it in 31.12.
 
 ### 8.7 Shared screen behaviour
 
-- 3 idle minutes lock the screen.
+- 3 idle minutes lock the screen. **Lock** on the top bar locks it at once (U-07).
 - **Wipe screen** ignores touches for 10 seconds.
+- **No sale** on the top bar opens the drawer with a reason (Change, Wrong tender, Other…) and, by default, the PIN again (U-07, 31.7).
 - On a break, the top bar reads "Maya · on break" (see 15.3).
 - Diego's unsent Red Bull ($6) on Tariq's tab follows him; Maya sees "1 not sent".
 
@@ -739,18 +778,20 @@ If the margaritas were accepted first: total **$652.11**, **$532.11** left.
 
 ### 10.2 Present the check
 
-1. While the margaritas still ring, press **Present the check**. Refused: "**2 × Margarita · Peach is ringing at the bar · accept or cancel it first**".
-2. Cancel or decline that order, then **Present the check**: check **#1042**, **$618.60**.
-3. Guest phones and the tablet read "**Your bill is ready · ordering is closed**". A new order from a guest phone is refused.
-4. Andy reopens the check. Diego can't reopen.
+1. While the margaritas still ring, press **Present the check** (or **Present & pay** on the room's panel, U-10). It doesn't present: "**2 × Margarita · Peach is ringing at the bar · accept or cancel it first**", with **Accept** and **Cancel** on the order's line.
+2. Tap **Cancel** on that line (or decline it on Bar orders): the check presents: check **#1042**, **$618.60**. (Tapping **Accept** instead adds the margaritas and presents at $652.11; see 31.10.)
+3. Before the check is presented, the room's tab shows **Ways to pay**: the first payment tap presents the check, then the payment panel shows (U-10). **Print the check** prints the bill before paying (P-01, 30.1).
+4. Guest phones and the tablet read "**Your bill is ready · ordering is closed**". A new order from a guest phone is refused.
+5. Andy reopens the check (**Reopen the check**). Diego can't reopen.
 
 ### 10.3 Card reader
 
-1. Press **Send $498.60 to the reader** and pick the Front desk S710: "Waiting for a tap on the front-desk reader · Cancel".
+1. The reader panel has the **Front desk S710** already picked on the front desk (the Bar S710 at the bar; U-01). Room checks carry the 20% gratuity, so the reader skips its tip screen and the panel shows **Additional tip (optional)** instead; type `0.1` and the button reads $498.70, clear it to go back (U-06, 31.6). Press **Send $498.60 to the reader**: "Waiting for a tap on the front-desk reader · Cancel".
 2. Outside training mode this waits forever in the demo. Press **Cancel**: the $498.60 is free again.
 3. In training mode (0.10): **Tap a test card** → "Paid". **Tap a declined test card** → "Declined · try another card or cash", and cash is still offered.
 4. A second payment on a busy reader shows "Reader busy"; picking the other reader works.
 5. While a payment's result is unknown, screens read "**Checking with Stripe · don't retry**" and no second payment can start.
+6. A venue with no readers never sees this panel: the outside card machine's form comes first (U-01, 31.1).
 
 ### 10.4 Cash
 
@@ -759,7 +800,8 @@ If the margaritas were accepted first: total **$652.11**, **$532.11** left.
 1. Room 9's $498.60, with $500.00 handed over: **$1.40** change in large type, "Logged to Diego · front-desk drawer".
 2. Room 5 at $51.55 with "the next $20" ($60.00): **$8.45** change. **Wrong amount? Fix the change** to $100.00 shows **$48.45**.
 3. A cash tip shows as "Additional tip (optional)".
-4. Paid in full: receipt choices appear, then "Room 9 goes to cleaning" and the tile turns to cleaning.
+4. Paid in full: receipt choices appear, then "Room 9 goes to cleaning" and the tile turns to **Needs cleaning**. After the receipt the screen goes back to Rooms with Room 9's panel open on **Mark clean** (U-10).
+5. Where the venue has a cash discount (Sing Sing's 3.38%), the cash panel shows **Card $… · Cash $…**, and **Exact** and the bill buttons use the cash price (U-02, 31.2). West 4 has none: one price.
 
 ### 10.5 Split the check
 
@@ -1065,7 +1107,7 @@ Move the clock past 11:15 PM (`2026-09-26T03:20:00Z`). Mark The Nguyens a no-sho
    - An ordinary text (`node scripts/demo-text.mjs "Running 10 min late, sorry" +12125550125`) lands unread in Messages. Under it, staff can press **Mark as an opt-out**, the one-tap opt-out for a guest who asks in other words.
    - At Sing Sing (11.1), add `--venue singsing` before the text: `node scripts/demo-text.mjs --venue singsing "HELP"`.
 4. Move the clock to 10:50 PM: Marcus T. gets the Reminder text about 11:00 PM and staying on by the minute.
-5. **Admin → Texts** lists all 14 texts. Review ask and Birthday are off and can't be turned on. **Admin → Phone & texts** shows the call number +1 212 255 0011 and, under **Connect your Twilio account**, **Approved** with the same number (the seed's pretend connection).
+5. **Admin → Texts** lists all 14 texts. Review ask and Birthday are off and can't be turned on. Its **Texting** switch says it's the same switch as Admin → Features → Choices → Texting: off stops every text, even with Guest texts or Marketing texts on (U-21, 31.21). **Admin → Phone & texts** shows the call number +1 212 255 0011 and, under **Connect your Twilio account**, **Approved** with the same number (the seed's pretend connection).
 6. **Connect your Twilio account** (each venue texts from its own Twilio account, [D123](decisions.md)). Signed in as Andy, in **Admin → Phone & texts**:
    - Press **Disconnect**, then **Yes, disconnect**: it reads **Not connected** and "Until your texts are live, sign-in codes and invites go by email."
    - Open **How to set up Twilio**: the six steps a venue follows in Twilio's own console.
@@ -1086,6 +1128,10 @@ Move the clock past 11:15 PM (`2026-09-26T03:20:00Z`). Mark The Nguyens a no-sho
 4. Sat Sep 26, 9:30 PM, 6 guests, 2 hours: gets a room from Rooms 1–5 (never Room 4), $60.00 deposit, pending.
 5. Open Saturday and press **Block this date**: it lists that day's bookings ("{date} is blocked"), and offers **Cancel and refund all**.
 
+**The New booking form (U-13)** works like a check-in: the time already reads the next half hour (11:00 PM at 10:41 PM), you tap the party (1 to 10, or **More** for a number) and the length (**2 h** chosen), and only the rooms that fit the party and are free show, as chips with their size, the first one chosen. Then the guest's name, an optional phone (a wrong one says "Phone: 10 digits, or leave it empty") and **Book it**. Walk it in 31.13.
+
+**Month view (P-08):** **Month** at the top shows the month as a grid with each day's number of bookings. See 30.8.
+
 ---
 
 ## 15. Staff, PINs, badges, the time clock, breaks, tips and the tip pool
@@ -1095,7 +1141,7 @@ Move the clock past 11:15 PM (`2026-09-26T03:20:00Z`). Mark The Nguyens a no-sho
 1. **Admin → Team** (Abhishek only; Andy's Admin has no Team, Payments or Console). It lists Abhishek G. (owner), Andy C. (manager), Maya S. (bartender) and Diego R. (front desk).
 2. Invite a new person; the invite email arrives at http://localhost:8025. The PIN step refuses 1234, 1111, 0000 and 2580; managers need 6 digits. The end screen says "You're set · sign in with your badge or name and PIN".
 3. A PIN reset sends Maya a new link and her old PIN stops working.
-4. A role change asks for the passkey again.
+4. A role change asks for the passkey again. Each person's **Can also open** adds single Admin sections beyond their role (P-10, 30.10).
 5. **Deactivate** Diego: he's signed out everywhere at once; his PIN is refused; his history still names him.
 
 ### 15.2 PIN lockouts
@@ -1108,13 +1154,14 @@ On a paired screen:
 
 ### 15.3 Time clock and breaks
 
-**Where:** the phone tab **Clock in and out**.
+**Where:** **Clock in and out** (on a phone, under ☰ More), or **Time clock** on a paired screen's sign-in screen.
 
 1. Maya "On since 4:00 PM (6h 41m)", Andy 6:00 PM, Diego 7:00 PM, Abhishek "Not on shift".
-2. Clock in needs a duty: "Pick your duty to clock in" (Bar, Front desk, Runner, Manager). Manager is offered only to Andy and Abhishek. A second clock-in is refused.
+2. Clock in needs a duty: "Pick your duty to clock in" (Bar, Front desk, Runner, Manager). Someone with one duty, or a last shift, has it already picked, and **Clock in** goes straight to their home screen (U-14). Manager is offered only to Andy and Abhishek. A second clock-in is refused.
 3. Maya presses **Start break**: every bar screen reads "Maya · on break". **End break** clears it.
-4. **Clock out** for Maya lists her 3 open tabs (Hana K., Jess P., Luis M.); it won't finish until each is handed to someone still on. Cash in her bank must be dropped first. **Declare** cash tips ($0.00 or $15.00).
+4. **Clock out** is one step (U-14): the panel shows **Before you clock out** at once: Maya's 3 open tabs (Hana K., Jess P., Luis M.) with **Hand all tabs to {name}**, her cash bank with **Drop my cash**, and the cash tips box with a **$0** chip. **Clock out** stays greyed until an amount is typed or $0 tapped; then one tap declares and clocks out. It won't finish while a tab is still hers. Walk it in 31.14.
 5. Andy (passkey, not PIN) moves Diego's clock-in from 7:00 to 6:55 PM with a reason. No reason, or from a PIN session: refused.
+6. Someone who forgot to clock out is clocked out by the manager on Close the night (**Clock out {name} at …**, the manager's PIN, U-15, 31.15).
 
 ### 15.4 Badges
 
@@ -1146,13 +1193,14 @@ See 0.10. Also check: tickets and receipts print TRAINING; a practice receipt ca
 **Who:** Andy and Diego. Drawer panel on **Close the night**, or the cash panel.
 
 1. Two drawers, the bar drawer and the front-desk drawer, each $300.00, answered for by Andy.
-2. **Count the drawer**: "Count first. What the drawer should hold shows after you enter the count." The expected amount and difference show only after you enter yours (blind count).
+2. **Count the drawer**: "Count first. What the drawer should hold shows after you enter the count." The expected amount and difference show only after you enter yours (blind count). Before you type, it also says what a big difference will ask: "Off by more than $20.00? You'll add a note, and a second person counts too." (U-17, 31.17).
 3. Diego can count only the front-desk drawer; Andy either one. A count $25 short needs a note.
 4. **Drop my cash · {amount}**: cash Diego took on his phone goes into the front-desk drawer ("Logged to Diego · front-desk drawer"); his bank reads $0.00.
 5. **Paid-out** $42.00 with a photo, by Andy: goes to Abhishek's Approvals. The drawer opens only after approval.
-6. **No sale** asks for the PIN again.
+6. **No sale** asks for the PIN again (the owner chooses which actions ask, 30.10). The bar POS has its own **No sale** on its top bar (31.7).
 7. **Hand over the drawers**: "…The next manager accepts on their own phone." Accept it in Abhishek's window.
-8. **Admin → Cash drawers**: switch to a drawer per person. It reads "Starts Sat Sep 26". To test trays, move the clock past 6:00 AM Saturday: "Bar · Maya S. · tray pulled"; the night won't close while a pulled tray is uncounted.
+8. **Tip-out** (owners and managers): once tonight's pool has tips, each person with a share left shows as a button "{name} · {amount}"; one tap pays exactly that from the drawer (U-17). Picking someone under Paid to fills in their share, which you can change. Bartenders never see anyone's share. Walk it in 31.17.
+9. **Admin → Cash drawers**: switch to a drawer per person. It reads "Starts Sat Sep 26". To test trays, move the clock past 6:00 AM Saturday: "Bar · Maya S. · tray pulled"; the night won't close while a pulled tray is uncounted.
 
 Real drawer kicks need the real drawer hardware.
 
@@ -1164,20 +1212,21 @@ Real drawer kicks need the real drawer hardware.
 
 1. Before the close, the phone Reports tab and Close the night offer **Print X report (running)**.
 2. Move the clock to Sat 4:12 AM (`2026-09-26T08:12:00Z`) and reload. Open **Close the night**.
-3. "**Before closing**" lists nine checks, each linking to its fix:
-   - Staff still on the clock · N
-   - Open waitlist entries
+3. The page reads as numbered steps (U-15): **1** Close the bar tabs, **2** Count every drawer, **3** The clear-out, **4** Close the night. "**Before closing**" lists the checks, each with a **Fix** (a Fix on open tabs, the drawers or the clear-out scrolls to its step on this page; the others open their screen):
+   - Staff still on the clock · N, with **Clock out {name}** for each person (the manager picks the time and a reason such as **Forgot to clock out**, then types their PIN)
+   - Open waitlist entries, with **Clear the waitlist** (one confirmation; nobody is texted)
    - Ringing or asked-to-wait orders
    - Pending approvals · 1 (Diego's void)
-   - Rooms still cleaning
+   - Rooms still cleaning, with **Mark all rooms clean**
    - Unsent drinks
    - The clear-out check (4:30 AM)
    - "**3 slips not entered · tips post to Sat Sep 26**" (doesn't block)
-   - Every drawer counted
+   - **Every drawer counted**
+   - Open tabs without a card are listed first, marked "No card on this tab" (P-03)
 4. Press **Close the night** now: refused, naming each failing check.
 5. **Charge the remaining tabs**: 4 cards, $152.43 in all. Tariq is skipped while his void waits.
-6. Fix each check. At 4:30 AM do the clear-out check: "Clear-out check · Andy · 4:31 AM".
-7. Move to 4:48 AM and close: "**Night closed · 4:48 AM**". The button changes to **Print Z report**. Printing a Z before the close is refused.
+6. Fix each check without leaving the page (clock out, clear the waitlist, mark all clean, count the drawers). At 4:30 AM do the clear-out check: "Clear-out check · Andy · 4:31 AM".
+7. Move to 4:48 AM and close (signed in by PIN, the confirmation asks for **Your PIN again**): "**Night closed · 4:48 AM**" and "**Z report sent to the bar printer · emailed to abhishek@demo.west4.local**". The Z report email is in Mailpit (http://localhost:8025). The button changes to **Print Z report**. Printing a Z before the close is refused. (The venue can turn the print and email off: Admin → Bar POS → Close the night → **Print and email the Z report at close**.) The full walk is 31.15.
 8. After the close, the 86'd items (Hoegaarden, Casamigos) are back.
 9. A tab that couldn't be charged stays under "Couldn't be charged" with "Still owes…", and doesn't block the close.
 10. Move to 5:10 AM and enter a slip tip: it needs approval and posts to Sat Sep 26. Fri's Z never changes.
@@ -1204,6 +1253,7 @@ Real drawer kicks need the real drawer hardware.
 6. **Export payroll** with From/To dates. Gratuity goes in wages, tips in the tips columns. After export, Friday's pool is locked. The email copy is titled "… · payroll for {date}".
 7. **Sales tax**: "Sales tax · {from} to {to}", "Tax this quarter so far", **Download the quarter**. 8.875% on room time, drinks and damage fees.
 8. With Reports & accounting off (Admin → Features), Close the night still prints the Z.
+9. Also on Reports: the **Month** card (P-07, 30.7) and **Staff actions** by person (P-09, 30.9).
 
 ---
 
@@ -1211,13 +1261,17 @@ Real drawer kicks need the real drawer hardware.
 
 **Who:** Abhishek, side menu **Admin**. Every section saves with **Save and publish** → "Published". No PIN sign-in can open Admin settings that change money.
 
+**How Admin is laid out (U-21):** until the venue's **Set up your venue** is finished, Admin opens it (section 29). After that, the section list reads as six short groups: **Rooms** (Hours & prices, Rooms, Sounds & rules), **Bar** (Menu, Bar POS, Bar mode, and Kitchen where the plan has it), **Guests** (Phone & texts, Texts, Deposits & cancelling, Spam protection, Website), **Team** (Team, Console, Activity log), **Money** (Cash drawers, Payments, Card fee & gratuity, Disputes) and **Venue** (Venue, Features, Printers & devices, Safety, Licenses, Connections, Setup, About). Andy (manager) sees the same groups without Team, Console, Payments, Venue and Activity log. Owners' screens say **feature** and **state rules**, never "module" or "rule pack" (U-20). Walk it in 31.21. The subsections below follow the old order.
+
 ### 19.1 Team
-People, roles, invites, badges, languages, training mode. See 15.1.
+People, roles, invites, badges, languages, training mode, and each person's **Can also open** (P-10). See 15.1 and 30.10.
 
 ### 19.2 Features
-"What's on, and what each module hides". 18 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). Six read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
-- The new switches (D124) are on: Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share), Cash discount. Turning off Rooms & room clock lists them too.
-- **Choices** under the modules: "Print tickets for drinks rung at the bar" (off at West 4) and **Texting** (on). Both save at once.
+"What's on, and what each feature hides". 18 on, 4 off (Song system control, Marketing texts, Paid on outside card machine, and Kitchen & food "Not in your plan"). The core ones read **Always on**, Reports & accounting and Bar tabs & quick sale among them (D124).
+- The switches sit under the same six headings as Admin's sections (Rooms, Bar, Guests, Team, Money, Venue; U-21), then **Choices** and **Menu order** below.
+- The newer switches (D124 and the P tickets) are on: Deposits on bookings, Room tablets, Keep the card behind the bar for walk-ins, Guests pay their own share (Pay my share), Cash discount, **Discount on a check** (P-02, 6.3) and **Bell** (P-11, 30.11). Turning off Rooms & room clock lists the ones that go with it.
+- **Choices** under the switches: "Print tickets for drinks rung at the bar" (off at West 4; a hint says it's the same switch as Admin → Bar POS → Drink tickets), **Texting** (on; its hint says off stops every text), **Approvals** (how a request over the limit is decided: on the manager's phone, the manager's PIN at the register, or none; 6.2 and 31.8) and **Ask for the PIN again for** (30.10). Each saves at once.
+- **Menu order**: the side menu's order for everyone (P-13, 30.13).
 - Turn off **Guests pay their own share**: a guest's bill after Present no longer offers Pay my share; Admin → Payments shows "Pay my share … · Off". Turn it back on.
 - Turn off **Keep the card behind the bar** while it's the walk-in choice: refused with "Pick another walk-in choice in Admin → Deposits & cancelling first".
 - Turn off "Bar screen & tickets": "Room orders would have nowhere to ring. Turn off Ordering from the room too?". Answer no: nothing changes.
@@ -1254,13 +1308,14 @@ See section 16.
 +1 212 255 0011. All 14 texts. The **Erase a guest** panel is here: **Erase** → "Erase {name}'s details for good?" → **Erase for good** → "Erased. Saved cards and texts are removed in the next few minutes." A guest with a future booking gets a warning; a singer who still owes money is refused.
 
 ### 19.9 Sounds & rules
-A 15-minute room-ending warning turns tiles amber. There's no "ring the bar until accepted" toggle.
+(It was called Alerts & rules; U-20.) A 15-minute room-ending warning turns tiles amber. There's no "ring the bar until accepted" toggle.
 
-**Sound when a room's time is up (P-05).** On by default, with a volume slider (50) and Play it, which plays the sound here.
-1. On the bar computer (the desktop app, or the staff app in a browser on a paired bar computer; touch the page once in a browser so it may play sound), wait up to 15 seconds after loading: one sound, and a strip at the top of the screen lists Room 3 · Wrap up, Room 7 · its time is up and Room 10 · its time is up.
-2. Tap Room 3's line: it clears. Reload the page: no sound, and Room 7 and Room 10 are still listed until tapped.
-3. Advance the clock until Room 3 runs past its end: one sound, "Room 3 · its time is up".
-4. Switch the sound off and save: the strip goes and nothing plays as other rooms turn amber or red. Switch it back on before going on.
+**Sound when a room's time is up (P-05; 30.5).** On by default, with a volume slider (50) and **Play it**, which plays the sound here.
+1. On the bar computer (the desktop app, or the staff app in a browser on a paired bar computer; touch the page once in a browser so it may play sound), wait up to 15 seconds after loading: one sound. The sound plays even while the screen is locked, but the names show only once someone is signed in (U-18).
+2. Sign in as Maya (`4071`): the **Time's up** strip under the top of the screen lists "Room 3 · Wrap up · … min left", "Room 7 · Needed now · 11 min past" and "Room 10 · Staying · 41 min past" (the tiles' own words).
+3. Tap Room 3's line: it leaves the strip and the board opens on Room 3's panel. Reload the page: no sound, and Room 7 and Room 10 are still listed until tapped. **Clear all** clears every name.
+4. Advance the clock until Room 3 runs past its end: one sound, and Room 3 is back in the strip with its past-time words.
+5. Switch the sound off and save: the strip goes and nothing plays as other rooms turn amber or red. Switch it back on before going on.
 
 ### 19.10 Safety
 - Occupancy limit: empty, "Limit not set". Never invent one; don't save a made-up number unless you clear it afterwards.
@@ -1293,7 +1348,14 @@ The Stripe account, payouts and **Our plan**: "{count} rooms counted…", **Pay 
 Maya and Diego can't open it. Nothing to dispute in the demo.
 
 ### 19.17 Bar POS
-Opening hold (set $60: new tabs read "We'll hold $60 on this card…"), per-shift limit (0 sends every comp and void for approval), drink tickets (8.9).
+"These are live at once, on every screen." The rows:
+- **Tabs**: Opening hold (set $60: new tabs read "We'll hold $60 on this card…"), Flag a tab to the manager over, Tab cut-off, the consent line, and **Open a tab without a card** (off at West 4; P-03, 30.3).
+- **Limits**: the reason-only limit for each comp or void and per shift (0 sends every comp and void for approval).
+- **Drink tickets**: "Print tickets for drinks rung at the bar" (8.9; the same switch as Features → Choices).
+- **Room orders**: **We run our own orders** (off; U-11, 5.9 and 31.11).
+- **Cash while offline**: **Take cash quick sales while offline** (off; U-16, 31.16).
+- **Close the night**: **Print and email the Z report at close** (on; U-15, 17 and 31.15).
+- Tip path, order aging, and the locks (idle lock, wipe screen).
 
 ### 19.18 Bar mode
 See 9.4.
@@ -1310,6 +1372,12 @@ See 12.9.
 ### 19.22 Console (owner only): support access
 See 21.2. Andy's Admin has no Console section.
 
+### 19.23 Activity log and About
+Activity log (owner): every change at the venue, newest first, with guests' details hidden. About: the app and server versions, the venue and how to reach support. See 30.14.
+
+### 19.24 Venue and Setup
+**Venue** holds step 1's facts (name, legal name, address, the number guests call). **Setup** is the Set up your venue checklist; until it's finished, Admin opens it. See section 29.
+
 ---
 
 ## 20. Offline and outages
@@ -1318,8 +1386,9 @@ See 21.2. Andy's Admin has no Console section.
 
 1. Open the staff app. Open developer tools (Cmd + Option + I) → **Network** → change "No throttling" to **Offline**.
 2. You should see "**Offline · read-only · orders queue with an offline code**", and the footer keeps the last sync time.
-3. Switch back to No throttling: the banner goes.
-4. The words "works offline" must appear nowhere.
+3. On the bar POS and on Rooms, a **While offline** card under the banner says plainly what still works, that the drawer stays locked (keep cash aside and write it on paper), what goes on paper, where the offline code is, and cards by Tap to Pay on the manager's phone (U-16). **Time clock** says "Clocking in and out needs the connection · try again when it's back". Screens that need the connection grey their buttons (for example "No new bookings while offline.", "Nothing moves while the bar computer is offline.").
+4. Switch back to No throttling: the banner goes.
+5. The words "works offline" must appear nowhere.
 
 ### 20.2 Read-only offline view (desktop app needed)
 
@@ -1336,6 +1405,7 @@ See 21.2. Andy's Admin has no Console section.
 5. Wrong, expired or other-device codes are refused; "That printed code was already used."
 6. Void, refund, no-sale and New tab are locked, each with a reason.
 7. Quit and reopen the app: no queued order is lost. Queue mode ends by itself after 4 hours.
+8. **Cash quick sales while offline** are the owner's choice (Admin → Bar POS → Cash while offline, off by default). Off: Quick sale in queue mode says "Queue mode takes rounds on open bar tabs only." On: Quick sale becomes **Quick sale · cash while offline**, the drawer opens, and the sale goes on the books once when the connection returns. Walk it in 31.16.
 
 ### 20.4 Replay and Review after outage (desktop app needed)
 
@@ -1397,8 +1467,8 @@ Open http://localhost:3001/status.
 
 ## 23. Spanish review
 
-1. Press **Español** in the side menu (or set Diego's language to Español in Admin → Team and sign him in).
-2. Walk every staff screen in sections 1 to 19, at desktop and phone size.
+1. Press **Español** in the side menu (on a phone, **Language** under ☰ More), or set Diego's language to Español in Admin → Team and sign him in.
+2. Walk every staff screen in sections 1 to 19 and the new ones in 29 to 31, at desktop and phone size. Each subsection of 30 and 31 ends with the Spanish words to look for.
 3. Check: nothing still in English, no cut-off text, no "{placeholder}" showing, and the fixed sentences read the same everywhere (for example "Ask the room to wait" and "Charge the remaining tabs").
 4. The guest pages and texts have their own Spanish where the spec says so.
 5. Write anything odd down; the formal sign-off sheet is `docs/gate/spanish-review.md`.
@@ -1411,7 +1481,8 @@ Open http://localhost:3001/status.
 2. **Mac VoiceOver** (Cmd + F5) on the guest pages: buttons and fields are read with sensible names. Cmd + F5 again turns it off.
 3. **Zoom** to 200% (Cmd + plus): nothing overlaps or disappears.
 4. **Touch targets** on staff screens are big enough to tap with a thumb (at least 44 px; PIN keys are larger).
-5. **Light and dark** guest pages are both readable (12.2).
+5. **Staff sheets and dialogs** (U-22): every sheet closes on **Esc**, **Tab** never leaves it while it's open, and the focus goes back to the button that opened it. On a phone each is a bottom sheet (31.22).
+6. **Light and dark** guest pages are both readable (12.2).
 
 The full screen-reader pass needs a real iPhone and Android phone (blocked, M5-16).
 
@@ -1527,6 +1598,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 5.5 Aging
 - [ ] 5.7 Ticket didn't print, REPRINT 2
 - [ ] 5.8 Runs, Delivered never charges
+- [ ] 5.9 We run our own orders
 - [ ] 6.1 Comp: $63 → $50 left
 - [ ] 6.2 Void approval: Tariq $86.01 → $9.80
 - [ ] 7.1 86
@@ -1587,7 +1659,10 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 18 Reports and exports
 
 **Admin and operations**
-- [ ] 19.1–19.22 Every Admin section opens and saves
+- [ ] 19 Admin in six groups; Features grouped, Choices and Menu order
+- [ ] 19.1–19.24 Every Admin section opens and saves
+- [ ] 19.9 Time's-up sound and strip
+- [ ] 19.17 Bar POS rows (tabs without a card, own orders, cash offline, Z at close)
 - [ ] 19.10 Age policy
 - [ ] 19.11 Help alert and incidents
 - [ ] 20.1 Offline banner
@@ -1599,6 +1674,62 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 23 Spanish
 - [ ] 24 Accessibility
 - [ ] 25 CAPTCHA and limits (when built)
+
+**Practice night on a laptop**
+- [ ] 28.1 Demo works at home, Windows installer built, on a USB stick
+- [ ] 28.2 `--lan --sing-sing` starts, prints the certificate page and addresses
+- [ ] 28.3 Each bar PC: certificate trusted, app installed, server address saved, paired, printers tested, PIN sign-in, training mode
+- [ ] 28.4 Phones: certificate trusted, staff app and guest pages open
+- [ ] 28.5 Stopped, nothing sent anywhere, devices cleaned up
+
+**Onboarding a new venue**
+- [ ] 29.1 `--onboard` makes Sing Sing empty, prints the owner's invite and promo code
+- [ ] 29.2 Owner joins (code by email), lands on Set up your venue, 12 steps
+- [ ] 29.3 Steps 1–3: venue, plan and Choose your features (six groups, Choices), Stripe
+- [ ] 29.3 Steps 4–7: rooms and prices, hours, deposits and check-in, money at the counter (outside machine, cash discount, check discount, tabs without a card)
+- [ ] 29.3 Steps 8–10: menu import and allergy notice, team and contacts (Bell), licenses
+- [ ] 29.3 Steps 11–12: texts skipped, printers, Kitchen & food turns on by itself, category check, Finish setup
+- [ ] 29.4 After Finish setup: Admin opens normally, the settings match, a walk-in with the card behind the bar
+
+**Register features (P)**
+- [ ] 30.1 Print the check: $618.60, reprint 1, "This is not a receipt"
+- [ ] 30.2 Discount on a whole check
+- [ ] 30.3 A named tab without a card
+- [ ] 30.4 A note, a prepaid block, a package at the start
+- [ ] 30.5 The time-up sound
+- [ ] 30.6 Change a tip after paying
+- [ ] 30.7 The month report
+- [ ] 30.8 Reservations by month
+- [ ] 30.9 Staff actions
+- [ ] 30.10 Can also open; Ask for the PIN again
+- [ ] 30.11 The Bell
+- [ ] 30.12 Today at a glance, N on shift
+- [ ] 30.13 Menu order
+- [ ] 30.14 Activity log and About
+
+**Fewer taps (U)**
+- [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
+- [ ] 31.2 Cash price wherever cash is taken
+- [ ] 31.3 Split a cardless tab
+- [ ] 31.4 Tab screen: round first, Send & close, back to Quick sale
+- [ ] 31.5 Cardless tab: name first, closes on the outside machine
+- [ ] 31.6 Tip asked once; money typed in cents
+- [ ] 31.7 No sale and Lock on the bar POS
+- [ ] 31.8 Manager's PIN where the approval is asked
+- [ ] 31.9 Check in from the room; + Walk-in in the header
+- [ ] 31.10 Ending a room in 5 taps
+- [ ] 31.11 Room orders without runners
+- [ ] 31.12 Move a tab to a new room, Undo
+- [ ] 31.13 New booking with chips
+- [ ] 31.14 Clock out in one step
+- [ ] 31.15 Close the night without getting stuck, Z emailed
+- [ ] 31.16 While offline card; cash quick sales offline
+- [ ] 31.17 Drawer count hint, one-tap tip-outs
+- [ ] 31.18 Alerts open their room; Bell; Time's up strip
+- [ ] 31.19 Phone: five tabs and More
+- [ ] 31.20 One word for each thing; name tiles first
+- [ ] 31.21 Admin in six groups; Set up your venue first
+- [ ] 31.22 Every sheet: Esc, focus, bottom sheet; Closed tonight quick sales
 
 ---
 
@@ -1671,7 +1802,7 @@ The whole system runs on your Mac; nothing goes to the cloud. Sing Sing's Window
 
 ## 29. Onboard Sing Sing yourself (Set up your venue)
 
-**Goal:** go through owner onboarding the way a new customer does: our Console makes an empty venue and emails its owner an invite, and the owner enters everything in **Set up your venue**, 12 steps.
+**Goal:** go through owner onboarding the way every new customer does: our Console makes an empty venue and emails its owner an invite, and the owner enters everything in **Set up your venue**, 12 steps. The demo uses Sing Sing as the example new venue; any venue goes through the same steps with its own answers. Every feature the owner switches here can be changed later in Admin → Features.
 
 **Two ways to get Sing Sing in the demo. Pick one; they can't be combined:**
 
@@ -1714,19 +1845,21 @@ What you type below comes from [venues/sing-sing/venue.md](venues/sing-sing/venu
 
 Every step has **Continue**, **Back**, **Skip for now** and **Save and finish later**. Nothing goes to guests until you press **Finish setup**, and everything stays editable later in Admin.
 
+6. Check that you can't skip past it: open **Admin** from the side menu (or type `http://localhost:5173/admin`). Until setup is finished, Admin opens **Set up your venue**, not its first section (U-21).
+
 ### 29.3 The 12 steps
 
 **Step 1 · Your venue.** Name: `Sing Sing Karaoke Astoria` (already there). **Legal name**: it holds a placeholder, "Sing Sing (legal name to confirm in step 1)": type the company's real name if you know it (yours to give). Street `25-30 Broadway`, City `Astoria`, State `NY`, ZIP code `11106`. **Number guests call**: `(929) 739-7310`. Press **Add an address** under the booking inbox and type `admin@singsingastoria.com`. **Continue.**
 
 **Step 2 · Your plan.** Tick **Private rooms** and **A kitchen**, choose **Rooms + Kitchen plan**. The prices shown are made-up test amounts from the fake Stripe. Type the promo code `FAKEFIRSTMONTH` and press **Check**: "First month free". Press **Start plan**: the page jumps to the fake Stripe's checkout and straight back (no card to type). You should see "Rooms + Kitchen plan · started".
 
-Then **Choose your features** appears on the same step. Set:
+Then **Choose your features** appears on the same step. It's the same list as Admin → Features: the switches sit under six headings, **Rooms**, **Bar**, **Guests**, **Team**, **Money** and **Venue** (U-21), and below them **Choices** (drink tickets, Texting, Approvals and Ask for the PIN again). The core features read **Always on** and can't be switched. Each switch saves as you press it. Set:
 
 | On | Off |
 | --- | --- |
 | Rooms & room clock, Bar screen & tickets, Online booking, Ordering from the room, Keep the card behind the bar for walk-ins, Cash discount, Paid on outside card machine, Website | Deposits on bookings, Bar mode, Song system control, Room tablets |
 
-Leave Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips, Marketing texts, Safety & ID records and Pay my share as they are (yours to choose). Under **Approvals**, choose **Manager's PIN at the register**.
+Leave Walk-in waitlist, Packages & specials, Guest texts, Team, time clock & tips, Marketing texts, Safety & ID records, Pay my share, Discount on a check and Bell as they are (yours to choose; the last two can also be switched in steps 7 and 9). Under **Choices → Approvals**, choose **Manager's PIN at the register**. Leave **Ask for the PIN again for** with only **No sale** ticked (yours to choose; 30.10).
 
 What you'll notice:
 - **Kitchen & food** shows **On once ready** already chosen (the Rooms + Kitchen plan chose it) and the line "Turns on when the allergy notice and a kitchen printer are set". It stays off for now; you add the notice in step 8 and the kitchen printer in step 12, and it turns on by itself as soon as both exist. (Pressing **Off** here means you don't want it; **On once ready** chooses it again.)
@@ -1740,7 +1873,9 @@ What you'll notice:
 
 **Step 6 · Deposits and check-in.** Deposit: **off** (no deposit for online bookings). No-show after `15` minutes late. At a walk-in check-in: **Keep the card behind the bar**. The cancel hours, fees and the largest party: yours to give. **Continue.**
 
-**Step 7 · Money at the counter.** Leave **Take cards on your own outside card machine too** ticked. **Cash discount (%)**: `3.38` (what Sing Sing's register takes off today, D130), and choose **Food prices include the card fee · the discount applies to food too**. The gratuity (Added to), the reader's tip screen, the tip review, how the pool splits, the drawer model and starting bank: yours to give; every one needs an answer before Continue ("Finish the payments, drawer and tab answers, or clear them, before you go on"). For the demo, for example: Added to Nothing, Ask for a tip on the reader No, flags 30% / $60 / 3 hours, By hours worked, Hold a card at room check-in No, House drawers, Starting bank $250, note over $10, Second counter Never, paid-outs over $40. Under **Tabs**, tick **Open a tab without a card** (Sing Sing keeps named tabs without a card, P-03); the tab settings then need answers too, for example Opening hold $50, Flag a tab to the manager over $600, Tab cut-off 3:30 AM. **Continue.**
+**Step 7 · Money at the counter.** Leave **Take cards on your own outside card machine too (record each payment in the app)** ticked, and **Staff can take a % or $ discount off a whole check, with a reason** as you like (the Discount on a check feature, 6.3). **Cash discount (%)**: `3.38` (what Sing Sing's register takes off today, D130), and choose **Food prices include the card fee · the discount applies to food too**. The gratuity (Added to), the reader's tip screen, the tip review, how the pool splits, the drawer model and starting bank: yours to give; every one needs an answer before Continue ("Finish the payments, drawer and tab answers, or clear them, before you go on"). For the demo, for example: Added to Nothing, Ask for a tip on the reader No, flags 30% / $60 / 3 hours, By hours worked, Hold a card at room check-in No, House drawers, Starting bank $250, note over $10, Second counter Never, paid-outs over $40. Under **Tabs**, tick **Open a tab without a card** (Sing Sing keeps named tabs without a card, P-03); the tab settings then need answers too ("Opening a tab without a card also needs the tab settings: the opening hold, when to flag a tab and the tab cut-off."), for example Opening hold $50, Flag a tab to the manager over $600, Tab cut-off 3:30 AM. **Continue.**
+
+(Card holds on tabs as the owner's own switch, and the card behind the bar for tabs, are coming with U-23; this step will gain them then.)
 
 **Step 8 · Menu.** Under **Upload a spreadsheet**, choose the three files in `docs/venues/sing-sing/import/` (in Finder: Downloads → west4-karaoke → docs → venues → sing-sing → import; select `mapping.json`, `items.csv` and `choices.csv` together with Cmd-click). Press **Check the file**: "179 menu lines …". Press **Looks right**: "Saved: 179 new menu lines". Under **Allergy notice**:
 - In English: `Allergen information for menu items is available. Ask an employee for details.`
@@ -1748,7 +1883,7 @@ What you'll notice:
 
 **Continue** saves the notice.
 
-**Step 9 · Team and contacts.** Invite a manager (yours to give; for the demo, Andy): Name `Andy C.`, Mobile phone any US number, Role Manager, Email `andy@singsing.demo.local`, **Send the invite**: "Invite sent to andy@singsing.demo.local". (With a phone only, it says "Add an email · this venue's texts aren't connected yet".) Then the on-call responder (Who: Abhishek G. · Owner, the days and hours) and the **Breach contact** (Abhishek G. · Owner). **Continue.**
+**Step 9 · Team and contacts.** Invite a manager (yours to give; for the demo, Andy): Name `Andy C.`, Mobile phone any US number, Role Manager, Email `andy@singsing.demo.local`, **Send the invite**: "Invite sent to andy@singsing.demo.local". (With a phone only, it says "Add an email · this venue's texts aren't connected yet".) Then the on-call responder (Who: Abhishek G. · Owner, the days and hours) and the **Breach contact** (Abhishek G. · Owner). The step also has the **Bell** switch: "A bell in the top bar lists what's waiting for each person: approvals, room alerts, bar orders, guest texts and tickets that didn't print" (P-11; leave it on). **Continue.**
 
 To make Andy "a manager besides you who has set a PIN" (needed before you open): open an **Incognito window** (Cmd + Shift + N), open Andy's invite from Mailpit, and do 29.2 steps 2 and 3 for him (his code is emailed to andy@singsing.demo.local).
 
@@ -1767,13 +1902,23 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 
 ### 29.4 After Finish setup
 
-1. **Admin → Features**: Kitchen & food is already On (it turned on when the kitchen printer was added, or at Finish setup at the latest). Nothing to switch by hand.
-2. The board (**Rooms**) shows your 6 rooms. Try a walk-in: **+ Walk-in**, the guests, **Seat them**, then the card behind the bar (name and last 4 digits).
-3. To start again from an empty Sing Sing: `scripts/demo-local.sh --onboard` (it also resets West 4's night).
+1. **Admin** now opens its first section (Team), not Set up your venue, and reads as six groups (Rooms, Bar, Guests, Team, Money, Venue; 19 and 31.21). **Setup** (under Venue) shows the setup checklist.
+2. **Admin → Features**: Kitchen & food is already On (it turned on when the kitchen printer was added, or at Finish setup at the latest). Nothing to switch by hand. The switches you chose in step 2 read the same, under the six headings; **Choices → Approvals** reads **Manager's PIN at the register**.
+3. **Admin → Bar POS**: **Open a tab without a card** is ticked with your opening hold, flag and cut-off from step 7. Three settings that setup doesn't ask are at their defaults: **We run our own orders** off (5.9), **Take cash quick sales while offline** off (31.16), **Print and email the Z report at close** on (17). Change them here if the venue wants.
+4. **Admin → Sounds & rules**: the time-up sound is on, volume 50 (19.9).
+5. **Admin → Card fee & gratuity**: the cash discount is 3.38%; **Admin → Deposits & cancelling**: no deposit, and **Keep the card behind the bar** at a walk-in.
+6. The board (**Rooms**) shows your 6 rooms. Try a walk-in: **+ Walk-in** in the header, the guests, **Seat them**, then the card behind the bar (name and last 4 digits).
+7. Pair a screen as the bar computer (Admin → Printers & devices, 0.4): sign-in leads with "**Tap your name, then your PIN**" (no badge readers). Sign in with your own PIN (or Andy's, once he has set it), ring a drink and **Pay for 1**: **Outside card machine** comes first, with no reader panel, and the cash buttons show **Card $… · Cash $…** (31.1, 31.2). **New tab** leads with the name (31.5).
+8. To start again from an empty Sing Sing: `scripts/demo-local.sh --onboard` (it also resets West 4's night).
 
 **If it's wrong:** note the step number and the message. The automated version of this path, with a made-up venue, is `e2e/onboard.spec.ts`.
 
-## 30. Everything Sing Sing's register does (P tickets)
+
+---
+
+## 30. Register features (P tickets)
+
+What a karaoke venue's old register did, now in the app ([P backlog](backlog/P-register-parity.md)). Each subsection 30.N is ticket P-0N or P-N. Where an older section already walks the feature, the subsection here is short and points to it. Several steps use the Sing Sing demo (`scripts/demo-start.sh --sing-sing`), the example of a venue without card readers.
 
 ### 30.1 Print the check (P-01)
 
@@ -1785,7 +1930,36 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 6. With a cash discount on (Admin → Card fee, or Sing Sing's 3.38%), the bill shows **Cash price** under the total and under Left to pay.
 7. The bill prints in the venue's first staff language: with Spanish first, CUENTA, Por pagar and "Esto no es un recibo".
 
-### 30.2 Change a tip after paying (P-06)
+### 30.2 A % or $ discount on a whole check (P-02)
+
+Walked in 6.3: **Discount the check** on a bar tab or a room, by amount or percent (the **10%** and **20%** chips fill it in one tap, U-22), with a reason; over the reason-only limit it waits for a manager. The feature is **Discount on a check** in Admin → Features (and Set up your venue step 7).
+
+### 30.3 A named bar tab without a card (P-03)
+
+**Who:** Maya on the bar computer.
+
+1. At West 4 (cards required), **New tab** is the consent line and **Read to guest ✓**: there's no way to open a tab without a card, and the server refuses one.
+2. As Abhishek, **Admin → Bar POS → Tabs**: tick **Open a tab without a card** ("New tab also takes a name alone. A tab without a card has no hold…") and **Save and publish**. (At a new venue this is Set up your venue step 7; Sing Sing's demo has it on.)
+3. As Maya, **New tab**: it now leads with the name and the label chips (U-05). Type `Dana` and press **Open**: the tab opens at once, and the rail reads "**No card on this tab**". **Hold a card instead** still opens a card tab.
+4. Ring a round and **Send** it. **Close tab** offers cash, another card on the reader and the outside card machine (where it's on), never **Close to the card**. Pay in cash: it closes.
+5. Leave another cardless tab open and open **Close the night**: it's listed first, marked "No card on this tab". **Charge the remaining tabs** skips it (nothing to charge).
+6. Splitting a cardless tab: 31.3. Spanish: "Sin tarjeta en esta cuenta", **Abrir sin tarjeta**.
+7. Untick the setting again.
+
+### 30.4 Starting a room: a note, a prepaid block, a package (P-04)
+
+Walked in 2.3, steps 7 and 8. In short:
+
+1. **+ Walk-in** on a free room: **Note (optional)** (up to 200 characters) and, under How long, **Pay as you go** (the default) or **Prepaid block**. The note shows on the room's tile, its panel and the close-out; a booking's check-in has the Note too.
+2. A **Prepaid block** of 2 h bills at least the 2 hours (room time reads the full block at once), even if the party leaves early; past the block it counts on by the minute.
+3. With **Packages & specials** on and a package that includes room time (Admin → Menu → **Room time included**), a **Package** select appears: picking it sets and locks the length, puts the package's items on the tab and bills the rest of its price as room time.
+4. The walk-in dialog still fits a laptop screen without scrolling. Spanish: **Nota (opcional)**, **Pagar por minuto** / **Bloque prepagado**, **Paquete**.
+
+### 30.5 A sound when a room's time is up (P-05)
+
+Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip that U-18 added, in 31.18 step 5. In short: on a paired bar or front-desk computer, one sound when a room reaches Wrap up and one when its time is up, never repeated on reload; the room names stay in the strip until tapped; the setting off plays and shows nothing. The guest is never sounded at. Spanish: the strip reads "Se acabó el tiempo", **Quitar todo**.
+
+### 30.6 Change a tip after paying (P-06)
 
 1. Turn on **Paid on outside card machine** (Admin → Features, or the Sing Sing demo). At the bar (Maya, PIN 4071), open **Jess P.**'s tab, press **Close tab**, then **Outside card machine**; keep the amount, type **Tip, $** `5.00` and press **Record payment**.
 2. Open **Closed tonight**, and on Jess P.'s row press **Change tip**. The sheet lists the payment as **Outside card machine** · $32.66 · tip $5.00. Type **New tip, $** `6.00` and press **Save tip**: "Tip changed to $6.00". My tips and tonight's tip pool show $1.00 more; Close the night's **Outside machine tips** reads $6.00.
@@ -1798,7 +1972,7 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 ### 30.7 The month (P-07)
 
 1. Sign in as Andy and open **Reports**. The **Month** card shows September 2026 (the picker reads 2026-09) and "This month isn't over yet: only the nights already closed are counted." Before any close it says "No closed nights in this month."
-2. Close Friday (Close the night, section 15), then come back: Month lists **Fri, Sep 25 · Z 1** with its net sales, and the totals (room time, drinks in rooms and at the bar, comps, voids, discounts, refunds, net sales, sales tax, gratuity, cash, cards, card and cash tips, refunded to guests, room hours) equal Friday's Z report line for line. Food, packages, songs, the outside card machine and the like show only when the month has any.
+2. Close Friday (Close the night, section 17), then come back: Month lists **Fri, Sep 25 · Z 1** with its net sales, and the totals (room time, drinks in rooms and at the bar, comps, voids, discounts, refunds, net sales, sales tax, gratuity, cash, cards, card and cash tips, refunded to guests, room hours) equal Friday's Z report line for line. Food, packages, songs, the outside card machine and the like show only when the month has any.
 3. A past night with sales that was never closed is named under "Not closed, so not counted" and isn't in the totals.
 4. Press **‹** for August: "No closed nights in this month.", and no in-progress note. **›** comes back.
 5. **Download the month (CSV)** asks for your passkey again, then saves `west4-month-2026-09.csv`: one row per closed night with its Z number, then the month's total ("(in progress)" while the month isn't over); amounts in dollars, room time in minutes.
@@ -1817,7 +1991,7 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 
 1. Sign in as Andy and open **Reports**. The **Staff actions** card reads From and To tonight (2026-09-25) and lists people by name: **Maya S.** with **Comps · 1 · $12.00** and **Andy C.** with **Cut-offs · 1**.
 2. Tap **Comps · 1 · $12.00**: its row opens with the time, the room, the item, "no approval" and the reason. Tap it again to close it. Each button is at least 44 px tall.
-3. Void a sent line over the reason-only limit from the fix panel and approve it on Andy's phone, give a 10% discount on a check (P-02, section 30), take a no-sale and a paid-out at the bar drawer: after each, the card shows the person's count and dollars, and the opened row says "approved by Andy C." where Andy approved it. The dollars match the exceptions list and the Z report's comps, voids and discounts.
+3. Void a sent line over the reason-only limit from the fix panel and approve it on Andy's phone, give a 10% discount on a check (P-02, 6.3), take a no-sale and a paid-out at the bar drawer: after each, the card shows the person's count and dollars, and the opened row says "approved by Andy C." where Andy approved it. The dollars match the exceptions list and the Z report's comps, voids and discounts.
 4. Set From to 2026-09-01 and To to 2026-09-24: "No staff actions in these dates." Set From after To: "Pick a start on or before the end, 93 days at most."
 5. Sign in as Maya (a bartender): Reports isn't in her menu, and `GET /reports/staff-actions` answers 403.
 6. With Spanish chosen, the card reads **Acciones del personal**, "Desde", "Hasta", "Invitaciones" and "sin aprobación".
@@ -1836,7 +2010,7 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 ### 30.11 One bell for everything waiting (P-11)
 
 1. Sign in as Andy on a desktop. The top bar has the bell, **Bell · N new**, with N on it in pink; it's at least 44 px tall.
-2. Tap it: **Bell** lists what's waiting for Andy, approvals first, then rooms (a room calling, past its end, needing a wipe), bar orders ringing or asked to wait, guest texts not read and tickets that didn't print. The lines marked **· New** are exactly N.
+2. Tap it: **Bell** lists what's waiting for Andy, approvals first, then rooms (a room calling, past its end), bar orders ringing or asked to wait, guest texts not read and tickets that didn't print. The lines marked **· New** are exactly N. Since U-18 the bell leaves out what the screen you're on already shows: on **Rooms** it has no room lines, on **Bar orders** no orders, and there are no "needs cleaning" or "new room code" lines anywhere (31.18). To see the room lines, open the bell from **Time clock**.
 3. Tap a line: it opens its screen (Approvals, Calls, Rooms, Bar orders, Messages or the bar POS) and the bell reads N − 1. Open the bell again and tap **Mark all read**: **Bell · 0 new**, and the button greys out. Reload: still 0.
 4. Sign in as Maya (a bartender) on another browser: her bell still counts the bar orders and tickets Andy read, since reading is per person; she has no approvals or guest texts in it unless her role sees them. Ring a room order from Room 9's phone: both bells count one more.
 5. Stop the API (or turn the laptop's Wi-Fi off) and reload the staff app: the bell shows its last list with "Offline · as of 10:41 PM"; marking a line read there is sent once the API answers.
@@ -1867,6 +2041,8 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 4. With Spanish chosen: **Registro de actividad**, Persona, Tipo, Desde, Hasta, Quitar filtros.
 5. Sign in as Andy (a manager): Admin lists **About** but no Activity log (managers come with P-10). About shows the staff app's version, "Not in the desktop app" in a browser (the desktop app's version on the bar computer), the server's version, West 4 Boho Karaoke and its venue id, and Support · Email and Phone, "Not set yet" until `SUPPORT_EMAIL` and `SUPPORT_PHONE` are set. (Venue B's rows never show: `activity.int.test.ts` checks it.)
 
+
+---
 
 ## 31. Fewer taps (U)
 
@@ -1907,7 +2083,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 ### 31.4 The tab screen: the round first, nothing left unsent, a clean screen after closing (U-04)
 
 1. Start the demo (`scripts/demo-start.sh`). On the bar computer, sign in as Maya (`4071`) and open a new tab on the bar reader (Read to guest ✓, a label such as Seat 7, Open).
-2. Under the tab's name come **Repeat round**, the round being rung and **Send** (with **Send & close** beside it), above **On the tab**, the total and Split, Move, Print bill and Close tab. No Fix or Discount panel shows until you tap a sent line or **Discount the check**.
+2. Under the tab's name come **Repeat round**, the round being rung and **Send** (with **Send & close** beside it), above **On the tab**, the total and Split, Move, Print the check and Close tab. No Fix or Discount panel shows until you tap a sent line or **Discount the check**.
 3. Ring 2 × Modelo and **Send 2**. Ring a Jäger Bomb and don't send it. Tap **Close tab**: it doesn't open; it says "1 not sent · Send them first or Send & close", with **Send & close** and **Back to the tab**.
 4. Tap **Send & close**: the Jäger Bomb goes on the tab (it shows under On the tab) and Close tab opens at $32.66. Nothing rung is left unsent.
 5. **Close to the card**, pick a tip on the bar reader, then **Print** (or Text, or No receipt). There's no Done: the screen goes straight back to **Quick sale**, nothing picked, reading "Tab closed · Seat 7 · Paid … with a tip of …". The tab is in Closed tonight. That's 3 taps on the tab.
