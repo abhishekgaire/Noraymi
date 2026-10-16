@@ -12,7 +12,8 @@ export type DeviceKind =
   | "router"
   | "staff_phone"
   | "up_next_display"
-  | "mic_outlet";
+  | "mic_outlet"
+  | "kitchen_display";
 export const deviceKinds: readonly DeviceKind[] = [
   "bar_computer",
   "front_desk",
@@ -24,6 +25,7 @@ export const deviceKinds: readonly DeviceKind[] = [
   "staff_phone",
   "up_next_display",
   "mic_outlet",
+  "kitchen_display",
 ];
 
 /** Pairing codes: 8 characters from an alphabet without look-alikes, good for 10 minutes (M1-15 notes; flagged for the founder). */

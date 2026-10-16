@@ -16,6 +16,7 @@ export type PrincipalName =
   | "singer"
   | "printer"
   | "up_next_display"
+  | "kitchen_display"
   | "support"
   | "console"
   | "webhook"
@@ -42,7 +43,12 @@ export type Principal =
       readonly deviceId: string;
       readonly venueId: string;
       readonly deviceKind:
-        "bar_computer" | "front_desk" | "room_tablet" | "printer" | "up_next_display";
+        | "bar_computer"
+        | "front_desk"
+        | "room_tablet"
+        | "printer"
+        | "up_next_display"
+        | "kitchen_display";
     }
   | {
       readonly kind: "guest";
@@ -107,6 +113,8 @@ export function principalIs(p: Principal, name: PrincipalName, venueId?: string)
       return p.kind === "device" && atVenue(p.venueId) && p.deviceKind === "printer";
     case "up_next_display":
       return p.kind === "device" && atVenue(p.venueId) && p.deviceKind === "up_next_display";
+    case "kitchen_display":
+      return p.kind === "device" && atVenue(p.venueId) && p.deviceKind === "kitchen_display";
     case "guest_room":
       return p.kind === "guest" && atVenue(p.venueId) && p.scope === "room_session";
     case "guest_booking":

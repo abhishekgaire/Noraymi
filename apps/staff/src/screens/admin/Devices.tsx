@@ -24,7 +24,8 @@ type Kind =
   | "router"
   | "staff_phone"
   | "up_next_display"
-  | "mic_outlet";
+  | "mic_outlet"
+  | "kitchen_display";
 
 interface Device {
   readonly id: string;
@@ -57,6 +58,7 @@ const KIND_ORDER: readonly Kind[] = [
   "reader",
   "room_tablet",
   "up_next_display",
+  "kitchen_display",
   "router",
   "mic_outlet",
   "staff_phone",
@@ -72,6 +74,7 @@ const whereKey: Record<Kind, MessageKey> = {
   reader: "devices.where.barOrFrontDesk",
   room_tablet: "devices.where.rooms",
   up_next_display: "devices.where.bar",
+  kitchen_display: "devices.where.kitchen",
   router: "devices.where.around",
   mic_outlet: "devices.where.rooms",
   staff_phone: "devices.where.people",

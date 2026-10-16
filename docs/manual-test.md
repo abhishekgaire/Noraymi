@@ -1708,6 +1708,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 30.14 Activity log and About
 - [ ] 30.15 Tax-exempt check: Room 9 tax $14.02, on the Z report with its certificate
 - [ ] 30.16 Inventory: Jäger Bomb counted, a sale takes it down, a void not made puts it back, 86'd at zero
+- [ ] 30.17 Kitchen screen: a paired kitchen display shows sent food within 3 seconds, Done tells the bar (Food up), offline it keeps its tickets
 
 **Fewer taps (U)**
 - [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
@@ -2061,6 +2062,16 @@ Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip 
 5. Unplug the bar computer's network (section 13), ring a Jäger Bomb, plug back in: the round lands as asked to wait, and the count moves only when it's accepted, once.
 6. **Stock by date** (from and to, tonight by default): on hand, used, received and adjusted (counts and adjustments together). Admin → Activity log shows each stock change. With the switch off in Admin → Features, Stock disappears from Reports, the server refuses its routes and sales stop moving counts (`stock.int.test.ts` checks it).
 7. With Spanish chosen: **Existencias**, **Recibir**, **Contar**, **Ajustar**.
+
+### 30.17 Kitchen screen (P-17)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing has Kitchen & food on). Sign in as Sing Sing's owner. Admin → Features → **Kitchen screen** is off by default; it needs Kitchen & food. Turn it on. Under Choices, **Kitchen screen** shows "Keep printing kitchen tickets on the kitchen printer", ticked.
+2. Admin → Printers & devices → pair a **Kitchen screen** (it sits under Kitchen). On a second browser (a tablet or a private window), enter the pairing code on the sign-in screen: it opens the kitchen screen straight away, "No open tickets", with no PIN pad. Tap **Español**: "No hay tickets abiertos"; tap **English** to go back.
+3. On the bar POS as a bartender, ring a food item on a tab and tap **Send to kitchen** with an allergy note: within 3 seconds the ticket shows on the kitchen screen ("Bar · <tab>", the time, "0 min", the allergy boxed), and the kitchen printer still prints it. From a room's phone, order food; Accept it at the bar: a second ticket shows below the first (oldest first).
+4. Tap **Done** on the first: it leaves the kitchen screen, and the bar orders screen shows "Food up · Bar · <tab> · <time>" within a few seconds; **Got it** clears it there.
+5. On the bar orders screen tap **Open the kitchen screen**: the same tickets open in a second window of the bar computer.
+6. Unplug the kitchen screen's network: it reads "Offline · showing tickets from <time>" and keeps the tickets. Tap **Done** on one: it leaves the screen and the band counts "1 Done waiting to send". Plug back in: the Done reaches the bar.
+7. Untick the Choices box and send more food: it shows on the kitchen screen and nothing prints in the kitchen. With Kitchen screen off in Admin → Features, the kitchen screen reads "Kitchen screen is off", the server refuses its routes and the kitchen printer prints every ticket again (`kitchen-screen.int.test.ts` checks it).
 
 
 ---

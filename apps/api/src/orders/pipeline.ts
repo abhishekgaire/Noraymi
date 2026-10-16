@@ -36,6 +36,7 @@ import { writeFixLine, type FixPayload } from "../rooms/fix.js";
 import { alcoholNow, checkAlcohol, checkGiftAlcohol } from "./alcohol.js";
 import { printsBarTicket } from "./print-rule.js";
 import { ticketItems } from "./ticket-items.js";
+import { queueKitchenTicket } from "../kitchen/screen.js";
 
 /**
  * The order pipeline (M3-06; spec 04 · Room orders; Money rules 6). Each
@@ -146,10 +147,9 @@ async function ticket(
       if (!remake && order.source === "staff") continue;
       const night = await nightOfNow(c, venueId, now);
       const kitchen = await readSetting(c, venueId, "kitchen", Temporal.PlainDate.from(night));
-      await insertPrintJob(c, venueId, {
+      // The kitchen printer, and the kitchen screen while it's on (P-17).
+      await queueKitchenTicket(c, venueId, {
         orderId: order.id,
-        kind: "ticket",
-        station,
         createdAt: now.toString(),
         payload: kitchenPayload(order, {
           remake,

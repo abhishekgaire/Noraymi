@@ -84,3 +84,14 @@ export function startHeartbeats(device: StoredDevice): () => void {
     stopPrinting();
   };
 }
+
+/** A kitchen display's check-in (P-17): the heartbeat alone, since it hosts no printer. */
+export function startDisplayHeartbeats(device: StoredDevice): () => void {
+  const tick = () =>
+    heartbeat(device).catch((error: unknown) => {
+      if (error instanceof ApiCallError && error.status === 403) void deviceRevoked();
+    });
+  void tick();
+  const timer = setInterval(tick, HEARTBEAT_MS);
+  return () => clearInterval(timer);
+}

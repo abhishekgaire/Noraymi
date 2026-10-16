@@ -7,6 +7,7 @@ import { useSession } from "../../session.js";
 import { TextingSwitches } from "./TextingSwitches.js";
 import { PinAgainChoices } from "./PinAgainChoices.js";
 import { InventoryChoices } from "./InventoryChoices.js";
+import { KitchenScreenChoices } from "./KitchenScreenChoices.js";
 import { TaxExemptChoices } from "./TaxExemptChoices.js";
 
 /**
@@ -150,6 +151,12 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
           "on" && (
           <li className="module" aria-label={t("stock.choices")}>
             <InventoryChoices venueId={venueId} />
+          </li>
+        )}
+        {(state.status === "signedIn" ? (state.membership.modules ?? {}) : {})["kitchen_screen"] ===
+          "on" && (
+          <li className="module" aria-label={t("kitchenScreen.choices")}>
+            <KitchenScreenChoices venueId={venueId} />
           </li>
         )}
       </ul>

@@ -619,6 +619,8 @@ export function mapSeedSettings(
     taxExempt: s["taxExempt"],
     // Inventory (P-16): absent, so a sale that takes a count to zero 86's the item.
     inventory: s["inventory"],
+    // Kitchen screen (P-17): absent, so the kitchen printer keeps printing beside the screen.
+    kitchenScreen: s["kitchenScreen"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
@@ -1011,6 +1013,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       // Our plan (M8-15): no subscription on the demo night; a test that makes one starts clean.
       "venue_subscriptions",
       "plan_subscribe_attempts",
+      // Kitchen screen (P-17): a kitchen ticket names its order or check and its print job.
+      "kitchen_tickets",
       "print_jobs",
       // A card tapped for a room names its reader and its consent (M6-13).
       "check_cards",

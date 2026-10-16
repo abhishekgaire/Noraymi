@@ -494,6 +494,14 @@ export const TAX_EXEMPT_DEFAULTS: z.infer<typeof taxExemptSchema> = { stillTaxed
 export const inventorySchema = z.object({ autoEightySix: z.boolean() }).strict();
 export const INVENTORY_DEFAULTS: z.infer<typeof inventorySchema> = { autoEightySix: true };
 
+/**
+ * Kitchen screen (P-17; module kitchen_screen): `print` keeps the kitchen printer printing every
+ * kitchen ticket while the screen is on. On unless the venue turns it off; with the module off the
+ * kitchen always prints, whatever this says.
+ */
+export const kitchenScreenSchema = z.object({ print: z.boolean() }).strict();
+export const KITCHEN_SCREEN_DEFAULTS: z.infer<typeof kitchenScreenSchema> = { print: true };
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -616,6 +624,7 @@ export const settingsSchemas = {
   pinAgain: pinAgainSchema,
   taxExempt: taxExemptSchema,
   inventory: inventorySchema,
+  kitchenScreen: kitchenScreenSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -686,6 +695,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   pinAgain: PIN_AGAIN_DEFAULTS,
   taxExempt: TAX_EXEMPT_DEFAULTS,
   inventory: INVENTORY_DEFAULTS,
+  kitchenScreen: KITCHEN_SCREEN_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

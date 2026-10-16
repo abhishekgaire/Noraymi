@@ -44,7 +44,7 @@ describe("settings mapping", () => {
   ) as Record<string, Record<string, unknown>>;
 
   it("every key passes spec 03's schema", () => {
-    expect(Object.keys(parsed)).toHaveLength(25);
+    expect(Object.keys(parsed)).toHaveLength(26);
     // The side menu's order (P-13): the app's own order until a venue moves an entry.
     expect(parsed["menuOrder"]).toEqual({ order: [] });
     // Ask for the PIN again (P-10): unsaved in the seed, so no-sale alone, as before.
@@ -53,6 +53,8 @@ describe("settings mapping", () => {
     expect(parsed["taxExempt"]).toEqual({ stillTaxed: ["drink"] });
     // Inventory (P-16): unsaved, so a sale that takes a count to zero 86's the item.
     expect(parsed["inventory"]).toEqual({ autoEightySix: true });
+    // Kitchen screen (P-17): unsaved, so the kitchen printer keeps printing beside the screen.
+    expect(parsed["kitchenScreen"]).toEqual({ print: true });
     // The venue's own contacts (D115): empty, never guessed.
     expect(parsed["contacts"]).toEqual({
       bookingEmails: [],

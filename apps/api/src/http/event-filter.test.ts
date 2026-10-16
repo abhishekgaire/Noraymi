@@ -36,6 +36,18 @@ const guest: Principal = { kind: "guest", venueId: V, scope: "room_session", id:
 const singer: Principal = { kind: "singer", venueId: V, singerId: "s1" };
 
 describe("visibleTo, per principal", () => {
+  it("a kitchen display (P-17) hears only its tickets coming and going", () => {
+    const kitchen: Principal = {
+      kind: "device",
+      deviceId: "d8",
+      venueId: V,
+      deviceKind: "kitchen_display",
+    };
+    const sub: Subscription = { principal: kitchen, venueId: V };
+    expect(visibleTo(sub, ev({ type: "kitchen.ticket" }))).toBe(true);
+    expect(visibleTo(sub, ev({ type: "kitchen.ticket_done" }))).toBe(true);
+    expect(visibleTo(sub, ev({ type: "order.ringing" }))).toBe(false);
+  });
   it("a room tablet on Room 9's channel never receives an event for another room", () => {
     const sub: Subscription = { principal: tablet, venueId: V, roomId: "room-9" };
     expect(visibleTo(sub, ev({ type: "order.ready", room_id: "room-9" }))).toBe(true);

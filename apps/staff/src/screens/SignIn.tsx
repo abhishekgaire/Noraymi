@@ -106,6 +106,11 @@ export function SignIn() {
     void (async () => {
       const found = await readDevice();
       if (!live) return;
+      // A kitchen display (P-17) has no one to sign in: it opens the kitchen screen.
+      if (found?.kind === "kitchen_display") {
+        navigate("/kitchen-screen", { replace: true });
+        return;
+      }
       setDevice(found);
       if (isShared(found)) {
         try {
@@ -330,6 +335,10 @@ export function SignIn() {
     setBusy(true);
     try {
       const paired = await claimDevice(pairCode.trim());
+      if (paired.kind === "kitchen_display") {
+        navigate("/kitchen-screen", { replace: true });
+        return;
+      }
       setDevice(paired);
       startHeartbeats(paired);
       setStep({ kind: "email" });

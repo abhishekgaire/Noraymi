@@ -40,8 +40,8 @@ const west4: ModuleStates = {
 };
 
 describe("modules", () => {
-  it("lists the 33 modules spec 03 names, with the six core ones always on (D124)", () => {
-    expect(moduleIds).toHaveLength(33);
+  it("lists the 34 modules spec 03 names, with the six core ones always on (D124)", () => {
+    expect(moduleIds).toHaveLength(34);
     expect(modules.filter((m) => m.core).map((m) => m.id)).toEqual([
       "payments",
       "alcohol",
@@ -84,6 +84,7 @@ describe("modules", () => {
       bar_mode: ["bar_tabs"],
       marketing_texts: ["guest_texts"],
       inventory: ["reports"],
+      kitchen_screen: ["kitchen"],
       deposits: ["online_booking"],
       room_tablets: ["rooms"],
       card_behind_bar: ["rooms"],

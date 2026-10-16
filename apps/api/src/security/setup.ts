@@ -246,6 +246,12 @@ export async function suiteWorld(): Promise<SuiteWorld> {
     `insert into print_jobs (venue_id, order_id, kind, station, payload) values ($1, $2, 'ticket', 'bar', '{}') returning id`,
     [v.venueB, orderB.rows[0]!.id],
   );
+  // A kitchen ticket at venue B (P-17: POST /kitchen/tickets/{ticketId}/done).
+  const kitchenTicketB = await owner.query<{ id: string }>(
+    `insert into kitchen_tickets (venue_id, order_id, print_job_id, business_date, payload, created_at)
+       values ($1, $2, $3, '2026-09-25', '{"kitchen":true,"lines":[]}', now()) returning id`,
+    [v.venueB, orderB.rows[0]!.id, jobB.rows[0]!.id],
+  );
   // A replayed offline order at venue B (M8-05: POST /offline-orders/{replayId}/cash).
   const replayB = await owner.query<{ id: string }>(
     `insert into offline_replays (venue_id, client_order_id, queued_on, replayed_on, queued_at, replayed_at,
@@ -336,6 +342,7 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       orderId: orderB.rows[0]!.id,
       draftKey: checkB.rows[0]!.id,
       jobId: jobB.rows[0]!.id,
+      ticketId: kitchenTicketB.rows[0]!.id,
       lineId: lineB.rows[0]!.id,
       g: guestRowB.rows[0]!.id,
       guestId: guestB.rows[0]!.id,

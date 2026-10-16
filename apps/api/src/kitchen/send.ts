@@ -1,4 +1,5 @@
-import { emitEvent, insertPrintJob, type OrderComponent, type Queryable } from "@west4/db";
+import { emitEvent, type OrderComponent, type Queryable } from "@west4/db";
+import { queueKitchenTicket } from "./screen.js";
 import type { Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { lineParts, writeWithParts } from "../rooms/fix.js";
@@ -215,10 +216,10 @@ export async function sendToKitchen(
       where l.venue_id = $1 and l.check_id = $2 and l.id = any($3::bigint[]) order by l.id`,
     [venueId, input.checkId, ids],
   );
-  const jobId = await insertPrintJob(c, venueId, {
+  // The kitchen printer, and the kitchen screen while it's on (P-17): no job when the venue
+  // turned the printer off beside the screen.
+  const jobId = await queueKitchenTicket(c, venueId, {
     checkId: input.checkId,
-    kind: "ticket",
-    station: "kitchen",
     createdAt: at,
     payload: {
       kitchen: true,

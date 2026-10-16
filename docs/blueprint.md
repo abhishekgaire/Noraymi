@@ -379,7 +379,7 @@ K codes are the ranked gaps in the [competitive review](archive/review-competiti
 
 - Multi-location owner accounts, the setup wizard, the website builder and the full vendor control panel.
 - Rule packs for other counties, with closes per night and dated overrides, and the multi-venue settings.
-- The kitchen module's display, with all-day counts, recall, a local-network fallback and a prep-time report (K14). Printed kitchen tickets come into phase 1 for Sing Sing Astoria ([D98](decisions.md), [draft spec](spec/16-kitchen.md)).
+- The kitchen module's display, with all-day counts, recall, a local-network fallback and a prep-time report (K14). Printed kitchen tickets come into phase 1 for Sing Sing Astoria ([D98](decisions.md), [draft spec](spec/16-kitchen.md)). A basic kitchen screen (open tickets, Done, Food up at the bar) came forward as P-17 ([D131](decisions.md)); all-day counts, recall and the prep-time report stay here.
 - Song-system adapters, the KaraFun adapter first.
 - Korean and Chinese screens.
 - Packages and add-ons sold in the booking, prepaid (K3).

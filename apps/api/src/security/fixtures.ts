@@ -40,7 +40,13 @@ export function cast(c: Cast): NamedPrincipal[] {
     memberships: [{ venueId: c.venueA, membershipId: ids.membershipId, role }],
   });
   const device = (
-    deviceKind: "bar_computer" | "front_desk" | "room_tablet" | "printer" | "up_next_display",
+    deviceKind:
+      | "bar_computer"
+      | "front_desk"
+      | "room_tablet"
+      | "printer"
+      | "up_next_display"
+      | "kitchen_display",
     n: number,
   ): Principal => ({ kind: "device", deviceId: uuid(n), venueId: c.venueA, deviceKind });
   const owner = { userId: c.ownerA, membershipId: c.membershipA };
@@ -82,6 +88,7 @@ export function cast(c: Cast): NamedPrincipal[] {
     { name: "a singer", principal: { kind: "singer", venueId: c.venueA, singerId: uuid(7) } },
     { name: "a printer", principal: device("printer", 8) },
     { name: "the Up next display", principal: device("up_next_display", 9) },
+    { name: "a kitchen display", principal: device("kitchen_display", 64) },
     {
       name: "our support staff",
       principal: { kind: "support", staffId: uuid(10), grantId: uuid(11), venueId: c.venueA },
@@ -109,6 +116,7 @@ export const PARAM_SAMPLES: Readonly<Record<string, string>> = {
   fileId: uuid(28),
   approvalId: uuid(29),
   pageId: uuid(63),
+  ticketId: uuid(65),
   f: uuid(30),
   noteId: uuid(31),
   itemId: uuid(32),

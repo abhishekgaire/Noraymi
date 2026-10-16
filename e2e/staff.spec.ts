@@ -7266,6 +7266,80 @@ test("the bar POS: food on Jess P.'s tab is Not sent until Send to kitchen print
   }
 });
 
+/**
+ * Kitchen screen (P-17): with the module on, food sent from Jess P.'s tab shows on the bar computer's
+ * second window within 3 seconds, Done bumps it and the bar orders screen says Food up; in Spanish.
+ */
+test("the kitchen screen: sent food shows within 3 seconds, Done tells the bar", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  const kitchen = await testKitchenMenu(db, { choices: true });
+  const screen = (state: "on" | "off") =>
+    db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state)
+       select id, 'kitchen_screen', true, $1 from venues where slug = 'west4karaoke'
+       on conflict (venue_id, module_id) do update set state = $1, allowed = true`,
+      [state],
+    );
+  try {
+    await screen("on");
+    await signInMayaAtTheBar(page, request, db);
+    // The bar computer's second window: the kitchen screen, nobody signed in there.
+    const kitchenPage = await page.context().newPage();
+    await kitchenPage.goto("/kitchen-screen");
+    await expect(kitchenPage.getByRole("heading", { name: "Kitchen" })).toBeVisible();
+    await expect(kitchenPage.getByText("No open tickets")).toBeVisible();
+
+    await page
+      .getByRole("list", { name: "Bar tabs" })
+      .getByRole("button", { name: /Jess P\./ })
+      .click();
+    const panel = page.getByRole("complementary");
+    await page.getByRole("searchbox", { name: "Search the menu" }).fill("fries");
+    await page
+      .locator(".rail-grid")
+      .getByRole("button", { name: /TEST French Fries/ })
+      .click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
+    await panel.getByRole("button", { name: "Send to kitchen (1)" }).click();
+    await page
+      .getByRole("dialog", { name: "Send to kitchen" })
+      .getByRole("button", { name: "Send to kitchen (1)" })
+      .click();
+
+    const ticket = kitchenPage.getByRole("listitem", { name: "Bar · Jess P." });
+    await expect(ticket).toBeVisible({ timeout: 3_000 });
+    await expect(ticket).toContainText("TEST French Fries");
+    await expect(ticket.getByRole("button", { name: "Done" })).toBeVisible();
+    // The kitchen printer still prints beside the screen.
+    const printed = await db.query(
+      "select 1 from print_jobs where station = 'kitchen' and payload->>'room' = 'Bar · Jess P.'",
+    );
+    expect(printed.rowCount).toBeGreaterThan(0);
+    await ticket.getByRole("button", { name: "Done" }).click();
+    await expect(kitchenPage.getByText("No open tickets")).toBeVisible();
+
+    await page.goto("/bar-orders");
+    const up = page.getByRole("region", { name: "Food up" });
+    await expect(up.getByText(/Food up · Bar · Jess P\. · \d+:\d\d/)).toBeVisible();
+    await up.getByRole("button", { name: "Got it" }).click();
+    await expect(up.getByText(/Food up · Bar · Jess P\./)).toHaveCount(0);
+
+    await kitchenPage.getByRole("button", { name: "Español" }).click();
+    await expect(kitchenPage.getByText("No hay tickets abiertos")).toBeVisible();
+    await kitchenPage.getByRole("button", { name: "English" }).click();
+    await kitchenPage.close();
+  } finally {
+    await screen("off");
+    await db.query("delete from kitchen_tickets");
+    await kitchen.restore();
+    await db.end();
+  }
+});
+
 /** Room 9's tab on a phone (K-05): food goes on the check at once as Not sent; Send prints Room 9. */
 test("Room 9's tab on a phone: food is Not sent on the check, and Send to kitchen prints Room 9", async ({
   page,

@@ -18,7 +18,8 @@ Sing Sing's own facts (its menu, prices, hours, legal name, tax numbers, license
 - **The switch.** Kitchen & food is a module (`kitchen`) like the others in [Settings, rule packs and modules](03-settings-rule-packs-modules.md) · Modules. It needs Bar screen & tickets, because food orders ring and are accepted at the bar. Turning it on also needs a paired kitchen printer and the allergy notice set (below); until both are there, Admin → Features shows "Kitchen · needs a kitchen printer and the allergy notice" and the switch stays off.
 - **Guest ordering.** Guests order food from their phones and the room tablets only while the existing "Ordering from the room" module is on, the same switch that lets them order drinks. There's no separate switch for guest food: with Ordering from the room off, food is rung only by staff.
 - **What it hides.** With the module off, no item can be routed to the kitchen, food items are hidden from every menu, and the kitchen's words below appear nowhere. Turning it off is refused while a kitchen order is ringing, asked to wait or being made, like any module with open work.
-- **Phase 1 scope.** The module ships printed kitchen tickets only. The kitchen display, coursing and the rest are listed under [Not included](#not-included).
+- **Phase 1 scope.** The module ships printed kitchen tickets. A kitchen screen came forward with [D131](../decisions.md) as its own switch (below); coursing and the rest are listed under [Not included](#not-included).
+- **Kitchen screen** (P-17; module `kitchen_screen`, off by default, needs Kitchen & food). A paired kitchen display (Admin → Printers & devices, kind Kitchen screen) or a bar computer's second window (Open the kitchen screen, on the bar orders screen) shows the open kitchen tickets oldest first, each with its room or tab, the time it was sent and its age, the lines with options and notes, an allergy boxed, and REMAKE, AFTER OUTAGE or TRAINING as printed. It asks for new tickets every 2 seconds, so a ticket shows within 3. **Done** bumps a ticket and tells the bar: the bar orders screen shows "Food up · Room 3 · 11:52" for 15 minutes or until Got it. Offline it keeps showing the last tickets it saw and holds Done taps until the connection is back. Printing stays as it is; with the screen on, the venue can turn the kitchen printer off (`kitchenScreen.print`, on by default). Runs and Picked up don't change: Done doesn't mark a room's food ready.
 
 **Settings.** One new settings key, versioned and checked like the others:
 
@@ -113,7 +114,7 @@ Food lines use the tax category `food`, which the [money rules](05-money-rules.m
 
 ### Not included
 
-These stay out until the founder asks for them: a kitchen display screen (the blueprint's K14, phase 2), holds, coursing and firing courses later, an expo station, an allergen database on menu items (`menu_items.allergens` stays phase 2), all-day counts, recall, a prep-time report, takeout, delivery and online ordering from the website, and stock counts.
+These stay out until the founder asks for them: the rest of the blueprint's K14 display beyond the kitchen screen above, holds, coursing and firing courses later, an expo station, an allergen database on menu items (`menu_items.allergens` stays phase 2), all-day counts, recall, a prep-time report, takeout, delivery and online ordering from the website, and stock counts.
 
 ### Where this touches the rest of the spec
 

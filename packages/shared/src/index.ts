@@ -73,6 +73,8 @@ export {
   TAX_EXEMPT_DEFAULTS,
   inventorySchema,
   INVENTORY_DEFAULTS,
+  kitchenScreenSchema,
+  KITCHEN_SCREEN_DEFAULTS,
   PIN_AGAIN_DEFAULTS,
   PUBLIC_FORM_DEFAULTS,
   settingsDefaults,

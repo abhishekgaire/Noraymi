@@ -306,13 +306,19 @@ Definition of done: see CLAUDE.md.
 
 ### P-17 · Kitchen screen
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** K (kitchen tickets)
 - **Spec:** [Kitchen and food](../spec/16-kitchen.md)
 - **Build:** Module **Kitchen screen** (off by default): a paired device (kind `kitchen_display`) or a bar computer's second window shows open kitchen tickets oldest first with their times; **Done** bumps a ticket and tells the bar. Printing stays as it is and can be turned off when the screen is on.
 - **Acceptance:**
-  - [ ] Tickets appear within 3 seconds of being sent and clear on Done; works offline from the cache; EN and ES; tests.
+  - [x] Tickets appear within 3 seconds of being sent and clear on Done; works offline from the cache; EN and ES; tests.
+- **Notes:**
+  - Built: module `kitchen_screen` (off by default, needs Kitchen & food, every plan with the kitchen allows it) and settings key `kitchenScreen.print` (on by default). Migration 0170 adds device kind `kitchen_display` and `kitchen_tickets` (forced RLS, audited, venue-wall case). Every kitchen ticket now goes through `apps/api/src/kitchen/screen.ts` (`queueKitchenTicket`): a guest's food at Accept, staff food at Send to kitchen and a remake; with the module on it also writes a ticket row, and with `print` off it skips the print job (then Send to kitchen answers `job_id: null`, which the staff app already handles). With the module off the kitchen always prints.
+  - Routes `GET /v1/venues/:venueId/kitchen/tickets` (open, oldest first; `?view=done` is tonight's bumped ones) and `POST …/kitchen/tickets/:ticketId/done` (idempotent: a second Done answers the first and emits nothing), for a new principal `kitchen_display`, a bar computer, staff and managers.
+  - Staff app: `/kitchen-screen` (no shell, no PIN); a paired kitchen display opens it straight from sign-in and sends heartbeats (no print host). The bar orders screen gets **Open the kitchen screen** (the bar computer's second window) and the **Food up** strip (15 minutes, or until Got it, remembered per browser). Admin → Features → Choices → Kitchen screen holds the print box. EN and ES, with an English/Español toggle on the screen itself because nobody signs in there.
+  - "Within 3 seconds": shared screens have no event socket yet (M6-28), so the kitchen screen polls every 2 seconds and the Food up strip every 3. "Offline from the cache": the screen keeps its last answer in the window's session storage (and a held Done list, sent when the connection is back); the desktop app's encrypted offline cache isn't used for it.
+  - Cautious defaults: Done does not mark a room's food ready or change runs (Picked up still records Ready, spec 16), and turning the screen off with open tickets is allowed (the printer prints regardless). Tests: `kitchen-screen.int.test.ts`, the event-filter unit test, the e2e "the kitchen screen: sent food shows within 3 seconds, Done tells the bar". Hand test: manual-test 30.17.
 
 ### P-18 · A screen for the guest at the bar
 

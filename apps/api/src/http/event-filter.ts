@@ -25,6 +25,8 @@ const RING_STATE_TYPES: ReadonlySet<string> = new Set([
   "room.call",
 ]);
 const DISPLAY_TYPES: ReadonlySet<string> = new Set(["song_queue.updated"]);
+/** A kitchen display (P-17) hears only its tickets coming and going. */
+const KITCHEN_TYPES: ReadonlySet<string> = new Set(["kitchen.ticket", "kitchen.ticket_done"]);
 
 export function visibleTo(
   sub: Subscription,
@@ -52,6 +54,7 @@ export function visibleTo(
           event.room_id === (sub.roomId ?? null)
         );
       if (p.deviceKind === "up_next_display") return DISPLAY_TYPES.has(event.type);
+      if (p.deviceKind === "kitchen_display") return KITCHEN_TYPES.has(event.type);
       if (p.deviceKind === "printer") return false;
       // bar computer or front desk
       if (sub.locked) return RING_STATE_TYPES.has(event.type);

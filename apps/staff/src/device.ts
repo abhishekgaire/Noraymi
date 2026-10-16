@@ -17,7 +17,7 @@ import { syncServerTime } from "./clock.js";
  * IndexedDB) and signs the requests the API wants signed. The desktop app
  * (M1-28) keeps the same shape in the operating system's keychain.
  */
-export type DeviceKind = "bar_computer" | "front_desk" | "staff_phone";
+export type DeviceKind = "bar_computer" | "front_desk" | "staff_phone" | "kitchen_display";
 
 export interface StoredDevice {
   readonly deviceId: string;

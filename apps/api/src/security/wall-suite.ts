@@ -100,7 +100,7 @@ export function principalFor(
     memberships: [{ venueId: c.venueA, membershipId: ids.membershipId, role }],
   });
   const device = (
-    deviceKind: "bar_computer" | "room_tablet" | "printer" | "up_next_display",
+    deviceKind: "bar_computer" | "room_tablet" | "printer" | "up_next_display" | "kitchen_display",
   ): Principal => ({
     kind: "device",
     deviceId: "00000000-0000-4000-8000-000000000001",
@@ -130,6 +130,8 @@ export function principalFor(
         return { as: "venue A's printer", principal: device("printer") };
       case "up_next_display":
         return { as: "venue A's Up next display", principal: device("up_next_display") };
+      case "kitchen_display":
+        return { as: "venue A's kitchen display", principal: device("kitchen_display") };
       case "guest_room":
         return { as: "a guest in venue A's room", principal: guest("room_session") };
       case "guest_booking":

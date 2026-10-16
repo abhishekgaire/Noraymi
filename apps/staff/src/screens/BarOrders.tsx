@@ -10,6 +10,7 @@ import { NotFound } from "./NotFound.js";
 import { SongQueueLink } from "./SongQueue.js";
 import { TopBarItems } from "../layout/TopBar.js";
 import { ReplayedOrders } from "./ReplayedOrders.js";
+import { FoodUp } from "./FoodUp.js";
 import { FailedTicket, type FailedJob, type ReprintAt } from "./FailedTicket.js";
 import { muteChime, useChimeMute } from "../chime.js";
 import { agingFromWire, agingSentence, agingTone, WEST4_AGING, type Aging } from "../aging.js";
@@ -287,6 +288,7 @@ export function BarOrders() {
         </p>
       )}
       {venueId && <ReplayedOrders venueId={venueId} timeZone={timeZone} />}
+      {venueId && <FoodUp venueId={venueId} timeZone={timeZone} />}
       {orders === null ? (
         <p role="status">{t("shell.loading")}</p>
       ) : (

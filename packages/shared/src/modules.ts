@@ -32,6 +32,7 @@ export type ModuleId =
   | "bell"
   | "tax_exempt"
   | "inventory"
+  | "kitchen_screen"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -372,6 +373,22 @@ export const modules: readonly ModuleDef[] = [
     needs: ["reports"],
     allowedOff: true,
     hides: { staffApp: ["reports.stock"], staffPhone: [], website: [], texts: [] },
+  },
+  // Kitchen screen (P-17; D131): open kitchen tickets on a paired kitchen display or a bar computer's
+  // second window, oldest first, bumped with Done. Every plan with the kitchen allows it, off until the
+  // owner turns it on; it needs Kitchen & food, whose tickets it shows.
+  {
+    id: "kitchen_screen",
+    core: false,
+    phase1: true,
+    needs: ["kitchen"],
+    allowedOff: true,
+    hides: {
+      staffApp: ["kitchenScreen", "barOrders.foodUp"],
+      staffPhone: [],
+      website: [],
+      texts: [],
+    },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },
