@@ -129,7 +129,7 @@ At West 4, approvals are decided on the approver's own phone (the default; a ven
 
 1. Open an **Incognito window** (Cmd + Shift + N), or a second Chrome profile.
 2. Repeat 0.2 with Andy's invite link and `andy@demo.west4.local`.
-3. In Andy's window, open **Alerts on this phone** (in the side menu on a laptop; under **☰ More** at phone size, U-19; the screen is called **Phone alerts**, U-20) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
+3. In Andy's window, open **Alerts on this phone** (in the side menu on a laptop; under **☰ More** at phone size, U-19) and press **Turn on alerts**. This browser is now "Andy's phone". Approvals for Maya and Diego land here.
 
 Do the same for Abhishek's window: requests from Andy himself go to Abhishek.
 
@@ -2260,7 +2260,7 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 4. Open Room 9's tab: the button is **Print the check** ("The check is printing"); the slip itself still starts BILL (CUENTA in Spanish).
 5. Sign in at the bar as Maya (`4071`), open **Jess P.**, ring a Modelo: the button reads **Send 1** (no "to the bar"), and after it "Sent · on Jess P.'s tab" with no ticket mention. A room picked on the bar POS still says "Sent · on the tab, ticket printing at the bar", since a runner carries it.
 6. Make a room order wait (**Ask the room to wait** on Bar orders), then open the bell from Time clock: the line reads "Room 5's order · Asked to wait".
-7. Phone layout (narrow the window): the tab that turns on this phone's alerts is **Phone alerts**. Switch to Español: **Avisos del teléfono**, and the bell's name reads "Campana · 1 nuevo" with one line, "Campana · 2 nuevos" with two. The top bar reads "Viernes noche".
+7. Phone layout (narrow the window): this phone's alerts are **Alerts on this phone** under **☰ More**. Switch to Español: **Alertas en este teléfono** under **☰ Más**, and the bell's name reads "Campana · 1 nuevo" with one line, "Campana · 2 nuevos" with two. The top bar reads "Viernes noche".
 8. Start the demo with `scripts/demo-start.sh --sing-sing` (Sing Sing has no badge reader). On the bar computer, switch to Sing Sing: the sign-in screen leads with "Tap your name, then your PIN" and the name tiles, with no badge card. West 4 (two badge readers) still shows "Tap your badge on the reader" first.
 9. A failed action now reads in one form, for example "Couldn't save · Try again" or "Couldn't do that · Try again".
 
