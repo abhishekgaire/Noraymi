@@ -5,6 +5,7 @@ import type { Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { listTabs } from "../tabs/tabs.js";
+import { parseTabHeldCard } from "../rooms/held-card.js";
 import { repeatRound } from "../tabs/repeat.js";
 import { giftOrder } from "../tabs/gift.js";
 import type { SendAnswer } from "../tabs/hold.js";
@@ -409,6 +410,8 @@ export function tabRoutes(
       name: z.string().trim().min(1).max(80),
       label: z.string().trim().min(1).max(80).nullable().optional(),
       party_size: z.number().int().min(1).max(200).nullable().optional(),
+      // The card behind the bar (U-23; D134): the name on the card and its last 4, both optional.
+      held_card: z.unknown().optional(),
     })
     .strict();
   const opening = route({
@@ -460,6 +463,13 @@ export function tabRoutes(
       const venueId = request.venueId!;
       if (cardless.success) {
         // No reader and no hold: the tab opens at once on its name, or is refused (card_required).
+        const heldCard =
+          cardless.data.held_card === undefined ? null : parseTabHeldCard(cardless.data.held_card);
+        if (cardless.data.held_card !== undefined && !heldCard)
+          throw new ApiError(
+            "invalid_request",
+            "held_card is { name?, last4? }: the name on the card (no digits) and exactly its last 4 digits",
+          );
         const number = await reserveTabCheckNumber(options.pool, venueId, request.training);
         const tab = await request.inVenue((c) =>
           openCardlessTab(c, venueId, {
@@ -470,6 +480,7 @@ export function tabRoutes(
             userId: p.userId,
             membershipId: m.membershipId,
             training: request.training,
+            heldCard,
             now: options.clock.now(),
           }),
         );

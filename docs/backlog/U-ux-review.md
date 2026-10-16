@@ -389,7 +389,7 @@ Definition of done: see CLAUDE.md.
 
 ### U-23 · Card holds on tabs as a switch, and the card behind the bar for tabs
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** P-03, U-05, D116 (Card behind the bar for rooms)
 - **Spec:** [Bar POS](../spec/10-staff-screens-bar-pos.md) · New tab, Tabs without a card; [Payment flows](../spec/07-payment-flows.md); [Settings](../spec/03-settings-rule-packs-modules.md)
@@ -400,7 +400,11 @@ Definition of done: see CLAUDE.md.
   - With holds off and cards not required, opening a tab is the name (or a label), optionally the card behind the bar, then Open.
   - Sing Sing's demo (`scripts/demo-sing-sing.mjs`) and the onboarding defaults for a bar-computers venue: card holds off, card behind the bar on.
 - **Acceptance:**
-  - [ ] Card holds off: `POST /tabs` with a hold is refused on the server; New tab shows no hold; West 4 (on) unchanged.
-  - [ ] A tab opened with the card behind the bar shows it on its row, asks for Returned at close, and an unreturned one shows on Close the night.
-  - [ ] Principal and wall tests for any changed route; English and Spanish.
+  - [x] Card holds off: `POST /tabs` with a hold is refused on the server; New tab shows no hold; West 4 (on) unchanged.
+  - [x] A tab opened with the card behind the bar shows it on its row, asks for Returned at close, and an unreturned one shows on Close the night.
+  - [x] Principal and wall tests for any changed route; English and Spanish.
 - **Notes:**
+  - Built: `tabs.cardHolds` (absent = on) in `packages/shared/src/settings.ts` with `tabCardHolds`; off also makes `tabCardRequired` false, so every tab opens by name. `writeTabOpening` refuses a hold with `card_holds_off`; `GET /tabs/consent` adds `card_holds` and `card_behind_bar`. New tab hides Hold a card instead when holds are off and, with `card_behind_bar` on, offers **Card behind the bar** (name on the card and last 4, both optional; `POST /tabs { card: "none", …, held_card: { name?, last4? } }`, `module_off` while the switch is off). Migration 0173 adds `check_held_cards.tab_id`, lets the name and last 4 stand alone (the close still clears both) and grants `update (check_id)`. `GET /tabs` rows carry `held_card`; the row chip and Close tab's **Give the card back** / **Returned** reuse O-08's route (`GiveCardBack` moved to `apps/staff/src/screens/HeldCard.tsx`); Close the night's "Cards still behind the bar" names tabs too ("Marisol · M. TORRES ···· 4242"). Move to room carries the card to the room's check and Undo brings it back. Admin → Bar POS and Set up your venue step 7 have the switch; Sing Sing's demo saves `cardHolds: false`.
+  - Cautious defaults: "onboarding defaults for a bar-computers venue" has no venue type to key on, so step 7 starts **Card holds on tabs** unticked where Paid on an outside card machine is on (D126, D129), ticked otherwise; Keep the card behind the bar keeps its existing default. If the room a tab moves into already keeps a card, the tab's card stays on the tab's check (one card a check) and is still listed on Close the night. The opening hold amount stays a required tab answer even with holds off (the key is saved whole).
+  - Open: `card_behind_bar` still needs Rooms (D124), so a bar-only venue can't keep a card on a tab; lifting that is a founder call.
+  - Tests: `tab-pay.int.test.ts` (U-23 block: refused hold, card on the row, Returned, Close the night, move and undo, switch off), `settings.test.ts`, e2e `U-23 · card holds off…` in `e2e/staff.spec.ts`; hand test 31.23.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ApiCallError } from "../api.js";
+import { GiveCardBack, type HeldCard } from "./HeldCard.js";
 import { useT } from "../i18n.js";
 import { CardAndCash, CashPanel, CashResult, type Taken } from "./CashPanel.js";
 import { ReceiptStep } from "./ReceiptStep.js";
@@ -63,6 +64,7 @@ export function CloseTab({
   resume,
   noHold = false,
   cardless = false,
+  heldCard = null,
   savedCard = null,
   onClose,
   onClosed,
@@ -81,6 +83,8 @@ export function CloseTab({
   noHold?: boolean;
   /** A tab opened without a card (P-03): it never had one, so no "Another card" (U-05, D133). */
   cardless?: boolean;
+  /** The guest's card kept behind the bar (U-23; D134): the close ends with Give the card back. */
+  heldCard?: HeldCard | null;
   /** The card saved from its first tap, and a charge on it already waiting. */
   savedCard?: { card: string; paymentId: string | null } | null;
   /** Back: the tab stays picked and open. */
@@ -108,11 +112,19 @@ export function CloseTab({
   const payUrl = `/v1/venues/${venueId}/tabs/${tabId}/pay`;
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const base = `/v1/venues/${venueId}/tabs/${tabId}/close`;
-  // Closed and the receipt chosen: once, whichever way it was paid.
+  // Closed and the receipt chosen: once, whichever way it was paid. A card kept behind the bar is given
+  // back first (U-23): Give the card back, then Returned, and only then is the tab done.
   const finished = useRef(false);
+  const [held, setHeld] = useState<HeldCard | null>(heldCard);
+  const heldRef = useRef<HeldCard | null>(heldCard);
+  const [cardBack, setCardBack] = useState<{ summary: string | null } | null>(null);
   const finish = useCallback(
     (summary: string | null) => {
       if (finished.current) return;
+      if (heldRef.current && !heldRef.current.returned) {
+        setCardBack((b) => b ?? { summary });
+        return;
+      }
       finished.current = true;
       if (onClosed) onClosed(summary);
       else onClose();
@@ -223,6 +235,23 @@ export function CloseTab({
   useEffect(() => {
     if (ended) finish(paidWords);
   }, [ended, paidWords, finish]);
+
+  if (cardBack && held)
+    return (
+      <section className="close-tab" aria-label={t("closeTab.title")}>
+        <h3>{t("closeTab.title")}</h3>
+        <GiveCardBack
+          venueId={venueId}
+          checkId={checkId}
+          held={held}
+          onReturned={(r) => {
+            heldRef.current = r;
+            setHeld(r);
+            finish(cardBack.summary);
+          }}
+        />
+      </section>
+    );
 
   return (
     <section className="close-tab" aria-label={t("closeTab.title")}>

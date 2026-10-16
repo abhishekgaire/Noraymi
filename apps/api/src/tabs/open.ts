@@ -22,6 +22,7 @@ import {
 import { businessDate } from "@west4/rules";
 import {
   TAB_CARD_HELD,
+  tabCardHolds,
   tabCardRequired,
   tabConsentLine,
   tabNameFromCard,
@@ -29,6 +30,7 @@ import {
 } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
+import { cardBehindBarOn, takeTabHeldCard, type TabHeldCardInput } from "../rooms/held-card.js";
 import { confirmOnReader } from "../stripe/surcharge.js";
 import { retrieveCollectedCard } from "../stripe/tabs.js";
 import type { IntentObservation } from "../stripe/payments.js";
@@ -116,6 +118,10 @@ export async function tabConsent(c: Queryable, venueId: string, now: Temporal.In
     asks_party_size: pay?.value.gratuity.auto === "parties",
     // "Open a tab without a card" (P-03): New tab also takes a name alone.
     card_required: tabCardRequired(tabs.value),
+    // "Card holds on tabs" (U-23; D134): off, New tab offers no hold at all.
+    card_holds: tabCardHolds(tabs.value),
+    // Keep the card behind the bar (U-23): New tab offers it on a tab opened by name while it's on.
+    card_behind_bar: await cardBehindBarOn(c, venueId),
     business_date: date.toString(),
   };
 }
@@ -160,6 +166,11 @@ export async function writeTabOpening(
   },
 ) {
   const consent = await tabConsent(c, venueId, input.now);
+  // Card holds off (U-23; D134): no tab is ever opened with a hold.
+  if (!consent.card_holds)
+    throw new ApiError("invalid_request", "this venue opens tabs without a card hold", {
+      details: { reason: "card_holds_off" },
+    });
   // The words read out must be tonight's: a version from before a settings change is refused.
   if (consent.version_id !== input.consentVersionId)
     throw new ApiError("invalid_request", "the consent line changed: read the new one", {
@@ -506,6 +517,8 @@ export interface OpenCardlessInput {
   readonly userId: string;
   readonly membershipId: string;
   readonly training?: boolean;
+  /** The guest's card kept behind the bar (U-23; D134), when the bartender ticked it. */
+  readonly heldCard?: TabHeldCardInput | null;
   readonly now: Temporal.Instant;
 }
 
@@ -530,6 +543,9 @@ export async function openCardlessTab(c: Queryable, venueId: string, input: Open
     throw new ApiError("invalid_request", "how many in the party?", {
       details: { reason: "party_size" },
     });
+  // The card behind the bar is the Keep the card behind the bar switch's (D124), refused while it's off.
+  if (input.heldCard && !(await cardBehindBarOn(c, venueId)))
+    throw new ApiError("module_off", "keeping the card behind the bar is off at this venue");
   const checkId = await insertCheck(c, {
     venueId,
     number: input.checkNumber,
@@ -554,6 +570,16 @@ export async function openCardlessTab(c: Queryable, venueId: string, input: Open
       ],
     )
   ).rows[0]!.id;
+  const held = input.heldCard
+    ? await takeTabHeldCard(c, venueId, {
+        checkId,
+        tabId,
+        businessDate: date.toString(),
+        card: input.heldCard,
+        by: input.userId,
+        now: input.now,
+      })
+    : null;
   await moveQuickRound(
     c,
     venueId,
@@ -563,7 +589,7 @@ export async function openCardlessTab(c: Queryable, venueId: string, input: Open
   );
   await emitEvent(c, { venueId, type: "check.updated", entityId: checkId });
   await emitEvent(c, { venueId, type: "tab.updated", entityId: tabId });
-  return { id: tabId, check_id: checkId, name: input.name };
+  return { id: tabId, check_id: checkId, name: input.name, held_card: held };
 }
 
 /** What New tab shows while the card is on the reader, and the tab it opened. */

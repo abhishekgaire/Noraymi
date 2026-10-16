@@ -780,6 +780,18 @@ export const en = {
   "heldCard.chip": "Card behind the bar · {name} ···· {last4}",
   "heldCard.giveBack": "Give the card back",
   "heldCard.giveBackHint": "Hand the guest their card: {name} ···· {last4}",
+  "heldCard.chipDetail": "Card behind the bar · {detail}",
+  "heldCard.chipBare": "Card behind the bar",
+  "heldCard.giveBackHintDetail": "Hand the guest their card: {detail}",
+  "heldCard.giveBackHintBare": "Hand the guest their card",
+  "newTab.cardBehindBar": "Card behind the bar",
+  "newTab.cardBehindBarName": "Name on the card (optional)",
+  "newTab.cardBehindBarLast4": "Last 4 (optional)",
+  "newTab.cardBehindBarHint":
+    "Keep the guest's card at the register. Nothing is charged to it; give it back when the tab closes. Never write the full number.",
+  "barPos.tabs.cardHolds": "Card holds on tabs",
+  "barPos.tabs.cardHoldsHint":
+    "On: New tab can put the opening hold on a card at the reader. Off: no tab takes a hold, and every tab opens by name; Close to the card and the tab cut-off's charge never apply.",
   "heldCard.returned": "Returned",
   "heldCard.returnedDone": "Card given back",
   "checkIn.walkInTakes.nothing": "Nothing taken at check-in",

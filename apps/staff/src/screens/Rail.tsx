@@ -53,6 +53,7 @@ import { CheckInSheet } from "./CheckInSheet.js";
 import { Dialog } from "../layout/Dialog.js";
 import "./bar.css";
 import { RoomQrActions } from "./RoomQrActions.js";
+import { heldCardChip, type HeldCard } from "./HeldCard.js";
 
 /**
  * The bar POS, the Rail (M6-02; Staff screens and the bar POS · The bar POS
@@ -145,6 +146,8 @@ interface Tab {
   readonly no_hold: boolean;
   /** Opened without a card (P-03). */
   readonly cardless?: boolean;
+  /** The guest's card kept behind the bar (U-23; D134): the name on it and its last 4, each optional. */
+  readonly held_card?: HeldCard | null;
   /** The card saved from the first tap (none after a wallet tap), and a charge on it waiting. */
   readonly saved_card: {
     readonly brand: string | null;
@@ -854,26 +857,28 @@ export function Rail() {
     ...(x.unsent > 0
       ? [{ label: t("rail.badge.unsent", { n: x.unsent }), tone: "warn" as const }]
       : []),
-    ...(x.open && x.cardless
-      ? [{ label: t("rail.noCard"), tone: "ok" as const }]
-      : x.open && x.no_hold
-        ? [
-            {
-              label: t("rail.noHold", { amount: money(x.paid_cents as never) }),
-              tone: "ok" as const,
-            },
-          ]
-        : x.open && x.paid_cents > 0
+    ...(x.open && x.held_card && !x.held_card.returned
+      ? [{ label: heldCardChip(t, x.held_card), tone: "ok" as const }]
+      : x.open && x.cardless
+        ? [{ label: t("rail.noCard"), tone: "ok" as const }]
+        : x.open && x.no_hold
           ? [
               {
-                label: t("rail.badge.partlyPaid", {
-                  paid: money(x.paid_cents as never),
-                  total: money((x.totals?.total_cents ?? 0) as never),
-                }),
+                label: t("rail.noHold", { amount: money(x.paid_cents as never) }),
                 tone: "ok" as const,
               },
             ]
-          : []),
+          : x.open && x.paid_cents > 0
+            ? [
+                {
+                  label: t("rail.badge.partlyPaid", {
+                    paid: money(x.paid_cents as never),
+                    total: money((x.totals?.total_cents ?? 0) as never),
+                  }),
+                  tone: "ok" as const,
+                },
+              ]
+            : []),
   ];
 
   return (
@@ -1608,7 +1613,12 @@ export function Rail() {
                     </span>
                   )}
                   {tab &&
-                    (tab.cardless ? (
+                    (tab.held_card && !tab.held_card.returned ? (
+                      // The card kept behind the bar (U-23): "Card behind the bar · M. TORRES ···· 4242".
+                      <span className="chip" data-guest-text>
+                        {heldCardChip(t, tab.held_card)}
+                      </span>
+                    ) : tab.cardless ? (
                       // A tab opened without a card (P-03): no hold, closed in cash or on a card.
                       <span className="chip">{t("rail.noCard")}</span>
                     ) : tab.no_hold ? (
@@ -1812,6 +1822,7 @@ export function Rail() {
                     resume={tab.state === "tipping"}
                     noHold={tab.no_hold}
                     cardless={!!tab.cardless}
+                    heldCard={tab.held_card ?? null}
                     savedCard={
                       tab.no_hold && tab.saved_card
                         ? {

@@ -226,12 +226,26 @@ export const tabsSchema = z
      * so a venue saved before it existed keeps card-first tabs.
      */
     cardRequired: z.boolean().optional(),
+    /**
+     * "Card holds on tabs" (U-23; D134): false means no tab is ever opened with a hold on the reader
+     * (refused on the server), so every tab opens by name. Absent reads as true, so a venue saved
+     * before it existed keeps today's opening hold.
+     */
+    cardHolds: z.boolean().optional(),
   })
   .strict();
 
-/** Whether New tab needs a card: true unless the venue turned on "Open a tab without a card". */
-export const tabCardRequired = (tabs: { cardRequired?: boolean | undefined } | null | undefined) =>
-  tabs?.cardRequired !== false;
+/** Whether tabs may be opened with a card hold: true unless the venue turned "Card holds on tabs" off. */
+export const tabCardHolds = (tabs: { cardHolds?: boolean | undefined } | null | undefined) =>
+  tabs?.cardHolds !== false;
+
+/**
+ * Whether New tab needs a card: true unless the venue turned on "Open a tab without a card", or turned
+ * card holds off (U-23), when every tab opens by name.
+ */
+export const tabCardRequired = (
+  tabs: { cardRequired?: boolean | undefined; cardHolds?: boolean | undefined } | null | undefined,
+) => tabs?.cardRequired !== false && tabCardHolds(tabs);
 
 /** Whether the close prints and emails the Z report (U-15): on unless the venue turned it off. */
 export const zReportAtClose = (pos: { zReportAtClose?: boolean | undefined } | null | undefined) =>

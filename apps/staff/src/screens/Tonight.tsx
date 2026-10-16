@@ -22,6 +22,7 @@ import { MoveSheet } from "./MoveSheet.js";
 import { Dialog } from "../layout/Dialog.js";
 import { WaitlistList, useWaitlistCount } from "./Waitlist.js";
 import { ScanId } from "./ScanId.js";
+import { heldCardChip } from "./HeldCard.js";
 import { prepaidText } from "./room-start.js";
 
 /**
@@ -85,7 +86,7 @@ interface BoardRoom {
     readonly min_spend_left_cents?: number | null;
     readonly deposit_cents: number;
     /** A card kept behind the bar and not given back yet (O-08). */
-    readonly held_card?: { readonly name: string; readonly last4: string } | null;
+    readonly held_card?: { readonly name: string | null; readonly last4: string | null } | null;
     /** Starting a room (P-04): its note, and a prepaid block with the package it came with. */
     readonly note?: string | null;
     readonly prepaid?: { readonly minutes: number; readonly package_name: string | null } | null;
@@ -754,10 +755,7 @@ export function Tonight() {
               )}
               {r.session.held_card && (
                 <div className="small" data-guest-text>
-                  {t("heldCard.chip", {
-                    name: r.session.held_card.name.toUpperCase(),
-                    last4: r.session.held_card.last4,
-                  })}
+                  {heldCardChip(t, r.session.held_card)}
                 </div>
               )}
               {r.session.deposit_cents > 0 && (
@@ -912,10 +910,7 @@ export function Tonight() {
           )}
           {r.session?.held_card && (
             <span className="tile-chip" data-guest-text>
-              {t("heldCard.chip", {
-                name: r.session.held_card.name.toUpperCase(),
-                last4: r.session.held_card.last4,
-              })}
+              {heldCardChip(t, r.session.held_card)}
             </span>
           )}
           {due && (

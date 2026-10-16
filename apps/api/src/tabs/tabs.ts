@@ -2,6 +2,7 @@ import type { Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import { TAB_SETTLED, type Temporal } from "@west4/shared";
 import { checkView } from "../rooms/checks.js";
+import { heldCardsOf } from "../rooms/held-card.js";
 import { venueClock } from "../rooms/assignment.js";
 import { holdView, tabOfCheck } from "./hold.js";
 import { slipView } from "./tip.js";
@@ -89,6 +90,12 @@ export async function listTabs(
     : new Map<string, number>();
   // U-02: the cash price of each tab's rest with the cash discount on (one read of its terms).
   const cashPrice = await cashPricer(c, venueId, today);
+  // The card kept behind the bar on a tab opened by name (U-23): "Card behind the bar · M. TORRES ···· 4242".
+  const heldCards = await heldCardsOf(
+    c,
+    venueId,
+    rows.map((t) => t.check_id),
+  );
   return Promise.all(
     rows.map(async (t) => {
       const view = await checkView(c, venueId, t.check_id, now);
@@ -175,6 +182,7 @@ export async function listTabs(
         no_hold: noHold,
         // A named tab opened without a card (P-03): no hold, closed in cash, the outside machine or a reader.
         cardless: t.cardless,
+        held_card: heldCards.get(t.check_id) ?? null,
         saved_card: saved
           ? { brand: saved.brand, last4: saved.last4, payment_id: savedPayment }
           : null,

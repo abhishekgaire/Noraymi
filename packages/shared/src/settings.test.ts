@@ -7,6 +7,7 @@ import {
   roomSoundOn,
   roomSoundVolume,
   tabCardRequired,
+  tabCardHolds,
   walkInTakesOf,
   withLaterPart,
   zReportAtClose,
@@ -185,6 +186,21 @@ describe("what a walk-in check-in takes (D112)", () => {
       expect(walkInTakesOf({ walkIn } as never)).toBe(walkIn);
     }
     expect(parseSetting("deposit", { ...rule, walkIn: "hold" }).ok).toBe(false);
+  });
+});
+
+describe("Card holds on tabs (U-23)", () => {
+  const tabs = { openingHoldCents: 5000, flagOverCents: 60000, cutOffAt: "04:30" };
+  it("is on unless the venue turns it off; absent reads as on", () => {
+    expect(tabCardHolds(tabs)).toBe(true);
+    expect(tabCardHolds(null)).toBe(true);
+    expect(tabCardHolds({ ...tabs, cardHolds: false })).toBe(false);
+  });
+  it("off, every tab opens by name, whatever Open a tab without a card says", () => {
+    expect(tabCardRequired({ ...tabs, cardHolds: false })).toBe(false);
+    expect(tabCardRequired({ ...tabs, cardHolds: false, cardRequired: true })).toBe(false);
+    expect(parseSetting("tabs", { ...tabs, cardHolds: false }).ok).toBe(true);
+    expect(parseSetting("tabs", { ...tabs, cardHolds: "no" }).ok).toBe(false);
   });
 });
 

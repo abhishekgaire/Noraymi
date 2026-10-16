@@ -74,6 +74,8 @@ Room 9's $498.60 goes on a tap first; the Amex that paid the deposit is the fall
 
 ### Bar tab with a growing hold
 
+This flow runs only where "Card holds on tabs" is on (`tabs.cardHolds`, absent = on; U-23, [D134](../decisions.md)). With it off, no tab takes a hold (`POST /tabs` with a reader is refused, `card_holds_off`), every tab opens by name ([Staff screens and the bar POS](10-staff-screens-bar-pos.md) · Tabs without a card), optionally with the guest's card kept behind the bar, and nothing below applies to it.
+
 ```mermaid
 stateDiagram-v2
     [*] --> open : New tab, consent read, hold placed

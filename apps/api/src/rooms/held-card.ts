@@ -1,5 +1,5 @@
-import type { Queryable } from "@west4/db";
-import type { Temporal } from "@west4/shared";
+import { statesOf, venueModules, type Queryable } from "@west4/db";
+import { stateOf, type Temporal } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
 
 /**
@@ -143,4 +143,107 @@ export async function clearHeldCards(
     [venueId, businessDate, now.toString()],
   );
   return r.rowCount ?? 0;
+}
+
+/** Whether Keep the card behind the bar (D124) is on at the venue. */
+export async function cardBehindBarOn(c: Queryable, venueId: string): Promise<boolean> {
+  return stateOf(statesOf(await venueModules(c, venueId)), "card_behind_bar") === "on";
+}
+
+/**
+ * The card behind the bar on a bar tab (U-23; D134): the name on the card and its last 4, each
+ * optional (null or absent), never the full number. Checked as for a room: no digit in the name,
+ * exactly four digits in the last 4.
+ */
+export interface TabHeldCardInput {
+  readonly name: string | null;
+  readonly last4: string | null;
+}
+export function parseTabHeldCard(body: unknown): TabHeldCardInput | null {
+  if (typeof body !== "object" || body === null) return null;
+  const keys = Object.keys(body);
+  if (keys.some((k) => k !== "name" && k !== "last4")) return null;
+  const { name, last4 } = body as { name?: unknown; last4?: unknown };
+  let n: string | null = null;
+  if (name !== undefined && name !== null) {
+    if (typeof name !== "string") return null;
+    const t = name.trim().replace(/\s+/g, " ");
+    if (t.length > 60 || /\d/.test(t)) return null;
+    n = t.length > 0 ? t : null;
+  }
+  let l: string | null = null;
+  if (last4 !== undefined && last4 !== null && last4 !== "") {
+    if (typeof last4 !== "string" || !/^\d{4}$/.test(last4)) return null;
+    l = last4;
+  }
+  return { name: n, last4: l };
+}
+
+/** Keep the card behind the bar on a tab just opened by name (inside its transaction). */
+export async function takeTabHeldCard(
+  c: Queryable,
+  venueId: string,
+  input: {
+    checkId: string;
+    tabId: string;
+    businessDate: string;
+    card: TabHeldCardInput;
+    by: string;
+    now: Temporal.Instant;
+  },
+): Promise<HeldCard> {
+  const r = await c.query<{
+    guest_name: string | null;
+    last4: string | null;
+    taken_at: Date;
+    returned_at: Date | null;
+  }>(
+    `insert into check_held_cards (venue_id, check_id, tab_id, business_date, guest_name, last4, taken_by, taken_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
+     returning guest_name, last4, taken_at, returned_at`,
+    [
+      venueId,
+      input.checkId,
+      input.tabId,
+      input.businessDate,
+      input.card.name,
+      input.card.last4,
+      input.by,
+      input.now.toString(),
+    ],
+  );
+  return view(r.rows[0]!);
+}
+
+/**
+ * A tab moved into a room carries its card behind the bar to the room's check (U-23), unless the room
+ * already keeps one: then it stays on the tab's check, still listed on Close the night until Returned.
+ */
+export async function moveTabHeldCard(
+  c: Queryable,
+  venueId: string,
+  tabId: string,
+  toCheckId: string,
+): Promise<boolean> {
+  const r = await c.query(
+    `update check_held_cards h set check_id = $3
+      where h.venue_id = $1 and h.tab_id = $2 and h.returned_at is null
+        and not exists (select 1 from check_held_cards o where o.venue_id = $1 and o.check_id = $3)`,
+    [venueId, tabId, toCheckId],
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** Undo the move: the tab's card goes back onto the tab's own check. */
+export async function returnTabHeldCardToTab(
+  c: Queryable,
+  venueId: string,
+  tabId: string,
+  tabCheckId: string,
+): Promise<void> {
+  await c.query(
+    `update check_held_cards set check_id = $3
+      where venue_id = $1 and tab_id = $2 and check_id <> $3`,
+    [venueId, tabId, tabCheckId],
+  );
 }

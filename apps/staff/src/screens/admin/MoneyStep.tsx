@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  tabCardHolds,
   tabCardRequired,
   type CashSettings,
   type PaySettings,
@@ -12,6 +13,7 @@ import { useSession } from "../../session.js";
 import { CardFee, FoodIncludesFee } from "./CardFee.js";
 import { CashDrawers } from "./CashDrawers.js";
 import { dollarsToCents } from "./Prices.js";
+import { useModuleOn } from "../../useModule.js";
 
 /**
  * Set up your venue's step 7, Money at the counter (O-09; spec 17 · Step
@@ -599,12 +601,22 @@ function TabsCardless({ venueId }: { venueId: string }) {
         <label className="check">
           <input
             type="checkbox"
+            checked={tabCardHolds(tabs)}
+            onChange={(e) => draft.set("tabs", { ...tabs, cardHolds: e.target.checked })}
+          />
+          <span>{t("barPos.tabs.cardHolds")}</span>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
             checked={!tabCardRequired(tabs)}
+            disabled={!tabCardHolds(tabs)}
             onChange={(e) => draft.set("tabs", { ...tabs, cardRequired: !e.target.checked })}
           />
           <span>{t("barPos.tabs.cardless")}</span>
         </label>
       </div>
+      <p className="small muted">{t("barPos.tabs.cardHoldsHint")}</p>
       <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
     </div>
   );
@@ -618,16 +630,27 @@ function TabsCardless({ venueId }: { venueId: string }) {
 function FirstTabs({ report }: { report: (s: FormState) => void }) {
   const { t } = useT();
   const [cardless, setCardless] = useState(false);
+  // Card holds on tabs (U-23; D134): on by default; a venue taking cards on its own outside card
+  // machine (D126, D129) starts with them off. Either way the owner chooses.
+  const outsideCard = useModuleOn("outside_card");
+  const [holdsPicked, setHolds] = useState<boolean | null>(null);
+  const holds = holdsPicked ?? !outsideCard;
   const [hold, setHold] = useState("");
   const [flag, setFlag] = useState("");
   const [cutOff, setCutOff] = useState("");
 
-  const touched = cardless || hold !== "" || flag !== "" || cutOff !== "";
+  const touched = cardless || holdsPicked !== null || hold !== "" || flag !== "" || cutOff !== "";
   const value: TabSettings | null = (() => {
     const h = dollarsToCents(hold);
     const f = dollarsToCents(flag);
     if (h === null || f === null || !/^\d{2}:\d{2}$/.test(cutOff)) return null;
-    return { openingHoldCents: h, flagOverCents: f, cutOffAt: cutOff, cardRequired: !cardless };
+    return {
+      openingHoldCents: h,
+      flagOverCents: f,
+      cutOffAt: cutOff,
+      cardRequired: !cardless,
+      cardHolds: holds,
+    };
   })();
   useReport("tabs", value, touched, report);
 
@@ -635,6 +658,10 @@ function FirstTabs({ report }: { report: (s: FormState) => void }) {
     <div className="cash-admin">
       <h3>{t("barPos.tabs")}</h3>
       <div className="invite-fields">
+        <label className="check">
+          <input type="checkbox" checked={holds} onChange={(e) => setHolds(e.target.checked)} />
+          <span>{t("barPos.tabs.cardHolds")}</span>
+        </label>
         <label className="check">
           <input
             type="checkbox"
@@ -644,8 +671,9 @@ function FirstTabs({ report }: { report: (s: FormState) => void }) {
           <span>{t("barPos.tabs.cardless")}</span>
         </label>
       </div>
+      <p className="small muted">{t("barPos.tabs.cardHoldsHint")}</p>
       <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
-      {cardless && <p className="small">{t("onboarding.money.tabsFirst")}</p>}
+      {(cardless || !holds) && <p className="small">{t("onboarding.money.tabsFirst")}</p>}
       <div className="invite-fields">
         <Field label={t("barPos.tabs.hold")} value={hold} set={setHold} decimal />
         <Field label={t("barPos.tabs.flag")} value={flag} set={setFlag} decimal />

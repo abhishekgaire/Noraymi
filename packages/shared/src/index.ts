@@ -81,6 +81,7 @@ export {
   walkInTakes,
   walkInTakesOf,
   tabCardRequired,
+  tabCardHolds,
   zReportAtClose,
   roomSoundOn,
   roomSoundVolume,

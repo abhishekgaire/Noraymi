@@ -148,8 +148,9 @@ try {
     phone: () => ({ callNumber: "+19297397310", textNumber: "+19297397310" }),
     pos: (v) => ({ ...v, layouts: {} }),
     approvals: () => ({ mode: "pin" }),
-    // Named bar tabs without a card, as Bar Sales keeps them today (P-03; D131).
-    tabs: (v) => ({ ...v, cardRequired: false }),
+    // Named bar tabs without a card, as Bar Sales keeps them today (P-03; D131), and no card holds at
+    // all: the guest's card stays behind the bar with their name on the tab (U-23; D134).
+    tabs: (v) => ({ ...v, cardRequired: false, cardHolds: false }),
     // Cash pays 3.38% less, as Sing Sing's register does today (D130); menu prices (drinks and food)
     // include the card fee (founder, Oct 13).
     pay: (v) => ({ ...v, cardFee: { mode: "discount", pct: 3.38, foodIncludesFee: true } }),

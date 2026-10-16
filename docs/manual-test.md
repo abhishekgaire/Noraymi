@@ -1735,6 +1735,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 31.20 One word for each thing; name tiles first
 - [ ] 31.21 Admin in six groups; Set up your venue first
 - [ ] 31.22 Every sheet: Esc, focus, bottom sheet; Closed tonight quick sales
+- [ ] 31.23 Card holds off at Sing Sing; a tab keeps the card behind the bar, Returned at close
 
 ---
 
@@ -1878,7 +1879,7 @@ What you'll notice:
 
 **Step 6 · Deposits and check-in.** Deposit: **off** (no deposit for online bookings). No-show after `15` minutes late. At a walk-in check-in: **Keep the card behind the bar**. The cancel hours, fees and the largest party: yours to give. **Continue.**
 
-**Step 7 · Money at the counter.** Leave **Take cards on your own outside card machine too (record each payment in the app)** ticked, and **Staff can take a % or $ discount off a whole check, with a reason** as you like (the Discount on a check feature, 6.3). **Cash discount (%)**: `3.38` (what Sing Sing's register takes off today, D130), and choose **Food prices include the card fee · the discount applies to food too**. The gratuity (Added to), the reader's tip screen, the tip review, how the pool splits, the drawer model and starting bank: yours to give; every one needs an answer before Continue ("Finish the payments, drawer and tab answers, or clear them, before you go on"). For the demo, for example: Added to Nothing, Ask for a tip on the reader No, flags 30% / $60 / 3 hours, By hours worked, Hold a card at room check-in No, House drawers, Starting bank $250, note over $10, Second counter Never, paid-outs over $40. Under **Tabs**, tick **Open a tab without a card** (Sing Sing keeps named tabs without a card, P-03); the tab settings then need answers too ("Opening a tab without a card also needs the tab settings: the opening hold, when to flag a tab and the tab cut-off."), for example Opening hold $50, Flag a tab to the manager over $600, Tab cut-off 3:30 AM. **Continue.**
+**Step 7 · Money at the counter.** Leave **Take cards on your own outside card machine too (record each payment in the app)** ticked, and **Staff can take a % or $ discount off a whole check, with a reason** as you like (the Discount on a check feature, 6.3). **Cash discount (%)**: `3.38` (what Sing Sing's register takes off today, D130), and choose **Food prices include the card fee · the discount applies to food too**. The gratuity (Added to), the reader's tip screen, the tip review, how the pool splits, the drawer model and starting bank: yours to give; every one needs an answer before Continue ("Finish the payments, drawer and tab answers, or clear them, before you go on"). For the demo, for example: Added to Nothing, Ask for a tip on the reader No, flags 30% / $60 / 3 hours, By hours worked, Hold a card at room check-in No, House drawers, Starting bank $250, note over $10, Second counter Never, paid-outs over $40. Under **Tabs**, **Card holds on tabs** starts unticked, because the outside card machine is on (U-23, 31.23: every tab opens by name); tick **Open a tab without a card** too (Sing Sing keeps named tabs without a card, P-03); the tab settings then need answers too ("Opening a tab without a card also needs the tab settings: the opening hold, when to flag a tab and the tab cut-off."), for example Opening hold $50, Flag a tab to the manager over $600, Tab cut-off 3:30 AM. **Continue.**
 
 (Card holds on tabs as the owner's own switch, and the card behind the bar for tabs, are coming with U-23; this step will gain them then.)
 
@@ -1909,7 +1910,7 @@ You should see **Ready to open**. Press **Finish setup**, then **Finish setup** 
 
 1. **Admin** now opens its first section (Team), not Set up your venue, and reads as six groups (Rooms, Bar, Guests, Team, Money, Venue; 19 and 31.21). **Setup** (under Venue) shows the setup checklist.
 2. **Admin → Features**: Kitchen & food is already On (it turned on when the kitchen printer was added, or at Finish setup at the latest). Nothing to switch by hand. The switches you chose in step 2 read the same, under the six headings; **Choices → Approvals** reads **Manager's PIN at the register**.
-3. **Admin → Bar POS**: **Open a tab without a card** is ticked with your opening hold, flag and cut-off from step 7. Three settings that setup doesn't ask are at their defaults: **We run our own orders** off (5.9), **Take cash quick sales while offline** off (31.16), **Print and email the Z report at close** on (17). Change them here if the venue wants.
+3. **Admin → Bar POS**: **Card holds on tabs** is unticked and **Open a tab without a card** is ticked with your opening hold, flag and cut-off from step 7. Three settings that setup doesn't ask are at their defaults: **We run our own orders** off (5.9), **Take cash quick sales while offline** off (31.16), **Print and email the Z report at close** on (17). Change them here if the venue wants.
 4. **Admin → Sounds & rules**: the time-up sound is on, volume 50 (19.9).
 5. **Admin → Card fee & gratuity**: the cash discount is 3.38%; **Admin → Deposits & cancelling**: no deposit, and **Keep the card behind the bar** at a walk-in.
 6. The board (**Rooms**) shows your 6 rooms. Try a walk-in: **+ Walk-in** in the header, the guests, **Seat them**, then the card behind the bar (name and last 4 digits).
@@ -2340,4 +2341,16 @@ The Oct 15 review's tickets ([U backlog](backlog/U-ux-review.md), D133): each su
 8. As Andy in Admin → Rooms, tap **Archive** on Room 8: "Archive Room 8?" is a dialog over the page; Esc keeps the room. The same goes for Team's Deactivate, Devices' Revoke, Features' switches that ask first, Texts' Erase a guest and Phone & texts' Disconnect.
 9. On a phone (or the browser's phone view at 390 × 844), open Room 9 and tap **Report a fault**: it's a bottom sheet across the whole width with a grip at the top; Esc (with a keyboard) or Cancel closes it.
 10. Spanish (Language): the chips read Parece demasiado ebrio, Sin identificación válida, Alborotado o agresivo and Lo pidió el cliente; the quick sale reads "Venta rápida #…".
+
+### 31.23 Card holds on tabs as a switch, and the card behind the bar on tabs (U-23)
+
+1. Start the demo with `scripts/demo-start.sh --sing-sing` and sign in at Sing Sing as in section 11 (its owner invite, then a screen paired as its bar computer, Maya S. 4071). Open **Admin → Bar POS**: **Card holds on tabs** is unticked, and **Open a tab without a card** is ticked and greyed (with no holds every tab opens by name).
+2. On the **Bar POS**, tap **New tab**: no line to read out and no **Hold a card instead**; the name, the label chips and **Card behind the bar**. Type "Marisol", tick **Card behind the bar**, type `M. Torres` as the name on the card (digits can't be typed there) and `4242` as the last 4, then **Open**. The tab's row reads "**Card behind the bar · M. TORRES ···· 4242**" where a cardless tab reads "No card on this tab".
+3. Open a second tab with **Seat 4** and **Card behind the bar** ticked but nothing typed: its row reads "**Card behind the bar**".
+4. Sign in as Andy and open **Close the night**: "**Cards still behind the bar**" lists "Marisol · M. TORRES ···· 4242" and "Seat 4".
+5. Back as Maya, ring a drink on Marisol's tab, **Close tab** → **Cash** → **Exact**, choose a receipt (or none) and **Done**: **Give the card back** appears with "Hand the guest their card: M. TORRES ···· 4242". Tap **Returned**: the bar POS goes back to Quick sale. Close the night no longer lists Marisol's card.
+6. On Seat 4's tab, **Move to room** into an open room: the room's check shows "Card behind the bar", and the room's close-out ends with Give the card back. **Undo** the move: the card is back on the tab.
+7. As Abhishek, turn **Card holds on tabs** on in Admin → Bar POS and save: New tab shows **Hold a card instead** again (where a reader is registered). Turn it off again.
+8. At West 4 (`scripts/demo-start.sh`, Maya on the Bar POS): New tab is unchanged, card first with the line to read out and **Read to guest ✓** (card holds on).
+9. Spanish (Language): **Tarjeta detrás de la barra**, **Nombre en la tarjeta (opcional)**, **Últimos 4 (opcional)**, **Devuelve la tarjeta** and **Devuelta**; Admin → Bar POS reads **Retenciones con tarjeta en las cuentas**.
 

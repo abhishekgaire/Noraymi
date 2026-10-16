@@ -791,6 +791,18 @@ export const es: { readonly [K in keyof typeof en]: string } = {
   "heldCard.chip": "Tarjeta detrás de la barra · {name} ···· {last4}",
   "heldCard.giveBack": "Devuelve la tarjeta",
   "heldCard.giveBackHint": "Entrega al cliente su tarjeta: {name} ···· {last4}",
+  "heldCard.chipDetail": "Tarjeta detrás de la barra · {detail}",
+  "heldCard.chipBare": "Tarjeta detrás de la barra",
+  "heldCard.giveBackHintDetail": "Entrega al cliente su tarjeta: {detail}",
+  "heldCard.giveBackHintBare": "Entrega al cliente su tarjeta",
+  "newTab.cardBehindBar": "Tarjeta detrás de la barra",
+  "newTab.cardBehindBarName": "Nombre en la tarjeta (opcional)",
+  "newTab.cardBehindBarLast4": "Últimos 4 (opcional)",
+  "newTab.cardBehindBarHint":
+    "Guarda la tarjeta del cliente en la caja. No se le cobra nada; devuélvela al cerrar la cuenta. Nunca escribas el número completo.",
+  "barPos.tabs.cardHolds": "Retenciones con tarjeta en las cuentas",
+  "barPos.tabs.cardHoldsHint":
+    "Activado: Nueva cuenta puede poner la retención inicial en una tarjeta en el lector. Desactivado: ninguna cuenta toma retención y todas se abren con un nombre; Cerrar con la tarjeta y el cobro del cierre de cuentas nunca aplican.",
   "heldCard.returned": "Devuelta",
   "heldCard.returnedDone": "Tarjeta devuelta",
   "checkIn.walkInTakes.nothing": "No se cobra nada al registrar la entrada",

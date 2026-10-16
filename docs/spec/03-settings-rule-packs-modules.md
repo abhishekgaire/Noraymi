@@ -137,7 +137,9 @@ type TabSettings = {
   openingHoldCents: number;                                 // 5000
   flagOverCents: number;                                    // 60000: a tab over this shows on the manager's phone
   cutOffAt: string;                                         // "04:30": tabs still open are charged at their balance
-};                                                          // the consent line is a policy_versions row, built from these
+  cardRequired?: boolean;                                   // "Open a tab without a card", inverted (P-03); absent = true
+  cardHolds?: boolean;                                      // "Card holds on tabs" (U-23, D134); absent = true; false: no
+};                                                          // tab takes a hold, every tab opens by name                                                          // the consent line is a policy_versions row, built from these
 ```
 
 The operating shapes:

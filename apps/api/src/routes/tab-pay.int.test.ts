@@ -564,3 +564,151 @@ describe("a named tab without a card (P-03)", () => {
     await cardRequired(true);
   });
 });
+
+describe("card holds on tabs as a switch, and the card behind the bar on a tab (U-23; D134)", () => {
+  /** A new version of the tab settings with `fields` merged in. */
+  const tabSettings = (fields: Record<string, unknown>) =>
+    owner.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || $2::jsonb, starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId, JSON.stringify(fields)],
+    );
+  const behindBar = (state: "on" | "off") =>
+    owner.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'card_behind_bar', true, $2)
+       on conflict (venue_id, module_id) do update set state = $2`,
+      [venueId, state],
+    );
+  const openNamed = (name: string, extra: Record<string, unknown> = {}) =>
+    app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs`,
+      headers: { "idempotency-key": `u23-${++n}` },
+      payload: { card: "none", name, ...extra },
+    });
+  const listed = async (tabId: string) =>
+    (await app.inject({ method: "GET", url: `/v1/venues/${venueId}/tabs` }))
+      .json<{ tabs: { id: string; held_card: unknown }[] }>()
+      .tabs.find((t) => t.id === tabId)!;
+  const heldOnNight = async () => {
+    const night = await app.inject({
+      method: "GET",
+      url: `/v1/venues/${venueId}/nights/2026-09-25`,
+    });
+    expect(night.statusCode, night.body).toBe(200);
+    return night
+      .json<{ checks: { id: string; count: number; names: string[] }[] }>()
+      .checks.find((c) => c.id === "held_cards")!;
+  };
+
+  it("on (West 4's, absent): New tab offers the hold as before", async () => {
+    expect((await consent()) as unknown).toMatchObject({ card_holds: true, card_required: true });
+  });
+
+  it("off: a tab with a hold is refused on the server, and every tab opens by name", async () => {
+    await tabSettings({ cardHolds: false, cardRequired: true });
+    expect((await consent()) as unknown).toMatchObject({ card_holds: false, card_required: false });
+    const before = fake.requests.length;
+    const r = await open({ name: "Held" });
+    expect(r.statusCode, r.body).toBe(400);
+    expect(r.body).toContain("card_holds_off");
+    const openings = await owner.query("select 1 from tab_openings where name = 'Held'");
+    expect(openings.rows).toHaveLength(0);
+    expect(fake.requests.length).toBe(before);
+    const named = await openNamed("Rosa");
+    expect(named.statusCode, named.body).toBe(201);
+  });
+
+  it("a tab kept on the card behind the bar shows it, asks for Returned, and Close the night lists it until then", async () => {
+    await behindBar("on");
+    expect((await consent()) as unknown).toMatchObject({ card_behind_bar: true });
+    // Never the full number, and no digit in the name.
+    for (const held_card of [
+      { last4: "4242424242424242" },
+      { name: "4242 4242", last4: "4242" },
+      { name: "M. Torres", last4: "42" },
+      { name: "M. Torres", number: "4242424242424242" },
+    ])
+      expect((await openNamed("Nope", { held_card })).statusCode).toBe(400);
+    const r = await openNamed("Marisol", { held_card: { name: "M. Torres", last4: "4242" } });
+    expect(r.statusCode, r.body).toBe(201);
+    const tab = r.json<{ tab: { id: string; check_id: string } }>().tab;
+    expect(await listed(tab.id)).toMatchObject({
+      held_card: { name: "M. Torres", last4: "4242", returned: false },
+    });
+    // Both optional: a tab can keep a card with nothing typed.
+    const bare = await openNamed("Seat 4", { held_card: {} });
+    expect(bare.statusCode, bare.body).toBe(201);
+    const bareTab = bare.json<{ tab: { id: string; check_id: string } }>().tab;
+    expect(await listed(bareTab.id)).toMatchObject({
+      held_card: { name: null, last4: null, returned: false },
+    });
+
+    const night = await heldOnNight();
+    expect(night.names).toContain("Marisol · M. TORRES ···· 4242");
+    expect(night.names).toContain("Seat 4");
+
+    // Paid in cash, then Give the card back: Returned, and the night no longer lists it.
+    await send(tab.check_id, [{ variant_id: v("titos"), qty: 1 }]);
+    const rest = (await tabRow(tab.id)).rest_cents;
+    const paid = await pay(tab.id, { method: "cash", amount_cents: rest, tendered_cents: rest });
+    expect(paid.statusCode, paid.body).toBe(201);
+    const back = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/checks/${tab.check_id}/held-card/returned`,
+    });
+    expect(back.statusCode, back.body).toBe(200);
+    expect(back.json()).toMatchObject({ held_card: { returned: true } });
+    expect((await heldOnNight()).names).not.toContain("Marisol · M. TORRES ···· 4242");
+    // Nothing was charged to it: the card's name and last 4 are all that's kept, never in the audit log.
+    const audit = await owner.query<{ row: string }>(
+      "select row_to_json(a)::text as row from audit_log a where target like 'check_held_cards%'",
+    );
+    for (const a of audit.rows) expect(a.row).not.toContain("Torres");
+  });
+
+  it("a tab moved into a room carries its card to the room's check, and Undo brings it back", async () => {
+    const r = await openNamed("Iris", { held_card: { name: "I. Park", last4: "1881" } });
+    expect(r.statusCode, r.body).toBe(201);
+    const tab = r.json<{ tab: { id: string; check_id: string } }>().tab;
+    await send(tab.check_id, [{ variant_id: v("titos"), qty: 1 }]);
+    const moved = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs/${tab.id}/move-to-room`,
+      headers: { "idempotency-key": `u23-move-${++n}` },
+      payload: { session_id: ids["sess_room5"] },
+    });
+    expect(moved.statusCode, moved.body).toBe(200);
+    const roomCheck = moved.json<{ room_check_id: string }>().room_check_id;
+    const where = async () =>
+      (
+        await owner.query<{ check_id: string }>(
+          "select check_id from check_held_cards where tab_id = $1",
+          [tab.id],
+        )
+      ).rows[0]!.check_id;
+    expect(await where()).toBe(roomCheck);
+    expect((await heldOnNight()).names.some((x) => x.includes("I. PARK ···· 1881"))).toBe(true);
+    const undo = await app.inject({
+      method: "POST",
+      url: `/v1/venues/${venueId}/tabs/${tab.id}/undo-move`,
+      headers: { "idempotency-key": `u23-undo-${++n}` },
+    });
+    expect(undo.statusCode, undo.body).toBe(200);
+    expect(await where()).toBe(tab.check_id);
+  });
+
+  it("with Keep the card behind the bar off, a tab can't keep one (refused on the server)", async () => {
+    await owner.query(
+      "update check_held_cards set returned_at = now(), returned_by = taken_by where returned_at is null",
+    );
+    await behindBar("off");
+    const r = await openNamed("Off", { held_card: { name: "A. B", last4: "1234" } });
+    expect(r.statusCode, r.body).toBe(404);
+    expect(r.json()).toMatchObject({ error: { code: "module_off" } });
+    expect((await consent()) as unknown).toMatchObject({ card_behind_bar: false });
+    await behindBar("on");
+    await tabSettings({ cardHolds: true });
+  });
+});

@@ -27,6 +27,7 @@ import { DamageSheet } from "./DamageSheet.js";
 import { FaultSheet, type FaultTarget } from "./FaultSheet.js";
 import { MoveSheet } from "./MoveSheet.js";
 import { ScanId } from "./ScanId.js";
+import { GiveCardBack, heldCardChip, type HeldCard } from "./HeldCard.js";
 import "./desk.css";
 import { RoomQrActions } from "./RoomQrActions.js";
 import { OutsideCardPanel } from "./OutsideCardPanel.js";
@@ -461,9 +462,9 @@ export function RoomScreen() {
         </p>
       )}
       {cashTaken && <CashResult venueId={venueId} taken={cashTaken} />}
-      {held && !paidCheck && !held.returned && held.name && held.last4 && (
+      {held && !paidCheck && !held.returned && (
         <p className="small" data-guest-text>
-          {t("heldCard.chip", { name: held.name.toUpperCase(), last4: held.last4 })}
+          {heldCardChip(t, held)}
         </p>
       )}
       {paidCheck && held && (
@@ -990,68 +991,5 @@ export function RoomScreen() {
         )}
       </div>
     </section>
-  );
-}
-
-interface HeldCard {
-  readonly name: string | null;
-  readonly last4: string | null;
-  readonly returned: boolean;
-}
-
-/** The end of close-out with a card behind the bar (O-08; D116): give it back, then Returned. */
-function GiveCardBack({
-  venueId,
-  checkId,
-  held,
-  onReturned,
-}: {
-  venueId: string;
-  checkId: string;
-  held: HeldCard;
-  onReturned: (held: HeldCard) => void;
-}) {
-  const { t } = useT();
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  if (held.returned)
-    return (
-      <p className="notice" role="status">
-        {t("heldCard.returnedDone")}
-      </p>
-    );
-  return (
-    <div className="card give-card-back" role="group" aria-label={t("heldCard.giveBack")}>
-      <h2>{t("heldCard.giveBack")}</h2>
-      <p data-guest-text>
-        {t("heldCard.giveBackHint", {
-          name: (held.name ?? "").toUpperCase(),
-          last4: held.last4 ?? "",
-        })}
-      </p>
-      {failed && (
-        <p className="error" role="alert">
-          {t("shell.error.cantReach")}
-        </p>
-      )}
-      <button
-        type="button"
-        className="primary"
-        disabled={busy}
-        onClick={() => {
-          setBusy(true);
-          setFailed(false);
-          api<{ held_card: HeldCard }>(
-            "POST",
-            `/v1/venues/${venueId}/checks/${checkId}/held-card/returned`,
-          )
-            .then((r) => onReturned(r.held_card))
-            .catch(() => setFailed(true))
-            .finally(() => setBusy(false));
-        }}
-      >
-        {t("heldCard.returned")}
-      </button>
-    </div>
   );
 }

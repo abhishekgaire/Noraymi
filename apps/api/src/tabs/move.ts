@@ -1,3 +1,4 @@
+import { moveTabHeldCard, returnTabHeldCardToTab } from "../rooms/held-card.js";
 import { addCheckLine, allocate, emitEvent, enqueue, openSplit, type Queryable } from "@west4/db";
 import { businessDate } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
@@ -416,6 +417,8 @@ export async function moveTabToRoom(
   }
 
   await moveTab(c, venueId, tab.tab_id, "closed");
+  // Its card behind the bar goes with it, onto the room's check (U-23).
+  await moveTabHeldCard(c, venueId, tab.tab_id, room.check_id);
   await c.query(
     `update tabs set moved_to_check_id = $3, closed_at = $4, closed_by = $5, hold_declined_at = null
       where venue_id = $1 and id = $2`,
@@ -618,6 +621,7 @@ export async function undoTabMove(
     );
 
   await moveTab(c, venueId, input.tabId, "open");
+  await returnTabHeldCardToTab(c, venueId, input.tabId, tab.check_id);
   await c.query(
     `update tabs set moved_to_check_id = null, closed_at = null, closed_by = null
       where venue_id = $1 and id = $2`,

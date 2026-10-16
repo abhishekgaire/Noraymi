@@ -12864,6 +12864,86 @@ test("U-05 · Sing Sing's way: a cardless tab is New tab, a label, Open, and clo
 });
 
 /**
+ * U-23 · card holds off, and the card behind the bar on a tab (D134). West 4 turned the way Sing Sing
+ * runs: "Card holds on tabs" off (so even with its readers New tab offers no hold) and Keep the card
+ * behind the bar on. A tab opened by name keeps the card ("Card behind the bar · M. TORRES ···· 4242"
+ * on its row), the server refuses a hold, and the close ends with Give the card back and Returned.
+ */
+test("U-23 · card holds off: a tab keeps the card behind the bar and the close ends with Returned", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120_000);
+  const db = await dbClient();
+  try {
+    await db.query("update memberships set locale = 'en'");
+    const venueId = (
+      await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+    ).rows[0]!.id;
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'card_behind_bar', true, 'on')
+       on conflict (venue_id, module_id) do update set allowed = true, state = 'on'`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on, saved_at)
+       select venue_id, key, version + 1, value || jsonb_build_object('cardHolds', false),
+              starts_on, saved_at
+         from venue_settings where venue_id = $1 and key = 'tabs' order by version desc limit 1`,
+      [venueId],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await signInMayaAtTheBar(page, request, db);
+    const panel = page.getByRole("complementary");
+
+    await page.getByRole("button", { name: "New tab" }).click();
+    const opening = panel.getByRole("form", { name: "Open without a card" });
+    await expect(opening.getByLabel("Guest's first name")).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Hold a card instead" })).toHaveCount(0);
+    await expect(panel.getByRole("button", { name: "Read to guest ✓" })).toHaveCount(0);
+    await opening.getByLabel("Guest's first name").fill("Marisol");
+    await opening.getByLabel("Card behind the bar").check();
+    const cardName = opening.getByLabel("Name on the card (optional)");
+    await cardName.fill("M. Torres 4242");
+    await expect(cardName).toHaveValue("M. Torres ");
+    await cardName.fill("M. Torres");
+    await opening.getByLabel("Last 4 (optional)").fill("4242");
+    await opening.getByRole("button", { name: "Open", exact: true }).click();
+    await expect(panel.getByRole("heading", { level: 2 })).toHaveText("Marisol");
+    await expect(
+      panel.getByText("Card behind the bar · M. TORRES ···· 4242").first(),
+    ).toBeVisible();
+    const held = async () =>
+      (
+        await db.query<{ last4: string | null; returned: boolean }>(
+          `select h.last4, h.returned_at is not null as returned from check_held_cards h
+             join tabs t on t.id = h.tab_id where t.name = 'Marisol'`,
+        )
+      ).rows[0];
+    expect(await held()).toEqual({ last4: "4242", returned: false });
+
+    await page.getByRole("tab", { name: "Beer" }).click();
+    await page.getByRole("button", { name: /^Modelo · \$/ }).click();
+    await panel.getByRole("button", { name: "Send 1", exact: true }).click();
+    // The tab list has the sent round (what's left to pay) before Close tab.
+    await expect(page.getByRole("button", { name: /^Marisol \$[1-9]/ })).toBeVisible();
+    await panel.getByRole("button", { name: "Close tab", exact: true }).click();
+    const closing = panel.getByRole("region", { name: "Close tab" });
+    await closing.getByRole("button", { name: "Cash", exact: true }).click();
+    await closing.getByRole("button", { name: /^Exact \$/ }).click();
+    await closing.getByRole("button", { name: "Done" }).click();
+    const back = closing.getByRole("group", { name: "Give the card back" });
+    await expect(back).toContainText("Hand the guest their card: M. TORRES ···· 4242");
+    await back.getByRole("button", { name: "Returned" }).click();
+    await expect(panel.getByRole("region", { name: "Close tab" })).toHaveCount(0);
+    expect(await held()).toEqual({ last4: "4242", returned: true });
+    expect(await clippedText(page)).toEqual([]);
+  } finally {
+    await db.end();
+  }
+});
+
+/**
  * U-05 · cardless tabs at a venue with readers (D133): the name still comes first, Hold a card instead
  * brings back the consent line and Read to guest ✓, and Close tab on a tab that never had a card
  * leads with Tap at the reader, then Cash. West 4's own way (cards required) still opens on the line.

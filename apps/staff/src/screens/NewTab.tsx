@@ -17,7 +17,11 @@ import { hasReaders, useReaders } from "../useReaders.js";
  * (P-03), the panel leads with the name instead (U-05, D133): a name or a
  * label, then Open, and the tab opens at once with no reader and no hold;
  * Hold a card instead (only where the venue has a reader) brings back the
- * consent line and the card-first steps above.
+ * consent line and the card-first steps above. With "Card holds on tabs" off
+ * (U-23, D134) there is no hold at all: every tab opens by name, and Hold a
+ * card instead never shows. Where Keep the card behind the bar is on, a tab
+ * opened by name can tick Card behind the bar, with the name on the card and
+ * its last 4 (both optional, never the full number).
  */
 interface Consent {
   readonly version_id: string;
@@ -25,6 +29,10 @@ interface Consent {
   readonly asks_party_size: boolean;
   /** False when the venue turned on "Open a tab without a card" (P-03). */
   readonly card_required?: boolean;
+  /** False when the venue turned "Card holds on tabs" off (U-23): no hold is ever offered. */
+  readonly card_holds?: boolean;
+  /** Keep the card behind the bar is on (U-23): a tab opened by name can keep the guest's card. */
+  readonly card_behind_bar?: boolean;
 }
 interface Opening {
   readonly id: string;
@@ -65,6 +73,10 @@ export function NewTab({
   const [withCard, setWithCard] = useState(false);
   const readerList = useReaders(venueId);
   const [label, setLabel] = useState<string | null>(null);
+  // Card behind the bar (U-23): ticked, with the name on the card and its last 4, both optional.
+  const [behindBar, setBehindBar] = useState(false);
+  const [cardName, setCardName] = useState("");
+  const [cardLast4, setCardLast4] = useState("");
   const [openPressed, setOpenPressed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>(null);
@@ -163,6 +175,14 @@ export function NewTab({
           name: typed,
           label,
           ...(partySize ? { party_size: partySize } : {}),
+          ...(behindBar
+            ? {
+                held_card: {
+                  name: cardName.trim() || null,
+                  last4: cardLast4 || null,
+                },
+              }
+            : {}),
         },
         { idempotencyKey: newKey() },
       );
@@ -172,7 +192,7 @@ export function NewTab({
       const refused = e instanceof ApiCallError && e.details["reason"] === "card_required";
       setProblem(refused ? "cardRequired" : "failed");
       // The venue now opens tabs on a card: the consent line comes back to read out.
-      if (refused) setWithCard(true);
+      if (refused && consent?.card_holds !== false) setWithCard(true);
     } finally {
       setBusy(false);
     }
@@ -287,15 +307,59 @@ export function NewTab({
         >
           {partySizeField}
           {nameAndLabels}
+          {consent.card_behind_bar && (
+            <div className="card-behind-bar">
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={behindBar}
+                  onChange={(e) => setBehindBar(e.target.checked)}
+                />
+                <span>{t("newTab.cardBehindBar")}</span>
+              </label>
+              {behindBar && (
+                <>
+                  <label>
+                    <span className="small">{t("newTab.cardBehindBarName")}</span>
+                    <input
+                      value={cardName}
+                      maxLength={60}
+                      autoComplete="off"
+                      aria-label={t("newTab.cardBehindBarName")}
+                      // The name on the card holds no digit: a card number never goes in here.
+                      onChange={(e) => setCardName(e.target.value.replace(/\d/g, ""))}
+                    />
+                  </label>
+                  <label>
+                    <span className="small">{t("newTab.cardBehindBarLast4")}</span>
+                    <input
+                      value={cardLast4}
+                      inputMode="numeric"
+                      maxLength={4}
+                      autoComplete="off"
+                      aria-label={t("newTab.cardBehindBarLast4")}
+                      onChange={(e) => setCardLast4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    />
+                  </label>
+                  <p className="small muted">{t("newTab.cardBehindBarHint")}</p>
+                </>
+              )}
+            </div>
+          )}
           <p className="small muted">{t("newTab.noCardHint")}</p>
           <button
             type="submit"
             className="primary"
-            disabled={busy || (!name.trim() && !label) || (consent.asks_party_size && !partySize)}
+            disabled={
+              busy ||
+              (!name.trim() && !label) ||
+              (consent.asks_party_size && !partySize) ||
+              (behindBar && cardLast4.length > 0 && cardLast4.length < 4)
+            }
           >
             {t("newTab.open")}
           </button>
-          {hasReaders(readerList) && (
+          {consent.card_holds !== false && hasReaders(readerList) && (
             <button
               type="button"
               className="secondary"

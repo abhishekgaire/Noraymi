@@ -217,16 +217,19 @@ export async function nightChecks(
     "/close-the-night",
     false,
   );
-  // Cards kept behind the bar and not given back (O-08; D116): "Room 9 · M. TORRES ···· 4242".
+  // Cards kept behind the bar and not given back (O-08; D116), a room's or a bar tab's (U-23):
+  // "Room 9 · M. TORRES ···· 4242", "Maria · ···· 4242", or the room or tab alone when nothing was typed.
   add(
     "held_cards",
     await count(
       c,
-      `select coalesce(r.name, '') || ' · ' || upper(h.guest_name) || ' ···· ' || h.last4 as name
+      `select concat_ws(' · ', coalesce(r.name, t.name),
+                nullif(concat_ws(' ', upper(h.guest_name), '···· ' || h.last4), '')) as name
          from check_held_cards h
          join checks k on k.venue_id = h.venue_id and k.id = h.check_id
          left join room_sessions s on s.venue_id = k.venue_id and s.id = k.room_session_id
          left join rooms r on r.venue_id = s.venue_id and r.id = s.room_id
+         left join tabs t on t.venue_id = h.venue_id and t.id = h.tab_id
         where h.venue_id = $1 and h.returned_at is null and h.cleared_at is null
           and h.business_date <= $2::date and not k.training
         order by h.taken_at`,

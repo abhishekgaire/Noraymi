@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  tabCardHolds,
   tabCardRequired,
   tabConsentLine,
   zReportAtClose,
@@ -221,12 +222,23 @@ export function BarPosSettings({ venueId }: { venueId: string }) {
         <label className="check">
           <input
             type="checkbox"
+            checked={tabCardHolds(tabs)}
+            onChange={(e) => setTabs({ cardHolds: e.target.checked })}
+          />
+          <span>{t("barPos.tabs.cardHolds")}</span>
+        </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            // With card holds off every tab opens by name (U-23), so this stays ticked.
             checked={!tabCardRequired(tabs)}
+            disabled={!tabCardHolds(tabs)}
             onChange={(e) => setTabs({ cardRequired: !e.target.checked })}
           />
           <span>{t("barPos.tabs.cardless")}</span>
         </label>
       </div>
+      <p className="small muted">{t("barPos.tabs.cardHoldsHint")}</p>
       <p className="small muted">{t("barPos.tabs.cardlessHint")}</p>
       <p className="small">{t("barPos.tabs.consent")}</p>
       <blockquote className="consent-line" data-guest-text>

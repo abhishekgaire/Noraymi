@@ -1064,6 +1064,7 @@ The reader can't show our own consent line, so New tab shows it for the bartende
 - **Read to guest ✓.** Records who read it (`tabs.consent_read_by`) and the wording's version (`tabs.consent_text_version`).
 - **Tab slip.** The printed slip repeats the same line.
 - **Tabs without a card (P-03, U-05).** Where the venue turned on "Open a tab without a card", the name and the label chips come first and the line moves behind **Hold a card instead** (offered only with a reader); see [Rail](#rail) note 23.
+- **Card holds off, and the card behind the bar (U-23, D134).** With "Card holds on tabs" off, New tab never offers **Hold a card instead**. Where Keep the card behind the bar is on, the name-first form has a **Card behind the bar** tick with the name on the card and its last 4 (both optional); the tab row reads "Card behind the bar · M. TORRES ···· 4242", and Close tab ends with **Give the card back** and **Returned**.
 
 *Decided in [FB 4.8]. Spec: [Payment flows][spec-07], [Staff screens and the bar POS][spec-10].*
 
