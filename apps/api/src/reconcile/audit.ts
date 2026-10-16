@@ -3,6 +3,7 @@ import {
   AUDIT_COVERS,
   auditCheck,
   auditRefunds,
+  exemptTax,
   salesTaxRule,
   type AuditLine,
   type MoneyError,
@@ -96,6 +97,9 @@ export async function auditNight(
     d_mode: "pct" | "amount" | null;
     d_pct: string | null;
     d_amount: string | null;
+    exempt: TaxCategory[] | null;
+    org: string | null;
+    cert: string | null;
   }>(
     `select k.id, k.number::text, k.status,
             r.tax_cents::text as tax, r.gratuity_cents::text as gratuity, r.total_cents::text as total,
@@ -105,9 +109,12 @@ export async function auditNight(
               where a.venue_id = k.venue_id and a.check_id = k.id
                 and a.kind = 'payment' and a.state = 'captured')::text as paid,
             -- The discount standing on the whole check (P-02), worked again from its percent or amount.
-            d.mode as d_mode, trim_scale(d.pct)::text as d_pct, d.amount_cents::text as d_amount
+            d.mode as d_mode, trim_scale(d.pct)::text as d_pct, d.amount_cents::text as d_amount,
+            -- A tax-exempt check (P-15): taxed only in the categories it kept taxed.
+            e.still_taxed as exempt, e.organization as org, e.certificate_no as cert
        from live_checks k
        left join check_discounts d on d.venue_id = k.venue_id and d.check_id = k.id and d.removed_at is null
+       left join check_tax_exemptions e on e.venue_id = k.venue_id and e.check_id = k.id and e.removed_at is null
        left join check_revisions r on r.venue_id = k.venue_id and r.check_id = k.id and r.rev = k.revision
       where k.venue_id = $1 and k.business_date = $2::date
         and k.status in ('finalized', 'partly_paid', 'paid')
@@ -145,7 +152,7 @@ export async function auditNight(
         ref,
         status: k.status,
         lines: byCheck.get(k.id) ?? [],
-        tax,
+        tax: k.exempt ? exemptTax(tax, k.exempt) : tax,
         gratuityPct: k.pct === null ? null : Number(k.pct),
         revision:
           k.total === null
@@ -214,7 +221,18 @@ export async function auditNight(
       }),
     );
 
-  const covered = [...recon.checked, "checks", "charges", "refunds", `card_fee (${cardFee})`];
+  // Tax-exempt checks (P-15) named with their certificates, so the evidence shows every one.
+  const exempt = checks.rows
+    .filter((k) => k.exempt)
+    .map((k) => `#${k.number} ${k.org ?? ""} (certificate ${k.cert ?? ""})`);
+  const covered = [
+    ...recon.checked,
+    "checks",
+    "charges",
+    "refunds",
+    `card_fee (${cardFee})`,
+    ...(exempt.length ? [`tax_exempt: ${exempt.join("; ")}`] : []),
+  ];
   return {
     night: date,
     ok: errors.length === 0,

@@ -3,7 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { newYorkCountyFood, newYorkCountyTaxed, percentOf, cents } from "@west4/shared";
-import { salesTaxRule, splitEven, payMyShareEven, type TaxCategory } from "./check-totals.js";
+import {
+  checkDiscount,
+  discountLines,
+  exemptTax,
+  salesTaxRule,
+  splitEven,
+  payMyShareEven,
+  type TaxCategory,
+} from "./check-totals.js";
 import { poolShares } from "./tip-pool.js";
 import {
   AUDIT_COVERS,
@@ -72,6 +80,8 @@ const THROUGH_THE_AUDIT = new Set([
   "food_tax",
   // P-02: a discount on a whole check, worked again from its percent or amount and the check's lines.
   "check_discount",
+  // P-15: a tax-exempt check, its tax worked again from the categories it kept taxed.
+  "tax_exempt",
 ]);
 const AS_STORED_INPUTS = new Set([
   "room_time",
@@ -146,6 +156,35 @@ describe("the money cases, every group, through the audit (M9-15)", () => {
           check({ lines: withRev1, status: "paid", paidCents: c.expected.rev2_total_cents }),
         ),
       ).toEqual([]);
+    });
+
+  for (const c of cases.filter((x) => x.group === "tax_exempt"))
+    it(`${c.id}: an exempt check's tax is worked again; the full tax on it is caught`, () => {
+      const e = c.expected;
+      const net = lines(c.inputs.lines);
+      const d = c.inputs.discount
+        ? discountLines(checkDiscount(net, { mode: "pct", pct: c.inputs.discount.pct }))
+        : [];
+      const all = [...net, ...d.map((l): AuditLine => ({ ...l }))];
+      const discount = c.inputs.discount
+        ? { mode: "pct" as const, pct: c.inputs.discount.pct }
+        : null;
+      const base = {
+        tax: exemptTax(tax, c.inputs.still_taxed),
+        gratuityPct: c.inputs.gratuity_applies ? 20 : null,
+        discount,
+      };
+      expect(
+        auditCheck(check({ ...base, lines: stored(all, e.tax_cents, e.gratuity_cents) })),
+      ).toEqual([]);
+      // Tax as if it weren't exempt is a money error when the exemption untaxed anything.
+      const full = salesTaxRule(newYorkCountyTaxed);
+      const fullTax = auditCheck(check({ ...base, tax: full, lines: stored(all, 0, 0) }));
+      const asIfTaxed = auditCheck(
+        check({ ...base, lines: stored(all, e.tax_cents + 1, e.gratuity_cents) }),
+      );
+      expect(asIfTaxed).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "tax" })]));
+      expect(fullTax.length).toBeGreaterThan(0);
     });
 
   for (const c of cases.filter((x) => x.group === "check_discount"))

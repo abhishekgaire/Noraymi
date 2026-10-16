@@ -809,7 +809,7 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
 
     await page.goto("/admin/features");
     await expect(page.getByRole("heading", { level: 2 })).toHaveText("Features");
-    await expect(page.getByText("18 on · 4 off")).toBeVisible();
+    await expect(page.getByText("18 on · 5 off")).toBeVisible();
     const stateGroup = (name: string) => page.getByRole("group", { name: `${name} · State` });
     for (const off of ["Song system control", "Marketing texts"]) {
       await expect(stateGroup(off).getByRole("button", { name: "Off" })).toHaveAttribute(
@@ -896,12 +896,12 @@ test("Admin → Features: 18 on and 4 off, no phase 2 modules, and the Bar scree
     await page.getByRole("button", { name: "Turn off", exact: true }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("off");
     expect(await stateOf("bar_screen")).toBe("off");
-    await expect(page.getByText("16 on · 6 off")).toBeVisible();
+    await expect(page.getByText("16 on · 7 off")).toBeVisible();
     await stateGroup("Bar screen & tickets").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("bar_screen")).toBe("on");
     await stateGroup("Ordering from the room").getByRole("button", { name: "On" }).click();
     await expect.poll(() => stateOf("room_ordering")).toBe("on");
-    await expect(page.getByText("18 on · 4 off")).toBeVisible();
+    await expect(page.getByText("18 on · 5 off")).toBeVisible();
   } finally {
     await db.query(
       "update venue_modules set state = 'on' where module_id in ('bar_screen', 'room_ordering')",
@@ -4509,6 +4509,86 @@ test("P-02 · Discount the check: $5.00 off Room 9 with a reason, counted in the
     await expect(discount.getByTestId("discount-standing")).toHaveCount(0);
     await expect(fix).toContainText(`$${was}.00 left this shift`);
   } finally {
+    await db.end();
+  }
+});
+
+/**
+ * P-15 · tax-exempt checks: with Tax-exempt sales on and approvals set to none, Maya can't make Room 9
+ * tax exempt without a certificate number; with one, it stands with the organization and certificate
+ * (drinks still taxed), and she removes it before payment.
+ */
+test("P-15 · Tax exempt: refused without a certificate, then standing on Room 9, then removed", async ({
+  page,
+}) => {
+  test.setTimeout(150_000);
+  const db = await dbClient();
+  const venueId = (
+    await db.query<{ id: string }>("select id from venues where slug = 'west4karaoke'")
+  ).rows[0]!.id;
+  try {
+    await db.query("update memberships set locale = 'en'");
+    await db.query(
+      `insert into venue_modules (venue_id, module_id, allowed, state) values ($1, 'tax_exempt', true, 'on')
+       on conflict (venue_id, module_id) do update set state = 'on', allowed = true`,
+      [venueId],
+    );
+    await db.query(
+      `insert into venue_settings (venue_id, key, version, value, starts_on)
+       select $1, 'approvals', coalesce(max(version), 0) + 1, '{"mode":"none"}', '2026-09-01'
+         from venue_settings where venue_id = $1 and key = 'approvals'`,
+      [venueId],
+    );
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto("/sign-in");
+    await page.getByRole("button", { name: "Pair this screen" }).click();
+    await page
+      .getByLabel("Pairing code from Admin → Devices")
+      .fill(await pairingCode(db, "bar_computer", "Bar computer"));
+    expect(
+      (
+        await page.request.post("/v1/ops/clock", { data: { server_time: "2026-09-26T02:41:00Z" } })
+      ).ok(),
+    ).toBe(true);
+    await page.getByRole("button", { name: "Pair", exact: true }).click();
+    await page.getByRole("button", { name: /Maya S\./ }).click();
+    await typePin(page, "4071");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Bar POS");
+
+    const room9 = (await db.query<{ id: string }>("select id from rooms where name = 'Room 9'"))
+      .rows[0]!.id;
+    await page.goto(`/room/${room9}`);
+    const exempt = page.getByRole("region", { name: "Tax exempt", exact: true });
+    await exempt.getByRole("button", { name: "Make tax exempt" }).click();
+    await exempt.getByLabel("Organization's name").fill("Community Choir");
+    await exempt.getByRole("button", { name: "Ask to make tax exempt" }).click();
+    await expect(exempt.getByRole("alert")).toContainText("Type the certificate number");
+    await exempt.getByLabel("Exemption certificate number").fill("EX-000123");
+    await exempt.getByRole("button", { name: "Ask to make tax exempt" }).click();
+    await expect(exempt.getByRole("status")).toHaveText(
+      "Tax exempt · no sales tax on what it covers",
+    );
+    await expect(exempt.getByTestId("tax-exempt-standing")).toContainText(
+      "Tax exempt · Community Choir · Certificate EX-000123",
+    );
+    await expect(exempt).toContainText("Still taxed: Drinks");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.reload();
+    await expect(exempt.getByTestId("tax-exempt-standing")).toBeVisible();
+    expect(await clippedText(page)).toEqual([]);
+
+    await exempt.getByRole("button", { name: "Remove tax exempt" }).click();
+    await expect(exempt.getByRole("status")).toHaveText("No longer tax exempt");
+    await expect(exempt.getByTestId("tax-exempt-standing")).toHaveCount(0);
+  } finally {
+    await db.query("delete from venue_modules where venue_id = $1 and module_id = 'tax_exempt'", [
+      venueId,
+    ]);
+    await db.query(
+      `delete from venue_settings where venue_id = $1 and key = 'approvals'
+          and value = '{"mode":"none"}'::jsonb`,
+      [venueId],
+    );
     await db.end();
   }
 });

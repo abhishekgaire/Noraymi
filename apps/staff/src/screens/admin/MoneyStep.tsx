@@ -47,6 +47,7 @@ export function MoneyStep({
     <AdminDraftProvider venueId={venueId}>
       <ModuleSwitch venueId={venueId} id="outside_card" />
       <ModuleSwitch venueId={venueId} id="check_discount" />
+      <ModuleSwitch venueId={venueId} id="tax_exempt" />
       <MoneyStepBody venueId={venueId} registerSave={registerSave} onSaved={onSaved} />
     </AdminDraftProvider>
   );
@@ -55,11 +56,12 @@ export function MoneyStep({
 /**
  * The owner's switches in step 7, as in Admin → Features, saved at once through the modules route:
  * Paid on an outside card machine (F-10; D126), off by default, and a discount on a whole check
- * (P-02), on by default; the bell (P-11) in step 9, on by default.
+ * (P-02), on by default; Tax-exempt sales (P-15), off by default; the bell (P-11) in step 9, on by default.
  */
 const SWITCH_LABEL = {
   outside_card: "onboarding.money.outsideCard",
   check_discount: "onboarding.money.checkDiscount",
+  tax_exempt: "onboarding.money.taxExempt",
   bell: "onboarding.team.bell",
 } as const;
 export function ModuleSwitch({ venueId, id }: { venueId: string; id: keyof typeof SWITCH_LABEL }) {

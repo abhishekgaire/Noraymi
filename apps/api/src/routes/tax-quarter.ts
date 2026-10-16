@@ -5,6 +5,7 @@ import { Temporal, cents, divideByWeights, type Clock } from "@west4/shared";
 import { route } from "../http/conventions.js";
 import { ApiError } from "../http/errors.js";
 import { venueClock } from "../rooms/assignment.js";
+import { exemptSales } from "../rooms/tax-exempt.js";
 
 /**
  * The sales-tax quarter (M7-17; Money rules 2 and 8; spec 08 · Reports and
@@ -34,6 +35,17 @@ export interface TaxQuarterReport {
     readonly business_date: string;
     readonly taxable_base_cents: number;
     readonly tax_cents: number;
+  };
+  /** Tax-exempt checks in the quarter (P-15), each with its certificate, and the sales left untaxed. */
+  readonly exempt: {
+    readonly sales_cents: number;
+    readonly checks: readonly {
+      readonly business_date: string;
+      readonly check: string;
+      readonly organization: string;
+      readonly certificate_no: string;
+      readonly exempt_sales_cents: number;
+    }[];
   };
 }
 
@@ -152,10 +164,21 @@ export async function taxQuarterReport(
       [venueId, quarter.end, timeZone],
     )
   ).rows[0]!;
+  const exempt = await exemptSales(c, venueId, quarter.start, quarter.end);
   return {
     quarter,
     boundary,
     rows,
+    exempt: {
+      sales_cents: exempt.reduce((sum, x) => sum + x.exempt_sales_cents, 0),
+      checks: exempt.map((x) => ({
+        business_date: x.business_date,
+        check: x.check,
+        organization: x.organization,
+        certificate_no: x.certificate_no,
+        exempt_sales_cents: x.exempt_sales_cents,
+      })),
+    },
     tax_cents: rows.reduce((s, r) => s + r.tax_cents, 0) + Number(adjustments.tax),
     not_taxed: { gratuity_cents: Number(gratuity) },
     adjustments: {
@@ -207,6 +230,19 @@ function csv(r: TaxQuarterReport): string {
   out.push(
     [r.quarter.label, "Not taxed: gratuity", "", "", m(r.not_taxed.gratuity_cents), ""].join(","),
   );
+  // Tax-exempt checks (P-15): one row each, the certificate in the jurisdiction column's place.
+  const q = (text: string) => `"${text.replace(/"/g, '""')}"`;
+  for (const x of r.exempt.checks)
+    out.push(
+      [
+        r.quarter.label,
+        q(`Exempt: ${x.business_date} ${x.check} ${x.organization}`),
+        q(`Certificate ${x.certificate_no}`),
+        "",
+        m(x.exempt_sales_cents),
+        "",
+      ].join(","),
+    );
   out.push([r.quarter.label, "Total tax", "", "", "", m(r.tax_cents)].join(","));
   return `${out.join("\n")}\n`;
 }

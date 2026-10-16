@@ -6,6 +6,7 @@ import { useT } from "../../i18n.js";
 import { useSession } from "../../session.js";
 import { TextingSwitches } from "./TextingSwitches.js";
 import { PinAgainChoices } from "./PinAgainChoices.js";
+import { TaxExemptChoices } from "./TaxExemptChoices.js";
 
 /**
  * Admin → Features → Choices (F-03; D124; spec 03 · Choices): the settings an owner picks beside the
@@ -138,6 +139,12 @@ export function FeatureChoices({ venueId }: { venueId: string }) {
         <li className="module" aria-label={t("pinAgain.choices")}>
           <PinAgainChoices venueId={venueId} isOwner={isOwner} />
         </li>
+        {(state.status === "signedIn" ? (state.membership.modules ?? {}) : {})["tax_exempt"] ===
+          "on" && (
+          <li className="module" aria-label={t("taxExempt.choices")}>
+            <TaxExemptChoices venueId={venueId} />
+          </li>
+        )}
       </ul>
     </section>
   );

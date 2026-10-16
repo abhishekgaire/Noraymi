@@ -13,6 +13,7 @@ import { prepaidText } from "./room-start.js";
 import { FoodMark, UnsentReminder, type CheckFood } from "./SendToKitchen.js";
 import { FixPanel, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
+import { TaxExemptPanel, type PendingTaxExempt, type TaxExemptView } from "./TaxExemptPanel.js";
 import { PresentCheck, usePresent } from "./PresentCheck.js";
 import { TapPayment } from "./TapPayment.js";
 import { CardOnFile, type OnFile } from "./CardOnFile.js";
@@ -147,6 +148,11 @@ export function RoomScreen() {
     standing: CheckDiscountView | null;
     pending: PendingDiscount | null;
   }>({ standing: null, pending: null });
+  // Tax exempt (P-15), standing or waiting for approval.
+  const [exempt, setExempt] = useState<{
+    standing: TaxExemptView | null;
+    pending: PendingTaxExempt | null;
+  }>({ standing: null, pending: null });
   const [holds, setHolds] = useState<readonly { tab_id: string; name: string; cents: number }[]>(
     [],
   );
@@ -202,6 +208,8 @@ export function RoomScreen() {
                 pending_fixes: PendingFix[];
                 discount?: CheckDiscountView | null;
                 pending_discount?: PendingDiscount | null;
+                tax_exempt?: TaxExemptView | null;
+                pending_tax_exempt?: PendingTaxExempt | null;
                 holds?: { tab_id: string; name: string; cents: number }[];
                 amount_due_cents?: number;
                 cash_due_cents?: number | null;
@@ -226,6 +234,10 @@ export function RoomScreen() {
         setDiscount({
           standing: ("discount" in check ? check.discount : null) ?? null,
           pending: ("pending_discount" in check ? check.pending_discount : null) ?? null,
+        });
+        setExempt({
+          standing: ("tax_exempt" in check ? check.tax_exempt : null) ?? null,
+          pending: ("pending_tax_exempt" in check ? check.pending_tax_exempt : null) ?? null,
         });
         setHolds(("holds" in check ? check.holds : null) ?? []);
         setCheckStatus(check.check?.status ?? null);
@@ -726,6 +738,16 @@ export function RoomScreen() {
                   checkId={s.check_id}
                   discount={discount.standing}
                   pending={discount.pending}
+                  open={checkStatus === "open"}
+                  onDone={() => void load()}
+                />
+              )}
+              {s.check_id && signedIn?.membership.permissions.includes("comps.reasonOnly") && (
+                <TaxExemptPanel
+                  venueId={venueId}
+                  checkId={s.check_id}
+                  exempt={exempt.standing}
+                  pending={exempt.pending}
                   open={checkStatus === "open"}
                   onDone={() => void load()}
                 />

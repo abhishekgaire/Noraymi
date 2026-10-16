@@ -81,6 +81,7 @@ export const MODULE_GROUP: Readonly<Record<ModuleId, AdminGroup>> = {
   cash_discount: "money",
   outside_card: "money",
   check_discount: "money",
+  tax_exempt: "money",
   admin: "venue",
   devices: "venue",
   safety: "venue",

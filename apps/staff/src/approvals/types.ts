@@ -54,6 +54,7 @@ export const approvalKinds = [
   "over_hold",
   "discount",
   "tip_change",
+  "tax_exempt",
 ] as const;
 
 export function kindKey(kind: string) {

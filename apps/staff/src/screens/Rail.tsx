@@ -45,6 +45,7 @@ import { RefundSheet } from "./RefundSheet.js";
 import { TipChangeSheet } from "./TipChangeSheet.js";
 import { FixPanel, isFixable, type PendingFix } from "./FixPanel.js";
 import { DiscountPanel, type CheckDiscountView, type PendingDiscount } from "./DiscountPanel.js";
+import { TaxExemptPanel, type PendingTaxExempt, type TaxExemptView } from "./TaxExemptPanel.js";
 import { MoveToRoom, MoveUndo, RoomCardTap } from "./MoveTab.js";
 import { CheckInSheet } from "./CheckInSheet.js";
 import { Dialog } from "../layout/Dialog.js";
@@ -316,6 +317,11 @@ export function Rail() {
     standing: CheckDiscountView | null;
     pending: PendingDiscount | null;
   }>({ standing: null, pending: null });
+  // Tax exempt (P-15), standing or waiting for approval.
+  const [exempt, setExempt] = useState<{
+    standing: TaxExemptView | null;
+    pending: PendingTaxExempt | null;
+  }>({ standing: null, pending: null });
   /** The sent drink tapped on the tab, for Void, Comp or Move (M6-15). */
   const [fixing, setFixing] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -517,15 +523,19 @@ export function Rail() {
         pending_fixes?: PendingFix[];
         discount?: CheckDiscountView | null;
         pending_discount?: PendingDiscount | null;
+        tax_exempt?: TaxExemptView | null;
+        pending_tax_exempt?: PendingTaxExempt | null;
       }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
       setLineState({ checkId, lines: v.lines });
       setHolds(v.holds ?? []);
       setPendingFixes(v.pending_fixes ?? []);
       setDiscount({ standing: v.discount ?? null, pending: v.pending_discount ?? null });
+      setExempt({ standing: v.tax_exempt ?? null, pending: v.pending_tax_exempt ?? null });
     } catch {
       setLineState({ checkId, lines: [] });
       setHolds([]);
       setDiscount({ standing: null, pending: null });
+      setExempt({ standing: null, pending: null });
     }
   }, [venueId, checkId]);
   useEffect(() => void loadLines(), [loadLines, tabs, rooms]);
@@ -2017,6 +2027,19 @@ export function Rail() {
                     checkId={checkId}
                     discount={discount.standing}
                     pending={discount.pending}
+                    open={fixOpen}
+                    folded
+                    onDone={() => void load()}
+                  />
+                )}
+                {/* Tax exempt (P-15), beside the discount. */}
+                {checkId && (fixOpen || exempt.standing) && canFix && (
+                  <TaxExemptPanel
+                    key={`tax-exempt-${checkId}`}
+                    venueId={venueId}
+                    checkId={checkId}
+                    exempt={exempt.standing}
+                    pending={exempt.pending}
                     open={fixOpen}
                     folded
                     onDone={() => void load()}

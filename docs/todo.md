@@ -94,6 +94,7 @@ S1 and S2 are in the accountant's letter in [sign-off-requests.md](gate/sign-off
 
 - [ ] **S1. Are room time, damage fees, kept deposits and no-show charges taxable, is gratuity exempt, and does each kept deposit need its own check number?** Unblocks GA-M4. Until then: room time, drinks and damage taxed; kept deposits, no-show charges and gratuity untaxed; each kept deposit its own check.
 - [ ] **S2. Which business date gets after-midnight sales on the night a tax quarter ends?** Unblocks GA-M4. Until then: the business date (the night before), shown on its own line.
+- [ ] **Tax-exempt checks (P-15): which sales an exemption covers (room time, food, drinks and alcohol, damage, the card fee), which certificates are accepted, and whether a copy must be kept.** Accountant. Until then: Tax-exempt sales is off by default, and on an exempt check drinks stay taxed (Admin → Features → Choices → Taxed even on a tax-exempt check).
 - [ ] **Sales tax on prepared food sold in rooms and at the bar in NYC, and how to split a package that mixes food, drinks and room time.** Until then: food at the drinks rate; packages split by regular price (K-10).
 - [ ] **Is a card surcharge taxable, and does a cash discount lower the taxable amount?** Not the gate at West 4, but it matters for Sing Sing's cash discount.
 

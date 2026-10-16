@@ -1706,6 +1706,7 @@ Tick each when it reads as this guide says. Note the section number of anything 
 - [ ] 30.12 Today at a glance, N on shift
 - [ ] 30.13 Menu order
 - [ ] 30.14 Activity log and About
+- [ ] 30.15 Tax-exempt check: Room 9 tax $14.02, on the Z report with its certificate
 
 **Fewer taps (U)**
 - [ ] 31.1 Outside card machine on a quick sale; no reader panel without readers
@@ -2040,6 +2041,15 @@ Walked in 19.9 (Admin → **Sounds & rules**) and, with the **Time's up** strip 
 3. Pick Person **Andy C.**, then Kind, then From and To: the list follows each filter; dates with nothing read "Nothing matches these filters." **Clear filters** brings everything back; **Show older** loads the next 50.
 4. With Spanish chosen: **Registro de actividad**, Persona, Tipo, Desde, Hasta, Quitar filtros.
 5. Sign in as Andy (a manager): Admin lists **About** but no Activity log (managers come with P-10). About shows the staff app's version, "Not in the desktop app" in a browser (the desktop app's version on the bar computer), the server's version, West 4 Boho Karaoke and its venue id, and Support · Email and Phone, "Not set yet" until `SUPPORT_EMAIL` and `SUPPORT_PHONE` are set. (Venue B's rows never show: `activity.int.test.ts` checks it.)
+
+### 30.15 Tax-exempt checks (P-15)
+
+1. Sign in as Abhishek (the owner). Admin → Features → **Tax-exempt sales** is off by default (also a switch in Set up your venue step 7). Turn it on. Under Choices, **Taxed even on a tax-exempt check** shows with **Drinks** ticked (the cautious default until the accountant answers).
+2. On the front desk as Maya (`4071`), open Room 9 and tap **Make tax exempt**. Leave the certificate number empty and tap **Ask to make tax exempt**: "Type the certificate number · a check can't be tax exempt without it" (the server refuses it too). Type an organization's name and a certificate number and ask again: the panel reads "Waiting for Andy C." until Andy approves it on his phone (or by PIN at the register, per Admin → Features → Approvals).
+3. Once approved, the panel shows "Tax exempt · [organization] · Certificate [number]" and "Still taxed: Drinks". **Present the check**: the tax is **$14.02** (drinks only; room time pays none), the gratuity still $96.00, the total $590.02 and $470.02 left to pay after the deposit.
+4. Close the night's X report lists **Tax-exempt sales $322.00** with "Room 9 · [organization] · Certificate [number]"; the printed X and Z reports carry the same lines, and Reports → the sales-tax quarter's CSV has an "Exempt:" row with the certificate.
+5. On a bar tab, **Make tax exempt** then **Remove tax exempt** before payment: the next total is taxed again. With the switch off in Admin → Features, **Make tax exempt** disappears and the server refuses it (`tax-exempt.int.test.ts` checks it); an exemption already standing can still be removed.
+6. With Spanish chosen: **Marcar exenta de impuestos**, **Número del certificado de exención**.
 
 
 ---

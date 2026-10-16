@@ -40,8 +40,8 @@ const west4: ModuleStates = {
 };
 
 describe("modules", () => {
-  it("lists the 31 modules spec 03 names, with the six core ones always on (D124)", () => {
-    expect(moduleIds).toHaveLength(31);
+  it("lists the 32 modules spec 03 names, with the six core ones always on (D124)", () => {
+    expect(moduleIds).toHaveLength(32);
     expect(modules.filter((m) => m.core).map((m) => m.id)).toEqual([
       "payments",
       "alcohol",

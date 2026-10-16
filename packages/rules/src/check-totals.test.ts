@@ -12,6 +12,7 @@ import {
   checkTotals,
   depositVsCheck,
   discountLines,
+  exemptTax,
   payMyShareEven,
   refundCap,
   displayPrice,
@@ -497,5 +498,30 @@ describe("check_discount, from the money cases", () => {
     const first = checkDiscount(lines, { mode: "pct", pct: "10" });
     const again = checkDiscount([...lines, ...discountLines(first)], { mode: "pct", pct: "10" });
     expect(again).toEqual(first);
+  });
+});
+
+describe("tax_exempt, from the money cases", () => {
+  const g = group("tax_exempt");
+  it("has the cases: drinks kept taxed, nothing taxed, a damage fee, after a discount", () =>
+    expect(g.length).toBeGreaterThanOrEqual(4));
+  for (const c of g)
+    it(c.id, () => {
+      const lines = toLines(c.inputs.lines);
+      const d = c.inputs.discount
+        ? discountLines(checkDiscount(lines, { mode: "pct", pct: c.inputs.discount.pct }))
+        : [];
+      const t = checkTotals([...lines, ...d], {
+        tax: exemptTax(taxFor(c), c.inputs.still_taxed),
+        gratuityPct: c.inputs.gratuity_applies ? 20 : null,
+        depositCents: c.inputs.deposit_cents,
+      });
+      expect(asCase(t)).toEqual(c.expected);
+    });
+  it("never adds a category the rule pack doesn't tax, and drops the surcharge's tax unless it stays", () => {
+    const e = exemptTax(tax, ["drink", "food"]);
+    expect(e.taxedCategories).toEqual(["drink"]);
+    expect(e.surchargeTaxable).toBe(false);
+    expect(e.rate).toBe(tax.rate);
   });
 });

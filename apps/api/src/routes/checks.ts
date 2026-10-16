@@ -6,6 +6,7 @@ import { ApiError } from "../http/errors.js";
 import { checkView } from "../rooms/checks.js";
 import { addDamageFee } from "../rooms/damage.js";
 import { giveDiscount, removeDiscount } from "../rooms/discount.js";
+import { askTaxExempt, removeTaxExempt } from "../rooms/tax-exempt.js";
 import { fixLine } from "../rooms/fix.js";
 import { finalizeCheck } from "../rooms/finalize.js";
 import { parseHeldCard, returnHeldCard, takeHeldCard } from "../rooms/held-card.js";
@@ -358,6 +359,67 @@ export function checksRoutes(app: FastifyInstance, options: { clock: Clock }): v
       const by = personOf(request.principal as { kind: string; userId?: string });
       await request.inVenue((c) =>
         removeDiscount(c, request.venueId!, { checkId, userId: by, now: options.clock.now() }),
+      );
+      return { status: "removed" };
+    },
+  );
+
+  // Tax-exempt checks (P-15): the Tax-exempt sales switch's; the organization's name and its
+  // exemption certificate number are required, and a manager approves per the venue's setting.
+  // Taking it off works while the check is open, even with the switch off.
+  const taxExemptBody = z
+    .object({
+      organization: z.string().max(200),
+      certificate_no: z.string().max(60),
+    })
+    .strict();
+  app.post<{ Params: { venueId: string; checkId: string }; Body: unknown }>(
+    "/v1/venues/:venueId/checks/:checkId/tax-exempt",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "tax_exempt",
+        action: "comps.reasonOnly",
+        idempotency: "optional",
+      }),
+    },
+    async (request, reply) => {
+      const parsed = taxExemptBody.safeParse(request.body ?? {});
+      if (!parsed.success)
+        throw new ApiError(
+          "invalid_request",
+          "tax exempt needs { organization, certificate_no }: the organization's name and its exemption certificate number",
+        );
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      const answer = await request.inVenue((c) =>
+        askTaxExempt(c, request.venueId!, {
+          checkId,
+          organization: parsed.data.organization,
+          certificateNo: parsed.data.certificate_no,
+          userId: by,
+          deviceId: request.signedDevice?.deviceId ?? request.session?.deviceId ?? null,
+          now: options.clock.now(),
+        }),
+      );
+      return reply.code(answer.status === "approved" ? 201 : 202).send(answer);
+    },
+  );
+  app.post<{ Params: { venueId: string; checkId: string } }>(
+    "/v1/venues/:venueId/checks/:checkId/tax-exempt/remove",
+    {
+      config: route({
+        principals: ["owner_manager", "staff"],
+        module: "core",
+        action: "comps.reasonOnly",
+        idempotency: "optional",
+      }),
+    },
+    async (request) => {
+      const checkId = discountCheck(request.params.checkId);
+      const by = personOf(request.principal as { kind: string; userId?: string });
+      await request.inVenue((c) =>
+        removeTaxExempt(c, request.venueId!, { checkId, userId: by, now: options.clock.now() }),
       );
       return { status: "removed" };
     },

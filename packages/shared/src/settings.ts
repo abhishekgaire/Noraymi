@@ -462,6 +462,30 @@ export const pinAgainSchema = z
   .strict();
 export const PIN_AGAIN_DEFAULTS: z.infer<typeof pinAgainSchema> = { actions: ["no_sale"] };
 
+/**
+ * Tax-exempt checks (P-15; Money rules 8; module tax_exempt): the tax categories that stay taxed on a
+ * check marked tax exempt. Which sales an exemption covers is the accountant's question (spec 14);
+ * the cautious default keeps drinks taxed, so alcohol is never sold tax-free until they say so.
+ */
+export const taxCategories = [
+  "room_time",
+  "drink",
+  "food",
+  "song",
+  "damage",
+  "fee",
+  "surcharge",
+] as const;
+export const taxExemptSchema = z
+  .object({
+    stillTaxed: z
+      .array(z.enum(taxCategories))
+      .max(taxCategories.length)
+      .refine((a) => new Set(a).size === a.length, "each category once"),
+  })
+  .strict();
+export const TAX_EXEMPT_DEFAULTS: z.infer<typeof taxExemptSchema> = { stillTaxed: ["drink"] };
+
 /** The texts with a switch in `texting` beside the venue-wide one. */
 export type TextingKind = "staffCodes" | "orderWaiting" | "singerCode" | "staffReplies";
 
@@ -582,6 +606,7 @@ export const settingsSchemas = {
   approvals: approvalsSchema,
   menuOrder: menuOrderSchema,
   pinAgain: pinAgainSchema,
+  taxExempt: taxExemptSchema,
 } as const;
 
 export type SettingsKey = keyof typeof settingsSchemas;
@@ -650,6 +675,7 @@ export const settingsDefaults: Partial<SettingsMap> = {
   approvals: APPROVALS_DEFAULTS,
   menuOrder: MENU_ORDER_DEFAULTS,
   pinAgain: PIN_AGAIN_DEFAULTS,
+  taxExempt: TAX_EXEMPT_DEFAULTS,
 };
 
 export type SettingsValue<K extends SettingsKey> = z.infer<(typeof settingsSchemas)[K]>;

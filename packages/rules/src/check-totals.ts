@@ -63,6 +63,21 @@ export function salesTaxRule(pack: RulePack): SalesTaxRule {
   };
 }
 
+/**
+ * A tax-exempt check's sales tax (P-15; Money rules 8): the same rate and code, but only the
+ * categories the venue keeps taxed on an exempt check (`taxExempt.stillTaxed`, drinks by default,
+ * the accountant's to change) that the pack taxes at all. Every other category, and the card fee's
+ * tax unless the surcharge stays taxed, comes to zero on that check.
+ */
+export function exemptTax(tax: SalesTaxRule, stillTaxed: readonly TaxCategory[]): SalesTaxRule {
+  const taxed = tax.taxedCategories.filter((c) => stillTaxed.includes(c));
+  return {
+    ...tax,
+    taxedCategories: taxed,
+    surchargeTaxable: tax.surchargeTaxable && taxed.includes("surcharge"),
+  };
+}
+
 /** Tax on a base at the pack's rate (a fraction such as 0.08875), half up. */
 export const taxOn = (base: number, rate: number): Cents => {
   const r = ratio(rate);

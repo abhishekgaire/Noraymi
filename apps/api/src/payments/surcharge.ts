@@ -13,6 +13,7 @@ import { Temporal } from "@west4/shared";
 import { confirmOnReader, retrieveCollected, setSurcharge } from "../stripe/surcharge.js";
 import type { PaymentDeps } from "./run.js";
 import { confirmTabCard } from "../tabs/open.js";
+import { standingExemption } from "../rooms/tax-exempt.js";
 
 /**
  * The card fee at the reader (M4-25; Money rules 10; Payment flows · Card fee
@@ -39,6 +40,31 @@ const pctOf = (rate: number) => {
   const out = frac.length > 2 ? `${digits.slice(0, point)}.${digits.slice(point)}` : digits;
   return out.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 };
+
+/** The tax-exempt check (P-15) a card payment is for, if it's exempt. */
+async function exemptCheckOf(c: Queryable, venueId: string, paymentId: string) {
+  const a = (
+    await c.query<{ check_id: string }>(
+      `select check_id from payment_allocations
+        where venue_id = $1 and payment_id = $2 and kind = 'payment' and check_id is not null limit 1`,
+      [venueId, paymentId],
+    )
+  ).rows[0];
+  return a ? standingExemption(c, venueId, a.check_id) : null;
+}
+
+/**
+ * The tax rate a cash discount takes back with it: none on a tax-exempt check (P-15), the cautious
+ * default, since the discount can't tell its taxed part from the exempt one; the pack's otherwise.
+ */
+async function cashTaxRatePct(
+  c: Queryable,
+  venueId: string,
+  checkId: string,
+  ratePct: string,
+): Promise<string> {
+  return (await standingExemption(c, venueId, checkId)) ? "0" : ratePct;
+}
 
 /** The surcharge that applies on a night, or null (the fee off, the flag off, or still in its notice period). */
 export async function surchargeFor(
@@ -99,6 +125,8 @@ export async function confirmCollected(deps: PaymentDeps, venueId: string, payme
         held: Number(held),
         account: await stripeAccountFor(c, venueId, payment.training),
         terms: await surchargeFor(c, venueId, payment.business_date),
+        // A tax-exempt check (P-15): the surcharge carries no tax unless the venue keeps fees taxed.
+        exempt: await exemptCheckOf(c, venueId, paymentId),
       };
     },
   );
@@ -124,7 +152,11 @@ export async function confirmCollected(deps: PaymentDeps, venueId: string, payme
         pi.id,
         {
           amountCents:
-            pi.amount + fee.surchargeCents + (ctx.terms.taxable ? fee.taxOnSurchargeCents : 0),
+            pi.amount +
+            fee.surchargeCents +
+            (ctx.terms.taxable && (!ctx.exempt || ctx.exempt.still_taxed.includes("surcharge"))
+              ? fee.taxOnSurchargeCents
+              : 0),
           surchargeCents: fee.surchargeCents,
         },
         `${paymentId}:surcharge:${ctx.attempt.attempt_no}`,
@@ -270,7 +302,7 @@ export async function cashPricer(
     return cashDiscount({
       amountCents: input.amountCents,
       pct: terms.pct,
-      taxRatePct: terms.taxRatePct,
+      taxRatePct: await cashTaxRatePct(c, venueId, input.checkId, terms.taxRatePct),
       foodIncludesFee: terms.foodIncludesFee,
       foodWeightCents: weights.food,
       otherWeightCents: weights.other + (terms.foodIncludesFee ? 0 : (input.extraOtherCents ?? 0)),
@@ -331,7 +363,7 @@ export async function applyCashDiscount(
   const d = cashDiscount({
     amountCents: input.amountCents,
     pct: terms.pct,
-    taxRatePct: terms.taxRatePct,
+    taxRatePct: await cashTaxRatePct(c, venueId, input.checkId, terms.taxRatePct),
     foodIncludesFee: terms.foodIncludesFee,
     foodWeightCents: weights.food,
     otherWeightCents: weights.other,

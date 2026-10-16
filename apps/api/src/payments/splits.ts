@@ -16,6 +16,7 @@ import {
 import { checkTotals, salesTaxRule, splitByItem, splitEven, type TaxCategory } from "@west4/rules";
 import { Temporal, cents, divideByWeights } from "@west4/shared";
 import { ApiError } from "../http/errors.js";
+import { checkTax } from "../rooms/tax-exempt.js";
 
 /**
  * Splits (M4-14; Money rules 1 and 13; Payment flows · Split), kept on the
@@ -95,7 +96,7 @@ export async function startSplit(
       ).rows[0]?.p ?? "us-ny-new-york-county";
     const pack = await rulePackFor(c, packId, Temporal.PlainDate.from(found.check.business_date));
     if (!pack) throw new ApiError("internal", "no usable rule pack");
-    const tax = salesTaxRule(pack.pack);
+    const tax = await checkTax(c, venueId, checkId, salesTaxRule(pack.pack));
     // The standing lines: every sale and correction, and the revision's room time (tax and gratuity are shared).
     const reversed = new Set(
       found.lines.map((l) => l.reverses_id).filter((x): x is number => x !== null),

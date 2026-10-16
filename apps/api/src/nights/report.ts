@@ -8,6 +8,7 @@ import {
 } from "@west4/rules";
 import type { Temporal } from "@west4/shared";
 import { venueClock } from "../rooms/assignment.js";
+import { exemptSales } from "../rooms/tax-exempt.js";
 import { nightTips, type NightTips } from "../tips/pool.js";
 
 /**
@@ -81,6 +82,22 @@ export interface NightReport extends SalesReport {
     readonly amount_cents: number;
   }[];
   readonly log: readonly { readonly at: string; readonly time: string; readonly what: string }[];
+  /**
+   * Tax-exempt checks (P-15): each with its organization and certificate number, and the sales the
+   * exemption left untaxed. Absent on a Z report stored before P-15.
+   */
+  readonly tax_exempt?: {
+    readonly sales_cents: number;
+    readonly checks: readonly {
+      readonly check: string;
+      readonly where: string;
+      readonly organization: string;
+      readonly certificate_no: string;
+      readonly asked_by: string | null;
+      readonly approved_by: string | null;
+      readonly exempt_sales_cents: number;
+    }[];
+  };
 }
 
 /** "1:30 AM EDT": the venue's time with its zone, so both daylight-saving nights read right. */
@@ -427,6 +444,24 @@ export async function computeReport(
     exceptions,
     adjustments,
     log,
+    tax_exempt: await exemptOfNight(c, venueId, date),
+  };
+}
+
+/** The night's tax-exempt checks (P-15) and the sales they left untaxed. */
+async function exemptOfNight(c: Queryable, venueId: string, date: string) {
+  const checks = await exemptSales(c, venueId, date, date);
+  return {
+    sales_cents: checks.reduce((sum, x) => sum + x.exempt_sales_cents, 0),
+    checks: checks.map((x) => ({
+      check: x.check,
+      where: x.where,
+      organization: x.organization,
+      certificate_no: x.certificate_no,
+      asked_by: x.asked_by,
+      approved_by: x.approved_by,
+      exempt_sales_cents: x.exempt_sales_cents,
+    })),
   };
 }
 
@@ -457,6 +492,14 @@ export function reportPrintLines(r: NightReport, money: (cents: number) => strin
   out.push("TAX");
   for (const t of r.tax) amt(`${t.jurisdiction} ${t.rate}`, t.tax_cents);
   amt("Tax", r.tax_cents);
+  // Tax-exempt checks (P-15): the sales left untaxed, then each check with its certificate.
+  if (r.tax_exempt && r.tax_exempt.checks.length > 0) {
+    amt("Tax-exempt sales", r.tax_exempt.sales_cents);
+    for (const x of r.tax_exempt.checks)
+      out.push(
+        `  ${x.where} · ${x.organization} · Cert ${x.certificate_no}  ${money(x.exempt_sales_cents)}`,
+      );
+  }
   amt("Gratuity", r.gratuity.total_cents);
   out.push("PAYMENTS");
   amt("Cards · tap", r.payments.card_present_cents);

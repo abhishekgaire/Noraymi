@@ -476,6 +476,10 @@ export async function suiteWorld(): Promise<SuiteWorld> {
       },
       "POST /v1/venues/:venueId/checks/:checkId/held-card": { name: "M. Torres", last4: "4242" },
       "POST /v1/venues/:venueId/checks/:checkId/discount": { mode: "pct", pct: 10, reason: "x" },
+      "POST /v1/venues/:venueId/checks/:checkId/tax-exempt": {
+        organization: "x",
+        certificate_no: "x",
+      },
       "POST /v1/venues/:venueId/checks/:checkId/card-tap": {
         reader_id: "00000000-0000-4000-8000-000000000044",
         consent_text_version: "00000000-0000-4000-8000-000000000047",

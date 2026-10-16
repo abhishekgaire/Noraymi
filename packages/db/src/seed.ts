@@ -615,6 +615,8 @@ export function mapSeedSettings(
     menuOrder: s["menuOrder"],
     // Ask for the PIN again (P-10): absent, so only no-sale asks, as before.
     pinAgain: s["pinAgain"],
+    // Tax-exempt checks (P-15): absent, so drinks stay taxed on an exempt check, the cautious default.
+    taxExempt: s["taxExempt"],
     hours: {
       weekly: weekly.map((w) => ({ day: dayNumber(w.day), opens: w.opens, closes: w.closes })),
       lastCall: hours["lastCall"] ?? null,
@@ -1013,6 +1015,8 @@ async function loadDemoSeedOnce(options: SeedLoadOptions): Promise<SeedLoadResul
       "check_held_cards",
       // A discount on a whole check (P-02) names its check.
       "check_discounts",
+      // A tax-exempt check (P-15) names its check.
+      "check_tax_exemptions",
       // A tip changed after paying (P-06) names its payment and approval.
       "tip_changes",
       // A saved-card question names its reader (M6-12).

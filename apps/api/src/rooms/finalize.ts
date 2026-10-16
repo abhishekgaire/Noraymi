@@ -27,6 +27,7 @@ import { ApiError } from "../http/errors.js";
 import { sessionViews } from "./sessions.js";
 import { settleDeposit } from "./deposit.js";
 import { discountWords, standingDiscountSpec } from "./discount-spec.js";
+import { checkTax } from "./tax-exempt.js";
 
 /**
  * Finalizing a check into revisions (M4-07; Data model · the money core;
@@ -94,7 +95,8 @@ export async function workOut(
   ]);
   if (!pack) throw new ApiError("internal", `no usable rule pack ${packId} for ${date.toString()}`);
   if (!pay) throw new ApiError("internal", "the pay settings aren't set");
-  const tax = salesTaxRule(pack.pack);
+  // A tax-exempt check (P-15) taxes only what the venue keeps taxed on one.
+  const tax = await checkTax(c, venueId, check.id, salesTaxRule(pack.pack));
   // Every session on the check (a merge puts two on one, M4-28), each billing its own segments.
   const onCheck = (
     await c.query<{ id: string }>(

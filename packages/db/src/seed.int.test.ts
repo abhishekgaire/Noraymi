@@ -89,6 +89,7 @@ describe("the M1 part of the demo seed", () => {
       "rooms",
       "safety",
       "tabs",
+      "taxExempt",
       "texting",
       "website",
     ]);

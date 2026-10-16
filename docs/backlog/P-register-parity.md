@@ -264,7 +264,7 @@ Definition of done: see CLAUDE.md.
 
 ### P-15 · Tax-exempt checks
 
-- **Status:** todo
+- **Status:** done
 - **Size:** M
 - **Depends on:** P-02
 - **Spec:** [Money rules](../spec/05-money-rules.md) · rule 8 (tax)
@@ -273,7 +273,15 @@ Definition of done: see CLAUDE.md.
   - The Z report, reports, exports and the money audit show exempt sales and the certificate numbers. Audited.
   - Which sales may be exempt stays the accountant's question (a row in spec 14); the cautious default: the module off, and alcohol stays taxed (a setting the accountant can change).
 - **Acceptance:**
-  - [ ] An exempt check pays no sales tax and the Z report lists it; without a certificate number it's refused; EN and ES; tests.
+  - [x] An exempt check pays no sales tax and the Z report lists it; without a certificate number it's refused; EN and ES; tests.
+- **Notes:**
+  - Tests first: four `tax_exempt` cases in `seed/money-cases.json` (Room 9 with drinks still taxed: tax $14.02, total $590.02; nothing kept taxed: no tax; a bar tab whose damage fee goes untaxed; after 10% off the whole check), run against `exemptTax` + `checkTotals` (`check-totals.test.ts`) and through the money audit (`money-audit.test.ts`: clean as stored, the full tax on an exempt check caught).
+  - Built: `exemptTax` (`packages/rules/src/check-totals.ts`); migration 0168 adds `check_tax_exemptions` (organization and certificate number required, the `still_taxed` list snapshotted, one standing per check, forced RLS, restore wall, audited, closed-night guard) and the `tax_exempt` approval kind. `POST /checks/{c}/tax-exempt` (`{ organization, certificate_no }`; module `tax_exempt`, action `comps.reasonOnly`) always asks for approval per the venue's setting (phone, PIN or none) and writes the row once approved; `POST /checks/{c}/tax-exempt/remove` while the check is open (`apps/api/src/rooms/tax-exempt.ts`). Finalize and splits tax through `checkTax` (only the kept categories); the surcharge carries no tax on an exempt check unless `surcharge` is kept. The check view has `tax_exempt` / `pending_tax_exempt`; the Z report (screen and print) has Tax-exempt sales with each check, its organization and certificate; the tax quarter and its CSV list each exempt check with its certificate; the money audit works its tax out from the kept categories and names each certificate in `covered`.
+  - Module `tax_exempt` (Tax-exempt sales): every plan (`allowedOff`), off by default; Admin → Features lists it (18 on · 5 off at West 4) and Set up your venue step 7 has its switch. Off refuses a new exemption (404 `module_off`); removing one stays allowed. Setting `taxExempt.stillTaxed` (Admin → Features → Choices → Taxed even on a tax-exempt check, shown while the module is on).
+  - Screens: `TaxExemptPanel.tsx` beside the discount on DeskRoom/Room phone and the bar POS; `TaxExemptChoices.tsx`; the Z report panel. EN and ES.
+  - Cautious defaults (spec 14 row and docs/todo.md for the accountant): the module off; drinks stay taxed on an exempt check (the whole `drink` category, since check lines carry no alcohol flag: a soft drink in that category stays taxed too, the cautious side); a cash discount on an exempt check takes no tax back; the venue's approval setting decides who approves (a manager's own ask goes to an owner); "exempt sales" on the reports are the lines in categories the rule pack taxes that the exemption left untaxed. No certificate copy is stored (not asked by the ticket).
+  - Spec: Money rules 8 (a tax-exempt check), spec 03 (`taxExempt` key, the module), spec 14 (the accountant's question). No decision changed.
+  - Checks: `pnpm check` lint, i18n, typecheck, unit (1371), integration (1480, with `tax-exempt.int.test.ts`) and the migration linter pass (the two settings-key lists fixed and rerun). Browser (isolated stack): the new P-15 test, P-02, Admin → Features (18 on · 5 off), setup.staff and onboard pass.
 
 ### P-16 · Inventory
 

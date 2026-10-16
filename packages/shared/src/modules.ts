@@ -30,6 +30,7 @@ export type ModuleId =
   | "outside_card"
   | "check_discount"
   | "bell"
+  | "tax_exempt"
   | "event_sales"
   | "guests_loyalty"
   | "multi_location"
@@ -345,6 +346,21 @@ export const modules: readonly ModuleDef[] = [
     inherits: "admin",
     allowedOff: true,
     hides: { staffApp: ["bell"], staffPhone: ["bell"], website: [], texts: [] },
+  },
+  // Tax-exempt sales (P-15; Money rules 8): every plan allows it; off until the owner turns it on,
+  // the cautious default while which sales may be exempt is the accountant's question (spec 14).
+  {
+    id: "tax_exempt",
+    core: false,
+    phase1: true,
+    needs: [],
+    allowedOff: true,
+    hides: {
+      staffApp: ["check.taxExempt"],
+      staffPhone: ["check.taxExempt"],
+      website: [],
+      texts: [],
+    },
   },
   { id: "event_sales", core: false, phase1: false, needs: ["rooms"], hides: none },
   { id: "guests_loyalty", core: false, phase1: false, needs: [], hides: none },
