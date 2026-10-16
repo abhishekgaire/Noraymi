@@ -31,6 +31,14 @@ const userIds: Record<Role, string> = {
   front_desk: randomUUID(),
   staff: randomUUID(),
 };
+// Membership ids are uuids, as real ones are (the Admin gate looks up Can also open grants by them).
+const membershipIds: Record<Role, string> = {
+  owner: randomUUID(),
+  manager: randomUUID(),
+  bartender: randomUUID(),
+  front_desk: randomUUID(),
+  staff: randomUUID(),
+};
 
 const asRole = (
   role: Role,
@@ -39,7 +47,7 @@ const asRole = (
   kind: "user",
   userId: userIds[role],
   session,
-  memberships: [{ venueId: v.venueA, membershipId: `m-${role}`, role }],
+  memberships: [{ venueId: v.venueA, membershipId: membershipIds[role], role }],
 });
 
 const headerAuth = async (request: { headers: Record<string, unknown> }) => {

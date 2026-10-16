@@ -309,6 +309,8 @@ describe("Settling a capture_failed tab (screens Night note 12)", () => {
         card: { brand: "Amex", last4: "7712" },
         business_date: "2026-09-25",
         owed_cents: 307,
+        // No cash price at this venue, so there's no separate cash amount (U-02).
+        cash_owed_cents: null,
         saved_card: true,
       },
     ]);

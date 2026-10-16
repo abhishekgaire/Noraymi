@@ -128,7 +128,7 @@ describe("modules", () => {
     });
     const core = await patch("payments", { state: "off" });
     expect(core.statusCode).toBe(400);
-    expect(core.json().error.message).toContain("core module");
+    expect(core.json().error.message).toContain("core feature");
   });
 
   it("turning off Bar screen & tickets asks 'Room orders would have nowhere to ring…'; yes turns both off, and no changes nothing", async () => {

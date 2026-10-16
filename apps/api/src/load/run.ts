@@ -562,18 +562,20 @@ class VenueRun {
     step: string,
     readerId: string,
     poll: () => Promise<"done" | "waiting" | string>,
-    present?: () => Promise<void>,
+    present?: (attempt: number) => Promise<void>,
   ): Promise<void> {
     const v = this.v.venueId;
     // The reader's action is sent after the request's transaction commits (never inside it), so
     // it can land a moment after the response: a card presented before then finds "No action in
     // progress". A guest holds the card out until the reader asks for it, so the harness waits
     // for the action (up to 10 s) rather than counting that as a failure. Nothing is charged twice:
-    // presenting a card to an idle reader does nothing.
+    // presenting a card to an idle reader does nothing. Each try carries its own idempotency key:
+    // Stripe saves an error under its key, so a retry with the same key would only replay the
+    // "No action in progress" it got the first time.
     const presentOnce = present
-      ? async () => {
+      ? async (attempt: number) => {
           try {
-            await present();
+            await present(attempt);
           } catch (e) {
             throw new StepFailed(
               step,
@@ -591,9 +593,9 @@ class VenueRun {
           );
         };
     const presentBy = Date.now() + 10_000;
-    for (;;) {
+    for (let attempt = 0; ; attempt += 1) {
       try {
-        await presentOnce();
+        await presentOnce(attempt);
         break;
       } catch (e) {
         const idle = e instanceof Error && e.message.includes("No action in progress");
@@ -631,7 +633,13 @@ class VenueRun {
         const o = opened.body.id;
         let tab: { id: string; check_id: string } | null = null;
         const present = this.opts.presentCard
-          ? () => this.opts.presentCard!(this.v, r, TEST_CARDS[i % TEST_CARDS.length]!, `${o}`)
+          ? (attempt: number) =>
+              this.opts.presentCard!(
+                this.v,
+                r,
+                TEST_CARDS[i % TEST_CARDS.length]!,
+                `${o}-${attempt}`,
+              )
           : undefined;
         await this.tapAndWait(
           "tab",
