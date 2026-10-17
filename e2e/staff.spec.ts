@@ -6303,6 +6303,8 @@ test("Pay my share: Kevin pays 1 of 12 on the phone and DeskRoom shows it", asyn
     await expect(share.getByText("Includes $3.55 tax and $8.00 gratuity")).toBeVisible();
     await share.getByRole("link", { name: "Pay $41.55" }).click();
     await expect(kevin).toHaveURL(new RegExp(`^${esc(PAY)}/pay/`));
+    // The payment page hydrated (its first compile is slow on CI): a click before it does nothing.
+    await kevin.waitForLoadState("networkidle");
     await kevin.getByRole("button", { name: "Pay $41.55" }).click();
     await expect(kevin.getByRole("status")).toHaveText("Paid $41.55 · thank you");
 
