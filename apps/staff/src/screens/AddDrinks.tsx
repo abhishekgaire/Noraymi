@@ -453,13 +453,18 @@ export function AddDrinks(props: {
       setLines([]);
       history.current = [];
     }
+    // A round confirmed here that Send put on the check while the confirmation was open: its food
+    // is now a check line the confirmation knew as a draft, so it goes too.
+    const draftSentMeanwhile = Object.keys(notes).some(
+      (k) => k.startsWith("d:") && lines[Number(k.slice(2))] === undefined,
+    );
     const v = await api<{ lines: CheckLine[] }>("GET", `/v1/venues/${venueId}/checks/${checkId}`);
     const picked = v.lines.filter(
       (l) =>
         l.kitchen &&
         !l.kitchen.sent_at &&
         l.kitchen.open_qty > 0 &&
-        (notes[`c:${l.id}`] !== undefined || !before.has(l.id)),
+        (notes[`c:${l.id}`] !== undefined || !before.has(l.id) || draftSentMeanwhile),
     );
     if (picked.length > 0) {
       const r = await api<{ sent_at: string }>(

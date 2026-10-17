@@ -228,6 +228,10 @@ describe("faults and the room clock", () => {
     ).rows[0];
     expect(seg).toEqual({ approved_by: ids["andy"], reason: "Mic dead, swapping it" });
     expect(paused.room_time_cents).toBeGreaterThan(before.room_time_cents);
+    // Diego is still at the desk: his PIN session stays inside its 30-minute idle window, so the
+    // unpause at 23:20 doesn't land on the lock's exact boundary (22:50 + 30 min).
+    clock.set(at("23:05"));
+    expect((await asDiego("GET", `/sessions/${ids["sess_room9"]}`)).statusCode).toBe(200);
     clock.set(at("23:20"));
     expect((await session("sess_room9")).room_time_cents).toBe(paused.room_time_cents);
     // Unpause: billing starts again from that minute.

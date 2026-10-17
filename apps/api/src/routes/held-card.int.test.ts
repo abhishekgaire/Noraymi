@@ -223,8 +223,13 @@ describe("Keep the card behind the bar (O-08)", () => {
     );
     expect(audit.rowCount).toBeGreaterThan(0);
     for (const r of audit.rows) {
-      expect(r.row).not.toContain(NAME);
-      expect(r.row).not.toContain(LAST4);
+      // Ids and timestamps are random digits that can hold "7319" by chance: leave them out.
+      const kept = r.row
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "")
+        .replace(/\d{4}-\d{2}-\d{2}T[\d:.]+(?:Z|[+-]\d{2}:\d{2})?/g, "")
+        .replace(/"id":\d+/g, "");
+      expect(kept).not.toContain(NAME);
+      expect(kept).not.toContain(LAST4);
     }
   });
 
