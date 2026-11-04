@@ -14,12 +14,12 @@
     "@west4/rules": "workspace:*",
     "@west4/shared": "workspace:*",
     "better-sqlite3-multiple-ciphers": "13.0.3",
-    "electron-updater": "6.8.9"
+    "electron-updater": "6.8.11"
   },
   "devDependencies": {
-    "@electron/rebuild": "4.2.0",
+    "@electron/rebuild": "4.2.1",
     "electron": "44.4.5",
-    "electron-builder": "26.15.3"
+    "electron-builder": "26.18.0"
   },
   "description": "The staff app on the bar and front-desk computers: Electron with the security checklist, a keychain-held token and an encrypted cache.",
   "optionalDependencies": {
